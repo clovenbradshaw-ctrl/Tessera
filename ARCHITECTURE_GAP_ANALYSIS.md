@@ -1,4 +1,4 @@
-# Tessera — Architecture Gap Analysis
+# Khora — Architecture Gap Analysis
 
 > Audit date: 2026-02-08
 > Codebase: `index.html` (1,825 lines, single-file React/Matrix SPA)
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Tessera has a strong cryptographic and protocol foundation: Matrix as transport/identity, per-field AES-256-GCM encryption, EO operator adjacency with auto-intermediate emission, GIVEN/MEANT epistemic framing, structured observation prompts, anonymized metrics with k-anonymity goals, and a client-sovereign data model.
+Khora has a strong cryptographic and protocol foundation: Matrix as transport/identity, per-field AES-256-GCM encryption, EO operator adjacency with auto-intermediate emission, GIVEN/MEANT epistemic framing, structured observation prompts, anonymized metrics with k-anonymity goals, and a client-sovereign data model.
 
 **The entity model is flat in ways that will break past a two-person demo.** The seven gaps below are ordered by dependency — each one unblocks the next.
 
@@ -18,7 +18,7 @@ Tessera has a strong cryptographic and protocol foundation: Matrix as transport/
 
 | Layer | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| Matrix transport (TesseraService) | Working | 242–373 | Login, room CRUD, state, events, messaging, invite/kick/tombstone |
+| Matrix transport (KhoraService) | Working | 242–373 | Login, room CRUD, state, events, messaging, invite/kick/tombstone |
 | Per-field crypto (FieldCrypto) | Working | 112–135 | AES-256-GCM, generate/encrypt/decrypt |
 | EO operations | Working | 137–211 | 9 operators, adjacency matrix, BFS pathfinding, auto-intermediates, state projection |
 | Event type constants (EVT) | Defined | 220–239 | 18 custom event types across vault/bridge/roster/schema/metrics/network |
@@ -38,23 +38,23 @@ Tessera has a strong cryptographic and protocol foundation: Matrix as transport/
 A "provider" is a Matrix user. There is no entity for "Nashville Rescue Mission" distinct from "@sarah:matrix.org who works there." The `AccountTypeScreen` (line 751) offers only `client` or `provider`. The `ProviderApp` component has no org context.
 
 ### What Exists
-- `io.tessera.identity` state event with `account_type` field (line 222–223)
+- `io.khora.identity` state event with `account_type` field (line 222–223)
 - Supported values: `client`, `provider`, `schema`, `metrics`, `network` (lines 506–510)
 - Provider roster room (lines 1372–1376) — owned by individual user, not org
 - Network members store individual user IDs, not org references (line 1477)
 
 ### What's Missing
-- **Org room type**: A Matrix room (or Space) with `account_type: 'organization'` in `io.tessera.identity`
+- **Org room type**: A Matrix room (or Space) with `account_type: 'organization'` in `io.khora.identity`
 - **Org metadata**: name, type (shelter/outreach/legal-aid/clinic/CoC-lead), service area
-- **Staff roster**: `io.tessera.roster.index` within org room mapping user IDs to roles
+- **Staff roster**: `io.khora.roster.index` within org room mapping user IDs to roles
 - **Org creation flow**: AccountTypeScreen needs a third path or Provider path fork
 - **Org context wrapper**: ProviderApp must operate within an org scope
 
 ### Required Event Types
 ```
-io.tessera.identity          → add account_type: 'organization'
-io.tessera.org.roster        → { staff: [{ userId, role, joined, assignments }] }
-io.tessera.org.metadata      → { name, type, service_area, languages, hours }
+io.khora.identity          → add account_type: 'organization'
+io.khora.org.roster        → { staff: [{ userId, role, joined, assignments }] }
+io.khora.org.metadata      → { name, type, service_area, languages, hours }
 ```
 
 ### Required Roles
@@ -85,7 +85,7 @@ No mechanism for staff to join/leave organizations. No case assignment. No role-
 
 **Staff join flow:**
 1. Org admin clicks "Invite Staff" → enters Matrix ID
-2. Tessera invites staff to org room with role in state event
+2. Khora invites staff to org room with role in state event
 3. Staff sees invite on login → accepts → joins org room
 4. Dashboard shows org's cases filtered by role + assignments
 
@@ -95,7 +95,7 @@ No mechanism for staff to join/leave organizations. No case assignment. No role-
 - Case access, schema, and network membership flow from org
 
 **Case assignment:**
-- State event: `io.tessera.roster.assignment` mapping bridge room IDs to staff user IDs
+- State event: `io.khora.roster.assignment` mapping bridge room IDs to staff user IDs
 - Outreach worker sees only assigned cases
 - Admin sees all org cases
 
@@ -107,8 +107,8 @@ No mechanism for staff to join/leave organizations. No case assignment. No role-
 
 ### Required State Events
 ```
-io.tessera.roster.assignment → { [bridgeRoomId]: [staffUserId, ...] }
-io.tessera.org.invite        → { userId, role, invited_by, ts }
+io.khora.roster.assignment → { [bridgeRoomId]: [staffUserId, ...] }
+io.khora.org.invite        → { userId, role, invited_by, ts }
 ```
 
 ### Dependency
@@ -119,7 +119,7 @@ Requires Gap 1 (Org Entity). Blocks Gap 3 (Org ↔ Network).
 ## Gap 3: Org ↔ Network Membership
 
 ### Problem
-Network members are individual user IDs, not orgs. The `io.tessera.network.members` state event stores `organizations` array but fills it with user IDs (line 1477). Schema propagation isn't enforced.
+Network members are individual user IDs, not orgs. The `io.khora.network.members` state event stores `organizations` array but fills it with user IDs (line 1477). Schema propagation isn't enforced.
 
 ### What Exists
 - Network room creation (lines 1472–1489): creates room with identity, members, seeds schema
@@ -130,7 +130,7 @@ Network members are individual user IDs, not orgs. The `io.tessera.network.membe
 ### What's Missing
 
 **Org-level membership:**
-- `io.tessera.network.members` should store org room IDs + org metadata
+- `io.khora.network.members` should store org room IDs + org metadata
 - Org admin is authorized signer; membership is organizational
 - Individual staff inherit network context through their org
 
@@ -139,7 +139,7 @@ Network members are individual user IDs, not orgs. The `io.tessera.network.membe
 2. Org admin discovers network (directory, shared link, room ID)
 3. Requests to join → network admin reviews and approves
 4. Org room receives network schema via propagation
-5. Org's `io.tessera.identity` updated with network membership
+5. Org's `io.khora.identity` updated with network membership
 
 **Schema propagation enforcement:**
 - **Required**: prompts/definitions copied to org schema as immutable references
@@ -151,9 +151,9 @@ Network members are individual user IDs, not orgs. The `io.tessera.network.membe
 
 ### Required State Events
 ```
-io.tessera.network.members   → { organizations: [{ org_room_id, org_name, org_type, role, joined }] }
-io.tessera.network.join_request → { org_room_id, org_name, requested_by, ts }
-io.tessera.schema.propagation → { prompt_key, level, source_network, version, immutable }
+io.khora.network.members   → { organizations: [{ org_room_id, org_name, org_type, role, joined }] }
+io.khora.network.join_request → { org_room_id, org_name, requested_by, ts }
+io.khora.schema.propagation → { prompt_key, level, source_network, version, immutable }
 ```
 
 ### Dependency
@@ -197,7 +197,7 @@ Schema prompts and definitions have no version tracking. Old observations don't 
 **Propagation enforcement:**
 - When org joins network, Required prompts become read-only at org level
 - Standard prompts: `org_options = network_options + org_extensions` (additive only)
-- Schema room needs `io.tessera.schema.propagation` state events tracking source + level
+- Schema room needs `io.khora.schema.propagation` state events tracking source + level
 - On network schema update, propagation pushes to member orgs
 
 **Transform rules as network governance:**
@@ -207,7 +207,7 @@ Schema prompts and definitions have no version tracking. Old observations don't 
 ### Required Changes
 - Add `version` field to all schema event types
 - Add `schema_version` to observation events
-- Add `io.tessera.schema.propagation` state event type
+- Add `io.khora.schema.propagation` state event type
 - Enforce immutability for Required-level propagated prompts in UI
 - Add version diff / changelog view
 
@@ -247,26 +247,26 @@ Client-provider connection requires entering a Matrix ID (line 1286). This is a 
 **Provider → Client discovery:**
 
 4. **In-person encounter (QR scan)**
-   - Outreach worker meets someone → asks "do you have Tessera?"
+   - Outreach worker meets someone → asks "do you have Khora?"
    - Client shows their QR code (generated from vault room ID)
    - Worker scans → bridge invite created
 
-5. **Provisional encounter record** (no Tessera account)
+5. **Provisional encounter record** (no Khora account)
    - Worker creates MEANT observation: "met someone at [location] on [date]"
    - No vault exists yet — provisional record in org roster
-   - If person later creates Tessera, provisional record can be linked
+   - If person later creates Khora, provisional record can be linked
 
 ### Required Components
 - QR code generation (client-side, using vault room ID or org room ID + token)
 - QR scanner component (camera access via `getUserMedia`)
 - Invite token system: short-lived tokens stored as state events
 - Provider directory: org metadata published to network room
-- Provisional encounter model: new event type `io.tessera.encounter.provisional`
+- Provisional encounter model: new event type `io.khora.encounter.provisional`
 
 ### Required Event Types
 ```
-io.tessera.invite.token      → { token, org_room_id, created, expires, single_use }
-io.tessera.encounter.provisional → { location, date, description, created_by, linked_vault: null }
+io.khora.invite.token      → { token, org_room_id, created, expires, single_use }
+io.khora.encounter.provisional → { location, date, description, created_by, linked_vault: null }
 ```
 
 ### Dependency
@@ -281,13 +281,13 @@ The code conflates vault schema (client-owned identity fields) and case schema (
 
 ### What Exists
 - Client observations: structured with prompts, GIVEN frame, stored in vault (lines 873–891)
-- Provider messages: freeform `m.room.message` with `io.tessera.type: 'note'` or `'request'` (lines 1434–1446)
+- Provider messages: freeform `m.room.message` with `io.khora.type: 'note'` or `'request'` (lines 1434–1446)
 - Bridge room: two-way encrypted channel (client shares vault fields, provider sends messages)
 
 ### What's Missing
 
 **Provider observations as structured EO events:**
-- Case notes → `io.tessera.op` with MEANT frame, op type INS
+- Case notes → `io.khora.op` with MEANT frame, op type INS
 - Assessment scores (VI-SPDAT, PHQ-9) → structured prompts with provider-specific schema
 - Service plan milestones → structured events with status tracking
 - Referral status → structured events with org-level routing
@@ -313,8 +313,8 @@ The code conflates vault schema (client-owned identity fields) and case schema (
 
 ### Required Event Type Extensions
 ```
-io.tessera.schema.prompt     → add { audience: 'client' | 'provider' }
-io.tessera.observation       → new event type for bridge-level observations
+io.khora.schema.prompt     → add { audience: 'client' | 'provider' }
+io.khora.observation       → new event type for bridge-level observations
                                { prompt_id, value, frame: 'MEANT', author, schema_version }
 ```
 
@@ -329,7 +329,7 @@ Independent of Gaps 1–5. Can be built in parallel. Improves case management qu
 If two orgs encounter the same person, there's no way to know without putting plaintext PII in a shared index. This is the hardest problem and the one that makes or breaks scale.
 
 ### What Exists
-- `io.tessera.network.hash_salt` event type defined (line 238)
+- `io.khora.network.hash_salt` event type defined (line 238)
 - SHA-256 cohort hashing for metrics (lines 213–218)
 - Metrics anonymization pipeline (lines 441–469)
 - K-anonymity enforcement goal (mentioned in UI but not algorithmically enforced)
@@ -368,9 +368,9 @@ token = HMAC-SHA256(
 
 ### Required Event Types
 ```
-io.tessera.match.token       → { token_hash, network_id, created_ts }
-io.tessera.match.hit         → { token_a, token_b, orgs_involved, confidence }
-io.tessera.match.resolve     → { hit_id, resolution: 'confirmed' | 'dismissed', resolved_by }
+io.khora.match.token       → { token_hash, network_id, created_ts }
+io.khora.match.hit         → { token_a, token_b, orgs_involved, confidence }
+io.khora.match.resolve     → { hit_id, resolution: 'confirmed' | 'dismissed', resolved_by }
 ```
 
 ### Required Vault Extension
@@ -393,34 +393,34 @@ Layer 1 is independent. Layers 2–3 require Gap 1 (Org) + Gap 3 (Network). Shou
 
 ```
 NETWORK ROOM (CoC / Coalition)
-├── io.tessera.identity        (account_type: 'network')
-├── io.tessera.network.members (org IDs + roles)
-├── io.tessera.network.hash_salt (rotating quarterly)
-├── io.tessera.schema.prompt   (network-level prompts, versioned)
-├── io.tessera.schema.definition (network-level defs, versioned)
-├── io.tessera.match.token     (blind matching index)
+├── io.khora.identity        (account_type: 'network')
+├── io.khora.network.members (org IDs + roles)
+├── io.khora.network.hash_salt (rotating quarterly)
+├── io.khora.schema.prompt   (network-level prompts, versioned)
+├── io.khora.schema.definition (network-level defs, versioned)
+├── io.khora.match.token     (blind matching index)
 │
 ├── ORG ROOM (Provider Organization)
-│   ├── io.tessera.identity        (account_type: 'organization')
-│   ├── io.tessera.org.metadata    (name, type, service_area, hours)
-│   ├── io.tessera.org.roster      (staff + roles)
-│   ├── io.tessera.roster.assignment (case → staff mapping)
-│   ├── io.tessera.schema.prompt   (org extensions, respecting propagation)
+│   ├── io.khora.identity        (account_type: 'organization')
+│   ├── io.khora.org.metadata    (name, type, service_area, hours)
+│   ├── io.khora.org.roster      (staff + roles)
+│   ├── io.khora.roster.assignment (case → staff mapping)
+│   ├── io.khora.schema.prompt   (org extensions, respecting propagation)
 │   │
 │   └── METRICS ROOM (per-org, anonymized)
-│       └── io.tessera.metric      (anonymized events, k-anonymity enforced)
+│       └── io.khora.metric      (anonymized events, k-anonymity enforced)
 │
 ├── CLIENT VAULT ROOM (client-owned)
-│   ├── io.tessera.identity        (account_type: 'client')
-│   ├── io.tessera.vault.snapshot  (encrypted fields + observations + consents)
-│   ├── io.tessera.vault.providers (bridge index)
+│   ├── io.khora.identity        (account_type: 'client')
+│   ├── io.khora.vault.snapshot  (encrypted fields + observations + consents)
+│   ├── io.khora.vault.providers (bridge index)
 │   └── CLIENT SCHEMA ROOM (client-facing prompts)
 │
 └── BRIDGE ROOM (per client↔org pair)
-    ├── io.tessera.bridge.meta     (client ↔ org link, status)
-    ├── io.tessera.bridge.refs     (per-field encrypted refs)
-    ├── io.tessera.op              (EO operations from both sides)
-    ├── io.tessera.observation     (structured provider observations, MEANT)
+    ├── io.khora.bridge.meta     (client ↔ org link, status)
+    ├── io.khora.bridge.refs     (per-field encrypted refs)
+    ├── io.khora.op              (EO operations from both sides)
+    ├── io.khora.observation     (structured provider observations, MEANT)
     └── m.room.message             (encrypted communication)
 ```
 
@@ -463,22 +463,22 @@ Single 1,825-line HTML file. Functional for a prototype but blocks team developm
 
 ```javascript
 const EVT = {
-  IDENTITY:        'io.tessera.identity',
-  OP:              'io.tessera.op',
-  VAULT_SNAPSHOT:  'io.tessera.vault.snapshot',
-  VAULT_PROVIDERS: 'io.tessera.vault.providers',
-  BRIDGE_META:     'io.tessera.bridge.meta',
-  BRIDGE_REFS:     'io.tessera.bridge.refs',
-  ROSTER_INDEX:    'io.tessera.roster.index',
-  SCHEMA_PROMPT:   'io.tessera.schema.prompt',
-  SCHEMA_DEF:      'io.tessera.schema.definition',
-  SCHEMA_TRANSFORM:'io.tessera.schema.transform',
-  SCHEMA_SUB:      'io.tessera.schema.subscription',
-  METRIC:          'io.tessera.metric',
-  METRIC_AGG:      'io.tessera.metric.aggregate',
-  METRIC_SUPPRESS: 'io.tessera.metric.suppression',
-  NET_MEMBERS:     'io.tessera.network.members',
-  NET_HASH_SALT:   'io.tessera.network.hash_salt',
+  IDENTITY:        'io.khora.identity',
+  OP:              'io.khora.op',
+  VAULT_SNAPSHOT:  'io.khora.vault.snapshot',
+  VAULT_PROVIDERS: 'io.khora.vault.providers',
+  BRIDGE_META:     'io.khora.bridge.meta',
+  BRIDGE_REFS:     'io.khora.bridge.refs',
+  ROSTER_INDEX:    'io.khora.roster.index',
+  SCHEMA_PROMPT:   'io.khora.schema.prompt',
+  SCHEMA_DEF:      'io.khora.schema.definition',
+  SCHEMA_TRANSFORM:'io.khora.schema.transform',
+  SCHEMA_SUB:      'io.khora.schema.subscription',
+  METRIC:          'io.khora.metric',
+  METRIC_AGG:      'io.khora.metric.aggregate',
+  METRIC_SUPPRESS: 'io.khora.metric.suppression',
+  NET_MEMBERS:     'io.khora.network.members',
+  NET_HASH_SALT:   'io.khora.network.hash_salt',
 };
 ```
 
@@ -486,23 +486,23 @@ const EVT = {
 
 ```javascript
 // Organization
-ORG_ROSTER:      'io.tessera.org.roster',
-ORG_METADATA:    'io.tessera.org.metadata',
-ORG_INVITE:      'io.tessera.org.invite',
-ROSTER_ASSIGN:   'io.tessera.roster.assignment',
+ORG_ROSTER:      'io.khora.org.roster',
+ORG_METADATA:    'io.khora.org.metadata',
+ORG_INVITE:      'io.khora.org.invite',
+ROSTER_ASSIGN:   'io.khora.roster.assignment',
 
 // Discovery
-INVITE_TOKEN:    'io.tessera.invite.token',
-ENCOUNTER_PROV:  'io.tessera.encounter.provisional',
+INVITE_TOKEN:    'io.khora.invite.token',
+ENCOUNTER_PROV:  'io.khora.encounter.provisional',
 
 // Provider observations
-OBSERVATION:     'io.tessera.observation',
+OBSERVATION:     'io.khora.observation',
 
 // Schema versioning
-SCHEMA_PROP:     'io.tessera.schema.propagation',
+SCHEMA_PROP:     'io.khora.schema.propagation',
 
 // Matching / dedup
-MATCH_TOKEN:     'io.tessera.match.token',
-MATCH_HIT:       'io.tessera.match.hit',
-MATCH_RESOLVE:   'io.tessera.match.resolve',
+MATCH_TOKEN:     'io.khora.match.token',
+MATCH_HIT:       'io.khora.match.hit',
+MATCH_RESOLVE:   'io.khora.match.resolve',
 ```
