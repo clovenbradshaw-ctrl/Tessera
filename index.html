@@ -222,20 +222,42 @@ const NS = 'io.tessera';
 const EVT = {
   IDENTITY:       `${NS}.identity`,
   OP:             `${NS}.op`,
+  // Vault
   VAULT_SNAPSHOT: `${NS}.vault.snapshot`,
   VAULT_PROVIDERS:`${NS}.vault.providers`,
+  // Bridge
   BRIDGE_META:    `${NS}.bridge.meta`,
   BRIDGE_REFS:    `${NS}.bridge.refs`,
+  // Roster
   ROSTER_INDEX:   `${NS}.roster.index`,
+  ROSTER_ASSIGN:  `${NS}.roster.assignment`,
+  // Organization
+  ORG_ROSTER:     `${NS}.org.roster`,
+  ORG_METADATA:   `${NS}.org.metadata`,
+  ORG_INVITE:     `${NS}.org.invite`,
+  // Schema
   SCHEMA_PROMPT:  `${NS}.schema.prompt`,
   SCHEMA_DEF:     `${NS}.schema.definition`,
   SCHEMA_TRANSFORM:`${NS}.schema.transform`,
   SCHEMA_SUB:     `${NS}.schema.subscription`,
+  SCHEMA_AUTHORITY:`${NS}.schema.authority`,
+  SCHEMA_PROP:    `${NS}.schema.propagation`,
+  // Provider observations
+  OBSERVATION:    `${NS}.observation`,
+  // Metrics
   METRIC:         `${NS}.metric`,
   METRIC_AGG:     `${NS}.metric.aggregate`,
   METRIC_SUPPRESS:`${NS}.metric.suppression`,
+  // Network
   NET_MEMBERS:    `${NS}.network.members`,
   NET_HASH_SALT:  `${NS}.network.hash_salt`,
+  // Discovery
+  INVITE_TOKEN:   `${NS}.invite.token`,
+  ENCOUNTER_PROV: `${NS}.encounter.provisional`,
+  // Matching / dedup
+  MATCH_TOKEN:    `${NS}.match.token`,
+  MATCH_HIT:      `${NS}.match.hit`,
+  MATCH_RESOLVE:  `${NS}.match.resolve`,
 };
 
 /* ═══════════════════ MATRIX SERVICE ═══════════════════ */
@@ -374,38 +396,289 @@ class TesseraService {
 
 const svc = new TesseraService();
 
+/* ═══════════════════ DEFINITION AUTHORITIES (§C.0) ═══════════════════ */
+const DEFAULT_AUTHORITIES = [
+  { id:'auth_hud_578_3', name:'24 CFR 578.3 — Homeless Definition',
+    uri:'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
+    authority_type:'federal_regulation', authority_org:'HUD', version:'FY2025',
+    terms:[
+      {id:'cat_1',label:'Literally Homeless',uri_fragment:'578.3(b)(1)',
+       definition:'Individual who lacks a fixed, regular, and adequate nighttime residence'},
+      {id:'cat_2',label:'Imminent Risk of Homelessness',uri_fragment:'578.3(b)(2)',
+       definition:'Individual who will imminently lose primary nighttime residence within 14 days'},
+      {id:'cat_3',label:'Homeless Under Other Federal Statutes',uri_fragment:'578.3(b)(3)'},
+      {id:'cat_4',label:'Fleeing/Attempting to Flee DV',uri_fragment:'578.3(b)(4)'},
+    ]},
+  { id:'auth_hud_hmis_ds', name:'HUD HMIS Data Standards',
+    uri:'https://hudexchange.info/programs/hmis/hmis-data-standards/',
+    authority_type:'federal_standard', authority_org:'HUD', version:'FY2025',
+    terms:[
+      {id:'hmis_3_12',label:'Living Situation (3.12)',definition:'Current living situation at project entry'},
+      {id:'hmis_3_917',label:'Living Situation (3.917)',definition:'Current living situation at assessment'},
+      {id:'hmis_4_3',label:'Date of Birth (4.03)'},
+      {id:'hmis_3_1',label:'Name (3.01)'},
+      {id:'hmis_3_2',label:'SSN (3.02)'},
+    ]},
+  { id:'auth_211_airs', name:'211/AIRS Taxonomy',
+    uri:'https://211.org/taxonomy',
+    authority_type:'industry_standard', authority_org:'211/United Way', version:'v12',
+    terms:[
+      {id:'airs_bd',label:'Basic Needs / Housing',definition:'Service category for housing assistance'},
+      {id:'airs_lh',label:'Legal / Housing Rights',definition:'Legal services related to housing'},
+    ]},
+  { id:'auth_local_coc', name:'Local CoC Policy',
+    uri:'local://coc/policy', authority_type:'local_policy', authority_org:'CoC',
+    terms:[] },
+];
+
 /* ═══════════════════ DEFAULT SCHEMA (§C) ═══════════════════ */
 const DEFAULT_PROMPTS = [
   { id:'prompt_sleep_location', key:'sleep_location', question:'Where did you sleep last night?', type:'single_select',
-    options:[{v:'own_housing',l:'Own apartment or house (with lease)'},{v:'other_housing',l:"Someone else's apartment or house"},
-      {v:'shelter',l:'Emergency shelter'},{v:'transitional',l:'Transitional housing'},{v:'hotel_paid',l:'Hotel or motel'},
-      {v:'vehicle',l:'Car, van, or RV'},{v:'encampment',l:'Tent or encampment'},{v:'unsheltered',l:'Street, park, or unsheltered'},
-      {v:'institutional',l:'Hospital, treatment, or jail'},{v:'other',l:'Other'}],
+    version:1, audience:'client',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'sleep_location',designation:'Sleep Location Prompt'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}},
+        {op:'CON',target:{source:'sleep_location',destination:'hud:hmis_3.12'},
+         context:{authority_id:'auth_hud_hmis_ds',element:'hmis_3_12',
+                  authority_name:'HUD HMIS Data Standards'}},
+        {op:'SEG',target:{field:'response_options',entity:'sleep_location'},
+         context:{rationale:'Simplified from full HMIS 3.12 for field use',
+                  excluded:['foster_care','long_term_care']}}
+      ],
+      trace:'sleep_location = DES → CON(hud:hmis_3.12) → SEG({field simplified})'
+    },
+    options:[
+      {v:'own_housing',l:'Own apartment or house (with lease)',
+       eo:{op:'SYN',target:{local:'own_housing',external:'hud:hmis_3.12:1'}}},
+      {v:'other_housing',l:"Someone else's apartment or house",
+       eo:{op:'SYN',target:{local:'other_housing',external:'hud:hmis_3.12:2'}}},
+      {v:'shelter',l:'Emergency shelter',
+       eo:{op:'SYN',target:{local:'shelter',external:'hud:hmis_3.12:3'}}},
+      {v:'transitional',l:'Transitional housing',
+       eo:{op:'SYN',target:{local:'transitional',external:'hud:hmis_3.12:4'}}},
+      {v:'hotel_paid',l:'Hotel or motel',
+       eo:{op:'SYN',target:{local:'hotel_paid',external:'hud:hmis_3.12:5'}}},
+      {v:'vehicle',l:'Car, van, or RV',
+       eo:{op:'SYN',target:{local:'vehicle',external:'hud:hmis_3.12:7'}}},
+      {v:'encampment',l:'Tent or encampment',
+       eo:{op:'SYN',target:{local:'encampment',external:'hud:hmis_3.12:16'}}},
+      {v:'unsheltered',l:'Street, park, or unsheltered',
+       eo:{op:'SYN',target:{local:'unsheltered',external:'hud:hmis_3.12:16'},
+           context:{note:'Collapsed with encampment — SEG of two HUD codes into one option'}}},
+      {v:'institutional',l:'Hospital, treatment, or jail',
+       eo:{op:'SYN',target:{local:'institutional',external:'hud:hmis_3.12:8'}}},
+      {v:'other',l:'Other',
+       eo:{op:'INS',target:{local:'other'},context:{note:'Catch-all not in HUD taxonomy'}}}
+    ],
     category:'housing', sensitive:false, metrics:true },
   { id:'prompt_service_contact', key:'service_contact', question:'What service contact occurred?', type:'single_select',
-    options:[{v:'case_meeting',l:'Met with caseworker'},{v:'phone_call',l:'Phone call with provider'},{v:'called_211',l:'Called 211/helpline'},
+    version:1, audience:'client',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'service_contact',designation:'Service Contact Prompt'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}},
+        {op:'CON',target:{source:'service_contact',destination:'airs:service_types'},
+         context:{authority_id:'auth_211_airs',authority_name:'211/AIRS Taxonomy'}}
+      ],
+      trace:'service_contact = DES → CON(airs:service_types)'
+    },
+    options:[
+      {v:'case_meeting',l:'Met with caseworker'},{v:'phone_call',l:'Phone call with provider'},
+      {v:'called_211',l:'Called 211/helpline',eo:{op:'CON',target:{local:'called_211',external:'airs:bd'}}},
       {v:'shelter_intake',l:'Shelter intake'},{v:'housing_app',l:'Housing application submitted'},{v:'other',l:'Other'}],
     category:'services', sensitive:false, metrics:true },
   { id:'prompt_document_event', key:'document_event', question:'What document event occurred?', type:'single_select',
-    options:[{v:'lease_signed',l:'Lease signed'},{v:'eviction_notice',l:'Eviction notice received'},{v:'eviction_filed',l:'Eviction filed'},
+    version:1, audience:'client',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'document_event',designation:'Document Event Prompt'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}}
+      ],
+      trace:'document_event = DES'
+    },
+    options:[
+      {v:'lease_signed',l:'Lease signed'},{v:'eviction_notice',l:'Eviction notice received'},{v:'eviction_filed',l:'Eviction filed'},
       {v:'voucher_issued',l:'Housing voucher issued'},{v:'id_obtained',l:'ID/document obtained'},{v:'benefits_approved',l:'Benefits approved'},{v:'other',l:'Other'}],
     category:'documents', sensitive:false, metrics:true },
   { id:'prompt_income_event', key:'income_event', question:'What income change occurred?', type:'single_select',
-    options:[{v:'started_job',l:'Started new job'},{v:'lost_job',l:'Lost job'},{v:'received_benefit',l:'Received benefit'},
+    version:1, audience:'client',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'income_event',designation:'Income Event Prompt'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}}
+      ],
+      trace:'income_event = DES'
+    },
+    options:[
+      {v:'started_job',l:'Started new job'},{v:'lost_job',l:'Lost job'},{v:'received_benefit',l:'Received benefit'},
       {v:'income_increase',l:'Income increased'},{v:'income_decrease',l:'Income decreased'},{v:'other',l:'Other'}],
     category:'financial', sensitive:false, metrics:true },
   { id:'prompt_health_event', key:'health_event', question:'What health event occurred?', type:'single_select',
-    options:[{v:'er_visit',l:'Visited ER'},{v:'filled_rx',l:'Filled prescription'},{v:'missed_appt',l:'Missed appointment'},
+    version:1, audience:'client',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'health_event',designation:'Health Event Prompt'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}}
+      ],
+      trace:'health_event = DES'
+    },
+    options:[
+      {v:'er_visit',l:'Visited ER'},{v:'filled_rx',l:'Filled prescription'},{v:'missed_appt',l:'Missed appointment'},
       {v:'new_diagnosis',l:'New diagnosis'},{v:'treatment_started',l:'Treatment started'},{v:'other',l:'Other'}],
     category:'medical', sensitive:true, metrics:true },
 ];
 
+/* ═══════════════════ PROVIDER-SIDE PROMPTS (§C.1) ═══════════════════ */
+const DEFAULT_PROVIDER_PROMPTS = [
+  { id:'pprompt_vispdat', key:'vi_spdat_score', question:'VI-SPDAT Score', type:'numeric',
+    version:1, audience:'provider',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'vi_spdat_score',designation:'VI-SPDAT Assessment Score'},
+         frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
+        {op:'CON',target:{source:'vi_spdat_score',destination:'orgcode:vi-spdat-v3'},
+         context:{authority_name:'OrgCode Consulting',note:'Vulnerability Index - Service Prioritization Decision Assistance Tool'}}
+      ],
+      trace:'vi_spdat_score = DES → CON(orgcode:vi-spdat-v3)'
+    },
+    range:{min:0,max:20}, thresholds:[{v:0,l:'No intervention'},{v:4,l:'Rapid rehousing'},{v:8,l:'Permanent supportive housing'}],
+    category:'assessment', sensitive:true, metrics:true },
+  { id:'pprompt_phq9', key:'phq9_score', question:'PHQ-9 Depression Score', type:'numeric',
+    version:1, audience:'provider',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'phq9_score',designation:'PHQ-9 Score'},
+         frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
+        {op:'CON',target:{source:'phq9_score',destination:'phq:phq-9'},
+         context:{authority_name:'Pfizer / Columbia University',note:'Patient Health Questionnaire-9'}}
+      ],
+      trace:'phq9_score = DES → CON(phq:phq-9)'
+    },
+    range:{min:0,max:27}, thresholds:[{v:0,l:'Minimal'},{v:5,l:'Mild'},{v:10,l:'Moderate'},{v:15,l:'Moderately severe'},{v:20,l:'Severe'}],
+    category:'assessment', sensitive:true, metrics:true },
+  { id:'pprompt_housing_placement', key:'housing_placement', question:'Housing placement status?', type:'single_select',
+    version:1, audience:'provider',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'housing_placement',designation:'Housing Placement Status'},
+         frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
+        {op:'CON',target:{source:'housing_placement',destination:'hud:hmis_3.12'},
+         context:{authority_id:'auth_hud_hmis_ds',element:'hmis_3_12'}}
+      ],
+      trace:'housing_placement = DES → CON(hud:hmis_3.12)'
+    },
+    options:[
+      {v:'not_started',l:'Not yet started'},{v:'document_gathering',l:'Gathering documents'},
+      {v:'application_submitted',l:'Application submitted'},{v:'waitlisted',l:'Waitlisted'},
+      {v:'voucher_issued',l:'Voucher issued'},{v:'unit_search',l:'Searching for unit'},
+      {v:'lease_signed',l:'Lease signed'},{v:'moved_in',l:'Moved in'},{v:'stabilized',l:'Stably housed 90+ days'}],
+    category:'case_management', sensitive:false, metrics:true },
+  { id:'pprompt_service_plan', key:'service_plan_status', question:'Service plan milestone?', type:'single_select',
+    version:1, audience:'provider',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'service_plan_status',designation:'Service Plan Status'},
+         frame:{type:'schema',epistemic:'MEANT',role:'provider'}}
+      ],
+      trace:'service_plan_status = DES'
+    },
+    options:[
+      {v:'intake_complete',l:'Intake completed'},{v:'plan_created',l:'Plan created'},
+      {v:'in_progress',l:'Services in progress'},{v:'milestone_met',l:'Milestone achieved'},
+      {v:'plan_updated',l:'Plan updated'},{v:'goal_achieved',l:'Goal achieved'},
+      {v:'case_closed',l:'Case closed — stable'},{v:'case_closed_lost',l:'Case closed — lost contact'}],
+    category:'case_management', sensitive:false, metrics:true },
+  { id:'pprompt_referral', key:'referral_status', question:'Referral status?', type:'single_select',
+    version:1, audience:'provider',
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'referral_status',designation:'Referral Status'},
+         frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
+        {op:'CON',target:{source:'referral_status',destination:'airs:referral'},
+         context:{authority_id:'auth_211_airs'}}
+      ],
+      trace:'referral_status = DES → CON(airs:referral)'
+    },
+    options:[
+      {v:'identified',l:'Need identified'},{v:'referral_sent',l:'Referral sent'},
+      {v:'accepted',l:'Accepted by receiving org'},{v:'scheduled',l:'Appointment scheduled'},
+      {v:'completed',l:'Service completed'},{v:'declined',l:'Client declined'},{v:'no_capacity',l:'Receiving org at capacity'}],
+    category:'coordination', sensitive:false, metrics:true },
+];
+
 const DEFAULT_DEFINITIONS = [
   { id:'def_housing_status_hud_2025', key:'housing_status', name:'Housing Status (HUD FY2025)', type:'classification_rule',
+    version:1,
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'housing_status',designation:'HUD Homeless Categories'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}},
+        {op:'CON',target:{source:'housing_status',destination:'24cfr578.3'},
+         context:{authority_id:'auth_hud_578_3',
+                  authority_name:'24 CFR 578.3',version:'FY2025'}},
+        {op:'SEG',target:{field:'categories',entity:'housing_status'},
+         context:{included:['cat_1','cat_2'],excluded:['cat_3','cat_4'],
+                  rationale:'Network outreach prioritizes literally and imminently homeless'}}
+      ],
+      trace:'housing_status = DES → CON(24 CFR 578.3) → SEG({Categories 1-2})'
+    },
     rules:[
-      {category:'literally_homeless', criteria:'sleep_location IN (vehicle,encampment,unsheltered)', hud:1},
-      {category:'imminently_homeless', criteria:'document_event=eviction_notice in 14 days AND no own_housing', hud:2},
-      {category:'stably_housed', criteria:'sleep_location=own_housing for 30+ days', hud:null},
+      {category:'literally_homeless', criteria:'sleep_location IN (vehicle,encampment,unsheltered)', hud:1,
+       eo:{
+         chain:[
+           {op:'SYN',target:{local:'literally_homeless',external:'24cfr578.3(b)(1)'}},
+           {op:'CON',target:{source:'literally_homeless',destination:'sleep_location'},
+            context:{derivation:'Classification derived from observation',
+                     epistemic_crossing:'GIVEN → MEANT',
+                     note:'Observation (where did you sleep) is GIVEN; classification (literally homeless) is MEANT'}}
+         ]}},
+      {category:'imminently_homeless', criteria:'document_event=eviction_notice in 14 days AND no own_housing', hud:2,
+       eo:{
+         chain:[
+           {op:'SYN',target:{local:'imminently_homeless',external:'24cfr578.3(b)(2)'}},
+           {op:'CON',target:{source:'imminently_homeless',destination:'document_event'},
+            context:{derivation:'Classification derived from document observation + sleep location',
+                     epistemic_crossing:'GIVEN → MEANT'}}
+         ]}},
+      {category:'stably_housed', criteria:'sleep_location=own_housing for 30+ days', hud:null,
+       eo:{
+         chain:[
+           {op:'DES',target:{entity:'stably_housed',designation:'Stably Housed'},
+            context:{note:'Local definition — no direct HUD equivalent'}},
+           {op:'CON',target:{source:'stably_housed',destination:'sleep_location'},
+            context:{derivation:'Classification from sustained observation pattern',
+                     epistemic_crossing:'GIVEN → MEANT'}}
+         ]}},
+    ]},
+  { id:'def_chronic_homelessness', key:'chronic_homelessness', name:'Chronic Homelessness', type:'classification_rule',
+    version:1,
+    eo:{
+      chain:[
+        {op:'DES',target:{entity:'chronic_homelessness',designation:'Chronic Homelessness Definition'},
+         frame:{type:'schema',epistemic:'MEANT',role:'network'}},
+        {op:'CON',target:{source:'chronic_homelessness',destination:'24cfr578.3'},
+         context:{authority_id:'auth_hud_578_3',
+                  authority_name:'24 CFR 578.3',version:'FY2025'}},
+        {op:'SUP',target:{entity:'chronic_homelessness',field:'definition'},
+         context:{
+           states:[
+             {source:'24cfr578.3',definition:'12 months continuous OR 4 episodes in 3 years totaling 12 months',
+              frame:'federal_compliance'},
+             {source:'local_coc_policy',definition:'6 months continuous OR 3 episodes in 2 years',
+              frame:'local_outreach_priority'}
+           ],
+           resolution:null,
+           note:'Federal definition used for HUD reporting; local definition used for outreach prioritization'
+         }}
+      ],
+      trace:'chronic_homelessness = DES → CON(24 CFR 578.3) → SUP({federal vs local})'
+    },
+    rules:[
+      {category:'chronic_federal', criteria:'literally_homeless for 12+ months continuous OR 4+ episodes in 3 years', hud:'chronic',
+       eo:{chain:[{op:'SYN',target:{local:'chronic_federal',external:'24cfr578.3'}}]}},
+      {category:'chronic_local', criteria:'literally_homeless for 6+ months continuous OR 3+ episodes in 2 years', hud:null,
+       eo:{chain:[{op:'DES',target:{entity:'chronic_local'},context:{note:'Local CoC threshold — lower bar for outreach'}}]}},
     ]},
 ];
 
@@ -434,8 +707,18 @@ const FIELD_CATEGORIES = ['identity','contact','financial','case','medical'];
 const CAT_LABELS = {identity:'Identity',contact:'Contact',financial:'Financial',case:'Case',medical:'Medical'};
 const CAT_ICONS = {identity:'user',contact:'msg',financial:'briefcase',case:'folder',medical:'shieldCheck'};
 const CAT_COLORS = {identity:'blue',contact:'teal',financial:'gold',case:'orange',medical:'green'};
-const OBS_CAT_LABELS = {housing:'Housing',services:'Services',documents:'Documents',financial:'Financial',medical:'Medical'};
-const OBS_CAT_COLORS = {housing:'teal',services:'blue',documents:'orange',financial:'gold',medical:'green'};
+const OBS_CAT_LABELS = {housing:'Housing',services:'Services',documents:'Documents',financial:'Financial',medical:'Medical',
+  assessment:'Assessment',case_management:'Case Mgmt',coordination:'Coordination'};
+const OBS_CAT_COLORS = {housing:'teal',services:'blue',documents:'orange',financial:'gold',medical:'green',
+  assessment:'purple',case_management:'gold',coordination:'blue'};
+
+/* ═══════════════════ ORG ROLES & TYPES ═══════════════════ */
+const ORG_ROLES = ['admin','case_manager','outreach_worker','intake_coordinator','read_only'];
+const ORG_ROLE_LABELS = {admin:'Admin',case_manager:'Case Manager',outreach_worker:'Outreach Worker',
+  intake_coordinator:'Intake Coordinator',read_only:'Read Only'};
+const ORG_TYPES = ['shelter','outreach','legal_aid','clinic','coc_lead','day_center','transitional','other'];
+const ORG_TYPE_LABELS = {shelter:'Emergency Shelter',outreach:'Street Outreach',legal_aid:'Legal Aid',
+  clinic:'Health Clinic',coc_lead:'CoC Lead Agency',day_center:'Day Center',transitional:'Transitional Housing',other:'Other'};
 
 /* ═══════════════════ ANONYMIZATION (§B.2) ═══════════════════ */
 function anonymizeField(key, value) {
@@ -498,13 +781,14 @@ const Toast = ({msg,type='info',onClose}) => {
 
 /* ═══════════════════ ACTIVITY STREAM ═══════════════════ */
 const OP_COLORS = {INS:'green',ALT:'blue',DES:'gold',SEG:'teal',NUL:'red',REC:'orange',CON:'blue',SYN:'purple',SUP:'gold'};
-const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',schema:'purple',metrics:'orange',network:'green',unknown:'orange'};
+const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',org:'blue',schema:'purple',metrics:'orange',network:'green',unknown:'orange'};
 
 const classifyRoom = async (roomId) => {
   const id = await svc.getState(roomId, EVT.IDENTITY);
   if (id) {
     if (id.account_type==='client') return {type:'vault',label:'Client Vault',color:'teal'};
     if (id.account_type==='provider') return {type:'roster',label:'Provider Roster',color:'gold'};
+    if (id.account_type==='organization') return {type:'org',label:'Organization',color:'blue'};
     if (id.account_type==='schema') return {type:'schema',label:'Schema Room',color:'purple'};
     if (id.account_type==='metrics') return {type:'metrics',label:'Metrics Room',color:'orange'};
     if (id.account_type==='network') return {type:'network',label:'Network Room',color:'green'};
@@ -527,6 +811,18 @@ const classifyEvent = (ev, roomInfo) => {
       case EVT.BRIDGE_META: return {op:'CON',epistemic:'MEANT',label:'Bridge Connection',desc:`${content.status} — ${content.client?.slice(0,16)} ↔ ${content.provider?.slice(0,16)}`};
       case EVT.BRIDGE_REFS: return {op:'SEG',epistemic:'MEANT',label:'Field Refs Update',desc:`${Object.keys(content.fields||{}).length} encrypted refs${content.revoked?' (REVOKED)':''}`};
       case EVT.ROSTER_INDEX: return {op:'ALT',epistemic:'MEANT',label:'Roster Update',desc:`${(content.cases||[]).length} cases`};
+      case EVT.ROSTER_ASSIGN: return {op:'SEG',epistemic:'MEANT',label:'Case Assignment',desc:`${Object.keys(content).length} assignments`};
+      case EVT.ORG_ROSTER: return {op:'ALT',epistemic:'MEANT',label:'Org Roster',desc:`${(content.staff||[]).length} staff`};
+      case EVT.ORG_METADATA: return {op:'DES',epistemic:'MEANT',label:'Org Metadata',desc:content.name||'org'};
+      case EVT.ORG_INVITE: return {op:'CON',epistemic:'MEANT',label:'Org Invite',desc:content.userId};
+      case EVT.SCHEMA_AUTHORITY: return {op:'CON',epistemic:'MEANT',label:'Authority Binding',desc:content.name?.slice(0,40)};
+      case EVT.SCHEMA_PROP: return {op:'REC',epistemic:'MEANT',label:'Schema Propagation',desc:`${content.level}: ${content.prompt_key}`};
+      case EVT.OBSERVATION: return {op:'INS',epistemic:'MEANT',label:'Provider Observation',desc:`${content.prompt_id}: ${content.value}`};
+      case EVT.INVITE_TOKEN: return {op:'CON',epistemic:'MEANT',label:'Invite Token',desc:'QR/link token'};
+      case EVT.ENCOUNTER_PROV: return {op:'INS',epistemic:'MEANT',label:'Provisional Encounter',desc:content.description?.slice(0,40)};
+      case EVT.MATCH_TOKEN: return {op:'CON',epistemic:'MEANT',label:'Match Token',desc:'Blind matching token'};
+      case EVT.MATCH_HIT: return {op:'SUP',epistemic:'MEANT',label:'Match Hit',desc:'Potential duplicate'};
+      case EVT.MATCH_RESOLVE: return {op:'REC',epistemic:'MEANT',label:'Match Resolved',desc:content.resolution};
       case EVT.SCHEMA_PROMPT: return {op:'DES',epistemic:'MEANT',label:'Schema Prompt',desc:content.question?.slice(0,40)};
       case EVT.SCHEMA_DEF: return {op:'DES',epistemic:'MEANT',label:'Schema Definition',desc:content.name?.slice(0,40)};
       case EVT.SCHEMA_TRANSFORM: return {op:'REC',epistemic:'MEANT',label:'Transform Rule',desc:`${Object.keys(content.transforms||{}).length} transforms`};
@@ -750,18 +1046,19 @@ const LoginScreen = ({onLogin}) => {
 /* ═══════════════════ ACCOUNT TYPE SELECTOR ═══════════════════ */
 const AccountTypeScreen = ({onSelect}) => (
   <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div className="anim-up" style={{textAlign:'center',maxWidth:600,padding:20}}>
+    <div className="anim-up" style={{textAlign:'center',maxWidth:900,padding:20}}>
       <h2 style={{fontFamily:'var(--serif)',fontSize:28,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Choose your role</h2>
       <p style={{color:'var(--tx-1)',fontSize:14,marginBottom:36}}>This determines your data access model and room topology</p>
       <div style={{display:'flex',gap:20,justifyContent:'center',flexWrap:'wrap'}}>
         {[
-          {type:'client',icon:'shield',title:'Client',desc:'Own your data vault. Record observations. Share specific fields with chosen providers. Revoke access at any time.',color:'teal'},
-          {type:'provider',icon:'briefcase',title:'Provider',desc:'View only what clients share. Add case notes and assessments. Create or join networks. Discover clients by ID.',color:'gold'},
-        ].map(o=><div key={o.type} className="card-h" onClick={()=>onSelect(o.type)} style={{width:260,textAlign:'left',padding:28}}>
+          {type:'client',icon:'shield',title:'Client',desc:'Own your data vault. Record observations. Share specific fields with chosen providers. Revoke access at any time.',color:'teal',tag:'DATA OWNER'},
+          {type:'provider',icon:'briefcase',title:'Provider',desc:'Join an existing organization or work independently. View only what clients share. Add case notes and assessments.',color:'gold',tag:'INDIVIDUAL'},
+          {type:'organization',icon:'users',title:'Organization',desc:'Create an org (shelter, outreach team, clinic). Invite staff with roles. Manage cases across your team. Join networks.',color:'blue',tag:'ORG ADMIN'},
+        ].map(o=><div key={o.type} className="card-h" onClick={()=>onSelect(o.type)} style={{width:250,textAlign:'left',padding:28}}>
           <div style={{width:48,height:48,borderRadius:'var(--r-lg)',background:`var(--${o.color}-dim)`,display:'flex',alignItems:'center',justifyContent:'center',color:`var(--${o.color})`,marginBottom:16}}><I n={o.icon} s={24}/></div>
           <h3 style={{fontSize:18,fontWeight:700,marginBottom:8}}>{o.title}</h3>
           <p style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>{o.desc}</p>
-          <div style={{marginTop:16}}><span className={`tag tag-${o.color}`}>{o.type==='client'?'DATA OWNER':'DATA CONSUMER'}</span></div>
+          <div style={{marginTop:16}}><span className={`tag tag-${o.color}`}>{o.tag}</span></div>
         </div>)}
       </div>
     </div>
@@ -808,7 +1105,9 @@ const ClientApp = ({session, onLogout, showToast}) => {
     if (!vault) {
       vault = await svc.createRoom('[Tessera Vault]', 'Personal data vault', [
         {type:EVT.IDENTITY,state_key:'',content:{account_type:'client',owner:svc.userId,created:Date.now()}},
-        {type:EVT.VAULT_SNAPSHOT,state_key:'',content:{fields:{},observations:[],metrics_consent:{enabled:false,categories:[]}}},
+        {type:EVT.VAULT_SNAPSHOT,state_key:'',content:{fields:{},observations:[],
+          metrics_consent:{enabled:false,categories:[]},
+          matching_consent:{enabled:false,layers:[],network_id:null,last_token_ts:null}}},
         {type:EVT.VAULT_PROVIDERS,state_key:'',content:{providers:[]}},
       ]);
       showToast('Vault created — encrypted room ready','success');
@@ -817,9 +1116,10 @@ const ClientApp = ({session, onLogout, showToast}) => {
       schema = await svc.createRoom('[Tessera Schema]','Schema definitions', [
         {type:EVT.IDENTITY,state_key:'',content:{account_type:'schema',owner:svc.userId,created:Date.now()}},
       ]);
-      // Seed default prompts
+      // Seed default prompts, definitions, authorities
       for (const p of DEFAULT_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, p, p.key);
       for (const d of DEFAULT_DEFINITIONS) await svc.setState(schema, EVT.SCHEMA_DEF, d, d.key);
+      for (const a of DEFAULT_AUTHORITIES) await svc.setState(schema, EVT.SCHEMA_AUTHORITY, a, a.id);
       await svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default');
     }
     setVaultRoom(vault); setSchemaRoom(schema);
@@ -873,7 +1173,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
   const handleRecordObservation = async () => {
     if (!obsValue || !obsModal) return;
     const obs = { id:genOpId(), category:obsModal.key, value:obsValue, date:obsDate, prompt_id:obsModal.id,
-      free_text:obsFreeText||undefined, ts:Date.now() };
+      schema_version:obsModal.version||1, free_text:obsFreeText||undefined, ts:Date.now() };
     await emitOp(vaultRoom, 'INS', {type:'observation',category:obsModal.key,value:obsValue,date:obsDate},
       {reported_by:'client',method:'self_report',prompt:obsModal.question,free_text:obsFreeText||undefined}, vaultFrame());
     const newObs = [...observations, obs];
@@ -1154,27 +1454,56 @@ const ClientApp = ({session, onLogout, showToast}) => {
       {/* SCHEMA VIEW (§C) */}
       {view==='schema'&&!activeBridge&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:6}}>Schema</h2>
-        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Community-owned definitions — observation prompts, classification rules, and anonymization transforms.</p>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Community-owned definitions — every prompt, rule, and transform traces to an external authority via EO operator chains.</p>
+
+        {/* Authorities */}
+        <div className="card" style={{marginBottom:16}}>
+          <span className="section-label">DEFINITION AUTHORITIES ({DEFAULT_AUTHORITIES.length})</span>
+          {DEFAULT_AUTHORITIES.map(a=><div key={a.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span className="tag tag-purple" style={{fontSize:8.5}}>{a.authority_type}</span>
+              <span style={{fontSize:12.5,fontWeight:600}}>{a.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>{a.version}</span>
+            </div>
+            <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>{a.uri}</span>
+          </div>)}
+        </div>
+
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">OBSERVATION PROMPTS ({DEFAULT_PROMPTS.length})</span>
           {DEFAULT_PROMPTS.map(p=><div key={p.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
               <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'blue'}`}>{p.category}</span>
               <span style={{fontSize:13,fontWeight:600}}>{p.question}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{p.version||1}</span>
             </div>
+            {p.eo?.trace&&<div style={{fontSize:9.5,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:4}}>{p.eo.trace}</div>}
             <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
-              {p.options.map(o=><span key={o.v} style={{fontSize:10,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>{o.l}</span>)}
+              {p.options.map(o=><span key={o.v} style={{fontSize:10,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>
+                {o.l}{o.eo?` (${o.eo.op})`:''}
+              </span>)}
             </div>
           </div>)}
         </div>
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">CLASSIFICATION DEFINITIONS ({DEFAULT_DEFINITIONS.length})</span>
-          {DEFAULT_DEFINITIONS.map(d=><div key={d.id} style={{padding:'10px 0'}}>
-            <span style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>{d.name}</span>
-            {d.rules.map((r,i)=><div key={i} style={{display:'flex',gap:8,padding:'4px 0',fontSize:11.5}}>
-              <span className="tag tag-gold" style={{fontSize:9}}>{r.category}</span>
-              <span style={{color:'var(--tx-1)'}}>{r.criteria}</span>
-              {r.hud!=null&&<span style={{color:'var(--tx-3)',fontFamily:'var(--mono)'}}>HUD Cat {r.hud}</span>}
+          {DEFAULT_DEFINITIONS.map(d=><div key={d.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:600}}>{d.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{d.version||1}</span>
+            </div>
+            {d.eo?.trace&&<div style={{fontSize:9.5,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:6}}>{d.eo.trace}</div>}
+            {d.rules.map((r,i)=><div key={i} style={{padding:'4px 0'}}>
+              <div style={{display:'flex',gap:8,fontSize:11.5,alignItems:'center'}}>
+                <span className="tag tag-gold" style={{fontSize:9}}>{r.category}</span>
+                <span style={{color:'var(--tx-1)'}}>{r.criteria}</span>
+                {r.hud!=null&&<span style={{color:'var(--tx-3)',fontFamily:'var(--mono)'}}>HUD {r.hud}</span>}
+              </div>
+              {r.eo?.chain&&<div style={{marginLeft:12,marginTop:2}}>
+                {r.eo.chain.filter(s=>s.context?.epistemic_crossing).map((s,si)=>
+                  <span key={si} style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--orange)'}}>[{s.context.epistemic_crossing}]</span>
+                )}
+              </div>}
             </div>)}
           </div>)}
         </div>
@@ -1351,6 +1680,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [networkName, setNetworkName] = useState('');
   const [joinNetworkModal, setJoinNetworkModal] = useState(false);
   const [joinNetworkId, setJoinNetworkId] = useState('');
+  const [provObsModal, setProvObsModal] = useState(null);
+  const [provObsValue, setProvObsValue] = useState('');
+  const [provObsNotes, setProvObsNotes] = useState('');
+  const [provObservations, setProvObservations] = useState([]);
 
   useEffect(() => { initProvider(); }, []);
 
@@ -1385,7 +1718,9 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         {type:EVT.IDENTITY,state_key:'',content:{account_type:'schema',owner:svc.userId,created:Date.now()}},
       ]);
       for (const p of DEFAULT_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, p, p.key);
+      for (const pp of DEFAULT_PROVIDER_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, pp, pp.key);
       for (const d of DEFAULT_DEFINITIONS) await svc.setState(schema, EVT.SCHEMA_DEF, d, d.key);
+      for (const a of DEFAULT_AUTHORITIES) await svc.setState(schema, EVT.SCHEMA_AUTHORITY, a, a.id);
       await svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default');
     }
     setRosterRoom(roster); setMetricsRoom(metricsR); setSchemaRoom(schema);
@@ -1445,6 +1780,37 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setRequestText(''); showToast('Request sent to client','success'); setTimeout(()=>loadMessages(activeCase),500);
   };
 
+  // Record structured provider observation in bridge room (MEANT frame)
+  const handleProviderObservation = async () => {
+    if (!provObsValue || !provObsModal || !activeCase) return;
+    const obs = {
+      id:genOpId(), prompt_id:provObsModal.id, prompt_key:provObsModal.key,
+      value:provObsValue, notes:provObsNotes||undefined,
+      schema_version:provObsModal.version||1,
+      author:svc.userId, ts:Date.now()
+    };
+    await svc.sendEvent(activeCase, EVT.OBSERVATION, obs);
+    await emitOp(activeCase, 'INS',
+      {type:'provider_observation',field:provObsModal.key,value:provObsValue},
+      {prompt:provObsModal.question,notes:provObsNotes||undefined,
+       epistemic_crossing:provObsModal.category==='assessment'?'GIVEN → MEANT':undefined},
+      bridgeFrame(activeCase));
+    setProvObservations(prev=>[...prev,obs]);
+    setProvObsModal(null); setProvObsValue(''); setProvObsNotes('');
+    showToast(`Observation recorded: ${provObsModal.question}`,'success');
+  };
+
+  // Load provider observations from bridge
+  const loadProviderObservations = async (bid) => {
+    if (!svc.client) return;
+    const room = svc.client.getRoom(bid);
+    if (!room) return;
+    const obs = room.getLiveTimeline().getEvents()
+      .filter(e=>e.getType()===EVT.OBSERVATION)
+      .map(e=>e.getContent());
+    setProvObservations(obs);
+  };
+
   // Discover client by Matrix ID
   const handleDiscoverClient = async () => {
     if (!discoverUserId.trim()) return;
@@ -1502,7 +1868,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     } catch(e) { showToast('Failed to join: '+e.message,'error'); }
   };
 
-  const openCase = (bid) => { setView('case'); setActiveCase(bid); loadMessages(bid); };
+  const openCase = (bid) => { setView('case'); setActiveCase(bid); loadMessages(bid); loadProviderObservations(bid); };
   const activeCaseData = cases.find(c=>c.bridgeRoomId===activeCase);
 
   // Aggregate metrics for dashboard
@@ -1629,6 +1995,39 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             <span style={{fontSize:10.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{VAULT_FIELDS.length-Object.keys(activeCaseData.sharedData).length} fields exist but not shared</span>
           </div>
         </div>
+        {/* PROVIDER OBSERVATIONS (MEANT frame) */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <span className="section-label" style={{marginBottom:0}}>PROVIDER OBSERVATIONS (MEANT)</span>
+            <span className="tag tag-gold">EPISTEMIC: MEANT</span>
+          </div>
+          <p style={{fontSize:11,color:'var(--tx-2)',marginBottom:10}}>Structured assessments and case management observations. Each entry is an EO event in the bridge room with full provenance.</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:6,marginBottom:12}}>
+            {DEFAULT_PROVIDER_PROMPTS.map(p=><div key={p.id} className="card-h" onClick={()=>{setProvObsModal(p);setProvObsValue('');setProvObsNotes('')}}
+              style={{padding:10}}>
+              <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'purple'}`} style={{fontSize:8.5,marginBottom:4}}>{p.category}</span>
+              <span style={{fontSize:11.5,fontWeight:600,display:'block'}}>{p.question}</span>
+              {p.eo?.trace&&<span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>{p.eo.trace}</span>}
+            </div>)}
+          </div>
+          {provObservations.length>0&&<>
+            <span className="section-label">RECORDED ({provObservations.length})</span>
+            <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:4}}>
+              {[...provObservations].reverse().map((obs,i)=>{
+                const prompt = DEFAULT_PROVIDER_PROMPTS.find(p=>p.id===obs.prompt_id||p.key===obs.prompt_key);
+                const optLabel = prompt?.options?.find(o=>o.v===obs.value)?.l || obs.value;
+                return <div key={obs.id||i} style={{padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:8}}>
+                  <span className={`tag tag-${OBS_CAT_COLORS[prompt?.category]||'purple'}`} style={{fontSize:8.5}}>{prompt?.category||'obs'}</span>
+                  <span className="tag tag-gold" style={{fontSize:8}}>MEANT</span>
+                  <span style={{fontSize:11.5,flex:1}}>{prompt?.question}: <strong>{optLabel}</strong></span>
+                  {obs.notes&&<span style={{fontSize:10,color:'var(--tx-2)',fontStyle:'italic'}}>{obs.notes}</span>}
+                  <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{obs.ts?new Date(obs.ts).toLocaleTimeString():''}</span>
+                </div>;
+              })}
+            </div>
+          </>}
+        </div>
+
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">REQUEST INFORMATION</span>
           <div style={{display:'flex',gap:6}}>
@@ -1688,26 +2087,77 @@ const ProviderApp = ({session, onLogout, showToast}) => {
 
       {/* SCHEMA VIEW */}
       {view==='schema'&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
-        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:6}}>Schema</h2>
-        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Community-owned definitions. Prompts define what clients observe. Definitions determine how observations become interpretations.</p>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:6}}>Schema & Authorities</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Every definition traces to an external authority via EO operator chains. Prompts define what clients observe (GIVEN). Provider prompts define professional assessments (MEANT).</p>
+
+        {/* Authorities */}
         <div className="card" style={{marginBottom:16}}>
-          <span className="section-label">OBSERVATION PROMPTS</span>
+          <span className="section-label">DEFINITION AUTHORITIES ({DEFAULT_AUTHORITIES.length})</span>
+          {DEFAULT_AUTHORITIES.map(a=><div key={a.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span className="tag tag-purple" style={{fontSize:8.5}}>{a.authority_type}</span>
+              <span style={{fontSize:12.5,fontWeight:600}}>{a.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>{a.version}</span>
+            </div>
+            <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>{a.uri}</span>
+          </div>)}
+        </div>
+
+        {/* Client prompts */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <span className="section-label" style={{marginBottom:0}}>CLIENT PROMPTS ({DEFAULT_PROMPTS.length})</span>
+            <span className="tag tag-teal" style={{fontSize:8}}>GIVEN</span>
+          </div>
           {DEFAULT_PROMPTS.map(p=><div key={p.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border-0)'}}>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'blue'}`}>{p.category}</span>
-              <span style={{fontSize:12.5,fontWeight:600}}>{p.question}</span></div>
+              <span style={{fontSize:12.5,fontWeight:600}}>{p.question}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{p.version||1}</span></div>
+            {p.eo?.trace&&<div style={{fontSize:9.5,fontFamily:'var(--mono)',color:'var(--purple)',marginTop:2}}>{p.eo.trace}</div>}
             <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
-              {p.options.map(o=><span key={o.v} style={{fontSize:9.5,padding:'1px 7px',background:'var(--bg-3)',borderRadius:8,color:'var(--tx-1)'}}>{o.l}</span>)}</div>
+              {p.options.map(o=><span key={o.v} style={{fontSize:9.5,padding:'1px 7px',background:'var(--bg-3)',borderRadius:8,color:'var(--tx-1)'}}>{o.l}{o.eo?` (${o.eo.op})`:''}</span>)}</div>
           </div>)}
         </div>
+
+        {/* Provider prompts */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <span className="section-label" style={{marginBottom:0}}>PROVIDER PROMPTS ({DEFAULT_PROVIDER_PROMPTS.length})</span>
+            <span className="tag tag-gold" style={{fontSize:8}}>MEANT</span>
+          </div>
+          {DEFAULT_PROVIDER_PROMPTS.map(p=><div key={p.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'purple'}`}>{p.category}</span>
+              <span style={{fontSize:12.5,fontWeight:600}}>{p.question}</span>
+              <span className="tag tag-gold" style={{fontSize:8}}>v{p.version||1}</span></div>
+            {p.eo?.trace&&<div style={{fontSize:9.5,fontFamily:'var(--mono)',color:'var(--purple)',marginTop:2}}>{p.eo.trace}</div>}
+            {p.type==='numeric'&&p.thresholds&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
+              {p.thresholds.map((t,i)=><span key={i} style={{fontSize:9.5,padding:'1px 7px',background:'var(--bg-3)',borderRadius:8,color:'var(--tx-1)'}}>{t.v}+ {t.l}</span>)}
+            </div>}
+            {p.options&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
+              {p.options.map(o=><span key={o.v} style={{fontSize:9.5,padding:'1px 7px',background:'var(--bg-3)',borderRadius:8,color:'var(--tx-1)'}}>{o.l}</span>)}</div>}
+          </div>)}
+        </div>
+
+        {/* Definitions with EO chains */}
         <div className="card">
-          <span className="section-label">CLASSIFICATION DEFINITIONS</span>
-          {DEFAULT_DEFINITIONS.map(d=><div key={d.id}>
-            <span style={{fontSize:13,fontWeight:600,display:'block',marginBottom:4}}>{d.name}</span>
-            {d.rules.map((r,i)=><div key={i} style={{display:'flex',gap:6,alignItems:'center',padding:'3px 0',fontSize:11}}>
-              <span className="tag tag-gold" style={{fontSize:8.5}}>{r.category}</span>
-              <span style={{color:'var(--tx-1)',flex:1}}>{r.criteria}</span>
-              {r.hud!=null&&<span style={{fontFamily:'var(--mono)',color:'var(--tx-3)',fontSize:10}}>HUD {r.hud}</span>}
+          <span className="section-label">CLASSIFICATION DEFINITIONS ({DEFAULT_DEFINITIONS.length})</span>
+          {DEFAULT_DEFINITIONS.map(d=><div key={d.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:600}}>{d.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{d.version||1}</span>
+            </div>
+            {d.eo?.trace&&<div style={{fontSize:9.5,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:6}}>{d.eo.trace}</div>}
+            {d.rules.map((r,i)=><div key={i} style={{padding:'3px 0'}}>
+              <div style={{display:'flex',gap:6,alignItems:'center',fontSize:11}}>
+                <span className="tag tag-gold" style={{fontSize:8.5}}>{r.category}</span>
+                <span style={{color:'var(--tx-1)',flex:1}}>{r.criteria}</span>
+                {r.hud!=null&&<span style={{fontFamily:'var(--mono)',color:'var(--tx-3)',fontSize:10}}>HUD {r.hud}</span>}
+              </div>
+              {r.eo?.chain?.filter(s=>s.context?.epistemic_crossing).map((s,si)=>
+                <span key={si} style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--orange)',marginLeft:12}}>[{s.context.epistemic_crossing}]</span>
+              )}
             </div>)}
           </div>)}
         </div>
@@ -1794,6 +2244,635 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <input value={joinNetworkId} onChange={e=>setJoinNetworkId(e.target.value)} placeholder="!roomid:matrix.org"/></div>
       <button onClick={handleJoinNetwork} className="b-pri" style={{width:'100%'}}>Join Network</button>
     </Modal>
+
+    {/* PROVIDER OBSERVATION MODAL */}
+    <Modal open={!!provObsModal} onClose={()=>setProvObsModal(null)} title={provObsModal?.question||'Record Observation'} w={500}>
+      {provObsModal&&<>
+        {provObsModal.eo?.trace&&<div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'8px 12px',marginBottom:14}}>
+          <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--purple)'}}>{provObsModal.eo.trace}</span>
+        </div>}
+        <div style={{marginBottom:14}}>
+          <span className="section-label">RESPONSE</span>
+          {provObsModal.type==='numeric'?
+            <div>
+              <input type="number" value={provObsValue} onChange={e=>setProvObsValue(e.target.value)}
+                placeholder={`${provObsModal.range?.min||0} — ${provObsModal.range?.max||100}`}
+                min={provObsModal.range?.min} max={provObsModal.range?.max}/>
+              {provObsModal.thresholds&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
+                {provObsModal.thresholds.map((t,i)=><span key={i} style={{fontSize:9.5,padding:'2px 8px',
+                  background:provObsValue>=t.v&&(i===provObsModal.thresholds.length-1||provObsValue<provObsModal.thresholds[i+1]?.v)?'var(--gold-dim)':'var(--bg-3)',
+                  borderRadius:10,color:provObsValue>=t.v&&(i===provObsModal.thresholds.length-1||provObsValue<provObsModal.thresholds[i+1]?.v)?'var(--gold)':'var(--tx-2)'}}>
+                  {t.v}+ {t.l}</span>)}
+              </div>}
+            </div>
+          :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {provObsModal.options?.map(o=><div key={o.v} onClick={()=>setProvObsValue(o.v)}
+              style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',
+                border:`1px solid ${provObsValue===o.v?'var(--gold)':'var(--border-1)'}`,
+                background:provObsValue===o.v?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+              <span style={{fontSize:12.5,color:provObsValue===o.v?'var(--gold)':'var(--tx-1)'}}>{o.l}</span>
+            </div>)}
+          </div>}
+        </div>
+        <div style={{marginBottom:14}}>
+          <span className="section-label">CLINICAL NOTES (OPTIONAL)</span>
+          <textarea value={provObsNotes} onChange={e=>setProvObsNotes(e.target.value)} placeholder="Additional clinical context..." style={{minHeight:50}}/>
+        </div>
+        <div style={{background:'var(--gold-dim)',borderRadius:'var(--r)',padding:'8px 12px',marginBottom:14,fontSize:11,color:'var(--gold)'}}>
+          This observation is recorded as a MEANT event — a professional assessment with full EO provenance chain.
+        </div>
+        <button onClick={handleProviderObservation} className="b-pri" disabled={!provObsValue} style={{width:'100%'}}>Record Provider Observation</button>
+      </>}
+    </Modal>
+  </div>;
+};
+
+/* ═══════════════════ ORGANIZATION APP ═══════════════════ */
+const OrgApp = ({session, onLogout, showToast}) => {
+  const [orgRoom, setOrgRoom] = useState(null);
+  const [metricsRoom, setMetricsRoom] = useState(null);
+  const [schemaRoom, setSchemaRoom] = useState(null);
+  const [networkRoom, setNetworkRoom] = useState(null);
+  const [orgMeta, setOrgMeta] = useState({});
+  const [staff, setStaff] = useState([]);
+  const [cases, setCases] = useState([]);
+  const [view, setView] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [setupStep, setSetupStep] = useState(null); // null = done, 'name'|'type'|'area'
+  const [setupData, setSetupData] = useState({name:'',type:'shelter',service_area:'',languages:'en'});
+  const [inviteModal, setInviteModal] = useState(false);
+  const [inviteUserId, setInviteUserId] = useState('');
+  const [inviteRole, setInviteRole] = useState('case_manager');
+  const [activeCase, setActiveCase] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [msgText, setMsgText] = useState('');
+  const [provObsModal, setProvObsModal] = useState(null);
+  const [provObsValue, setProvObsValue] = useState('');
+  const [provObsNotes, setProvObsNotes] = useState('');
+  const [provObservations, setProvObservations] = useState([]);
+
+  useEffect(() => { initOrg(); }, []);
+
+  const orgFrame = (room) => ({type:'org',room:room||orgRoom,role:'admin',epistemic:'MEANT'});
+  const bridgeFrame = (room) => ({type:'bridge',room,role:'provider',epistemic:'MEANT'});
+
+  const initOrg = async () => {
+    setLoading(true);
+    const rooms = await svc.getJoinedRooms();
+    let org=null, metricsR=null, schema=null, network=null;
+    for (const rid of rooms) {
+      const id = await svc.getState(rid, EVT.IDENTITY);
+      if (id?.account_type==='organization'&&id.owner===svc.userId) org=rid;
+      if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
+      if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
+      if (id?.account_type==='network') network=rid;
+    }
+    if (!org) {
+      setSetupStep('name');
+      setLoading(false);
+      return;
+    }
+    if (!metricsR) {
+      metricsR = await svc.createRoom('[Tessera Metrics]','Anonymized metrics',[
+        {type:EVT.IDENTITY,state_key:'',content:{account_type:'metrics',owner:svc.userId,created:Date.now()}},
+      ]);
+    }
+    if (!schema) {
+      schema = await svc.createRoom('[Tessera Schema]','Schema definitions',[
+        {type:EVT.IDENTITY,state_key:'',content:{account_type:'schema',owner:svc.userId,created:Date.now()}},
+      ]);
+      for (const p of DEFAULT_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, p, p.key);
+      for (const pp of DEFAULT_PROVIDER_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, pp, pp.key);
+      for (const d of DEFAULT_DEFINITIONS) await svc.setState(schema, EVT.SCHEMA_DEF, d, d.key);
+      for (const a of DEFAULT_AUTHORITIES) await svc.setState(schema, EVT.SCHEMA_AUTHORITY, a, a.id);
+      await svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default');
+    }
+    setOrgRoom(org); setMetricsRoom(metricsR); setSchemaRoom(schema);
+    if (network) setNetworkRoom(network);
+    const meta = await svc.getState(org, EVT.ORG_METADATA);
+    if (meta) setOrgMeta(meta);
+    const roster = await svc.getState(org, EVT.ORG_ROSTER);
+    if (roster?.staff) setStaff(roster.staff);
+    await loadCases(rooms);
+    setLoading(false);
+  };
+
+  const handleCreateOrg = async () => {
+    if (!setupData.name.trim()) return;
+    try {
+      const org = await svc.createRoom(`[Tessera Org] ${setupData.name}`, `Organization: ${setupData.name}`, [
+        {type:EVT.IDENTITY,state_key:'',content:{account_type:'organization',owner:svc.userId,created:Date.now()}},
+        {type:EVT.ORG_METADATA,state_key:'',content:{
+          name:setupData.name, type:setupData.type, service_area:setupData.service_area,
+          languages:setupData.languages.split(',').map(s=>s.trim()), created:Date.now()}},
+        {type:EVT.ORG_ROSTER,state_key:'',content:{staff:[
+          {userId:svc.userId,role:'admin',joined:Date.now()}
+        ]}},
+        {type:EVT.ROSTER_ASSIGN,state_key:'',content:{}},
+      ]);
+      await emitOp(org, 'DES', {entity:'organization',designation:setupData.name},
+        {type:setupData.type,service_area:setupData.service_area}, orgFrame(org));
+      await emitOp(org, 'INS', {entity:'staff',field:svc.userId},
+        {role:'admin',initiated_by:'org_creation'}, orgFrame(org));
+      setOrgRoom(org);
+      setOrgMeta({name:setupData.name,type:setupData.type,service_area:setupData.service_area});
+      setStaff([{userId:svc.userId,role:'admin',joined:Date.now()}]);
+      setSetupStep(null);
+      showToast(`Organization "${setupData.name}" created`,'success');
+      // Create supporting rooms
+      const metricsR = await svc.createRoom('[Tessera Metrics]','Anonymized metrics',[
+        {type:EVT.IDENTITY,state_key:'',content:{account_type:'metrics',owner:svc.userId,created:Date.now()}},
+      ]);
+      const schema = await svc.createRoom('[Tessera Schema]','Schema definitions',[
+        {type:EVT.IDENTITY,state_key:'',content:{account_type:'schema',owner:svc.userId,created:Date.now()}},
+      ]);
+      for (const p of DEFAULT_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, p, p.key);
+      for (const pp of DEFAULT_PROVIDER_PROMPTS) await svc.setState(schema, EVT.SCHEMA_PROMPT, pp, pp.key);
+      for (const d of DEFAULT_DEFINITIONS) await svc.setState(schema, EVT.SCHEMA_DEF, d, d.key);
+      for (const a of DEFAULT_AUTHORITIES) await svc.setState(schema, EVT.SCHEMA_AUTHORITY, a, a.id);
+      await svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default');
+      setMetricsRoom(metricsR); setSchemaRoom(schema);
+    } catch(e) { showToast('Error creating org: '+e.message,'error'); }
+  };
+
+  const handleInviteStaff = async () => {
+    if (!inviteUserId.trim()||!orgRoom) return;
+    try {
+      await svc.invite(orgRoom, inviteUserId);
+      const newStaff = [...staff, {userId:inviteUserId,role:inviteRole,joined:Date.now()}];
+      await svc.setState(orgRoom, EVT.ORG_ROSTER, {staff:newStaff});
+      await emitOp(orgRoom, 'CON', {source:orgRoom,destination:inviteUserId,relationship:'staff'},
+        {role:inviteRole,invited_by:svc.userId}, orgFrame());
+      setStaff(newStaff);
+      setInviteModal(false); setInviteUserId('');
+      showToast(`Invited ${inviteUserId} as ${ORG_ROLE_LABELS[inviteRole]}`,'success');
+    } catch(e) { showToast('Invite failed: '+e.message,'error'); }
+  };
+
+  const handleRemoveStaff = async (userId) => {
+    if (userId===svc.userId) { showToast('Cannot remove yourself','error'); return; }
+    try {
+      await svc.kick(orgRoom, userId, 'Removed from organization');
+      const newStaff = staff.filter(s=>s.userId!==userId);
+      await svc.setState(orgRoom, EVT.ORG_ROSTER, {staff:newStaff});
+      await emitOp(orgRoom, 'NUL', {entity:'staff',field:userId},
+        {reason:'removed',removed_by:svc.userId}, orgFrame());
+      setStaff(newStaff);
+      showToast(`Removed ${userId}`,'warn');
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
+  const loadCases = async (roomIds) => {
+    const roomList = roomIds || await svc.getJoinedRooms();
+    const found = [];
+    for (const rid of roomList) {
+      const meta = await svc.getState(rid, EVT.BRIDGE_META);
+      if (meta && meta.status!=='tombstoned') {
+        // Check if any org staff is the provider, or if org is the provider
+        const isOrgBridge = meta.provider===svc.userId || staff.some(s=>s.userId===meta.provider);
+        if (isOrgBridge) {
+          const refsData = await svc.getState(rid, EVT.BRIDGE_REFS);
+          const decrypted = {};
+          if (refsData?.fields) {
+            for (const [key,ref] of Object.entries(refsData.fields)) {
+              if (ref.key&&ref.ciphertext&&ref.iv) {
+                const plain = await FieldCrypto.decrypt(ref.ciphertext, ref.iv, ref.key);
+                if (plain!==null) decrypted[key]=plain;
+              }
+            }
+          }
+          found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted});
+        }
+      }
+    }
+    setCases(found);
+  };
+
+  const loadMessages = async (bid) => { setMessages(await svc.getMessages(bid)); };
+  const handleSendMsg = async () => {
+    if (!msgText.trim()||!activeCase) return;
+    await svc.sendMessage(activeCase, msgText, {[`${NS}.type`]:'note'});
+    setMsgText(''); setTimeout(()=>loadMessages(activeCase),500);
+  };
+
+  const handleProviderObservation = async () => {
+    if (!provObsValue || !provObsModal || !activeCase) return;
+    const obs = {
+      id:genOpId(), prompt_id:provObsModal.id, prompt_key:provObsModal.key,
+      value:provObsValue, notes:provObsNotes||undefined,
+      schema_version:provObsModal.version||1,
+      author:svc.userId, org:orgMeta.name, ts:Date.now()
+    };
+    await svc.sendEvent(activeCase, EVT.OBSERVATION, obs);
+    await emitOp(activeCase, 'INS',
+      {type:'provider_observation',field:provObsModal.key,value:provObsValue},
+      {prompt:provObsModal.question,notes:provObsNotes||undefined,org:orgMeta.name},
+      bridgeFrame(activeCase));
+    setProvObservations(prev=>[...prev,obs]);
+    setProvObsModal(null); setProvObsValue(''); setProvObsNotes('');
+    showToast(`Observation recorded: ${provObsModal.question}`,'success');
+  };
+
+  const loadProviderObservations = async (bid) => {
+    if (!svc.client) return;
+    const room = svc.client.getRoom(bid);
+    if (!room) return;
+    const obs = room.getLiveTimeline().getEvents()
+      .filter(e=>e.getType()===EVT.OBSERVATION).map(e=>e.getContent());
+    setProvObservations(obs);
+  };
+
+  const openCase = (bid) => { setView('case'); setActiveCase(bid); loadMessages(bid); loadProviderObservations(bid); };
+  const activeCaseData = cases.find(c=>c.bridgeRoomId===activeCase);
+
+  if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}><Spin s={28}/></div>;
+
+  // Org setup wizard
+  if(setupStep) return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div className="anim-up" style={{width:'100%',maxWidth:520,padding:20}}>
+      <div style={{background:'var(--bg-1)',border:'1px solid var(--border-0)',borderRadius:'var(--r-lg)',padding:'44px 40px'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg, var(--blue), var(--teal), var(--gold))'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:20}}>
+          <div style={{width:44,height:44,borderRadius:'var(--r-lg)',background:'var(--blue-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--blue)'}}><I n="users" s={24}/></div>
+          <div><h2 style={{fontSize:22,fontWeight:800,fontFamily:'var(--serif)'}}>Create Organization</h2>
+            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)'}}>Set up your org room on Matrix</span></div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <span className="section-label">ORGANIZATION NAME</span>
+          <input value={setupData.name} onChange={e=>setSetupData({...setupData,name:e.target.value})} placeholder="e.g. Nashville Rescue Mission"/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <span className="section-label">ORGANIZATION TYPE</span>
+          <select value={setupData.type} onChange={e=>setSetupData({...setupData,type:e.target.value})}>
+            {ORG_TYPES.map(t=><option key={t} value={t}>{ORG_TYPE_LABELS[t]}</option>)}
+          </select>
+        </div>
+        <div style={{marginBottom:14}}>
+          <span className="section-label">SERVICE AREA</span>
+          <input value={setupData.service_area} onChange={e=>setSetupData({...setupData,service_area:e.target.value})} placeholder="e.g. Davidson County, TN"/>
+        </div>
+        <div style={{marginBottom:20}}>
+          <span className="section-label">LANGUAGES (comma-separated)</span>
+          <input value={setupData.languages} onChange={e=>setSetupData({...setupData,languages:e.target.value})} placeholder="en, es"/>
+        </div>
+        <div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+          This creates an encrypted Matrix room for your organization. You'll be the admin. Staff can be invited with specific roles. Cases are assigned per-staff.
+        </div>
+        <button onClick={handleCreateOrg} className="b-pri" disabled={!setupData.name.trim()} style={{width:'100%',padding:12,fontSize:14}}>
+          <I n="users" s={16}/> Create Organization
+        </button>
+      </div>
+    </div>
+  </div>;
+
+  return <div style={{display:'flex',height:'100%'}}>
+    {/* Sidebar */}
+    <div style={{width:250,minWidth:250,height:'100%',background:'var(--bg-1)',borderRight:'1px solid var(--border-0)',display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'18px 14px 14px',borderBottom:'1px solid var(--border-0)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+          <div style={{width:28,height:28,borderRadius:'var(--r)',background:'var(--blue-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--blue)'}}><I n="users" s={15}/></div>
+          <span style={{fontFamily:'var(--serif)',fontWeight:700,fontSize:15}}>{orgMeta.name||'Organization'}</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8}}>
+          <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{svc.userId}</span>
+          <span className="tag tag-blue">ORG ADMIN</span>
+        </div>
+        {orgMeta.type&&<span className={`tag tag-teal`} style={{marginTop:6,fontSize:9}}>{ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type}</span>}
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
+        {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'staff',icon:'users',label:'Staff Roster'},
+          {id:'schema',icon:'grid',label:'Schema & Authorities'},{id:'network',icon:'globe',label:'Network'},
+          {id:'activity',icon:'zap',label:'Activity Stream'}
+        ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
+          style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
+            background:view===item.id&&!activeCase?'var(--bg-4)':'transparent',
+            borderLeft:view===item.id&&!activeCase?'2px solid var(--blue)':'2px solid transparent',
+            display:'flex',alignItems:'center',gap:8,transition:'all .15s',
+            color:view===item.id&&!activeCase?'var(--tx-0)':'var(--tx-1)'}}
+          onMouseEnter={e=>{if(!(view===item.id&&!activeCase))e.currentTarget.style.background='var(--bg-3)'}}
+          onMouseLeave={e=>{if(!(view===item.id&&!activeCase))e.currentTarget.style.background='transparent'}}>
+          <I n={item.icon} s={14}/><span style={{fontSize:12.5,fontWeight:view===item.id?600:400}}>{item.label}</span>
+        </div>)}
+        <div style={{padding:'14px 10px 4px'}}><span className="section-label">CASES ({cases.length})</span></div>
+        {cases.length===0&&<p style={{color:'var(--tx-3)',fontSize:11.5,padding:'12px 10px',textAlign:'center'}}>No cases yet</p>}
+        {cases.map(c=><div key={c.bridgeRoomId} onClick={()=>openCase(c.bridgeRoomId)}
+          style={{padding:'8px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
+            background:activeCase===c.bridgeRoomId?'var(--bg-4)':'transparent',
+            borderLeft:activeCase===c.bridgeRoomId?'2px solid var(--blue)':'2px solid transparent',transition:'all .15s'}}
+          onMouseEnter={e=>{if(activeCase!==c.bridgeRoomId)e.currentTarget.style.background='var(--bg-3)'}}
+          onMouseLeave={e=>{if(activeCase!==c.bridgeRoomId)e.currentTarget.style.background='transparent'}}>
+          <span style={{fontSize:12,fontWeight:activeCase===c.bridgeRoomId?600:400,display:'block'}}>{c.sharedData.full_name||c.clientUserId}</span>
+          <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{Object.keys(c.sharedData).length} fields</span>
+        </div>)}
+        <button onClick={()=>loadCases()} className="b-gho b-xs" style={{width:'calc(100% - 12px)',margin:'8px 6px'}}><I n="search" s={10}/>Refresh Cases</button>
+      </div>
+      <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-0)'}}>
+        <button onClick={onLogout} className="b-gho b-sm" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I n="logout" s={12}/>Logout</button>
+      </div>
+    </div>
+
+    {/* Main content */}
+    <div style={{flex:1,overflow:'auto',padding:24}}>
+
+      {/* ORG DASHBOARD */}
+      {view==='dashboard'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>{orgMeta.name||'Organization'} Dashboard</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Org-level case management. Staff see cases assigned to them; admins see all cases.</p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10,marginBottom:24}}>
+          {[{l:'Active Cases',v:cases.length,c:'blue',i:'briefcase'},{l:'Staff',v:staff.length,c:'teal',i:'users'},
+            {l:'Org Type',v:ORG_TYPE_LABELS[orgMeta.type]||'—',c:'gold',i:'home'},{l:'Encryption',v:'Dual-layer',c:'green',i:'lock'}
+          ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
+              <span style={{fontSize:16,fontWeight:700}}>{s.v}</span>
+              <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
+        </div>
+        {cases.length>0&&<><span className="section-label">ALL CASES</span>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10,marginTop:6}}>
+            {cases.map(c=><div key={c.bridgeRoomId} className="card-h" onClick={()=>openCase(c.bridgeRoomId)}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                <span style={{fontSize:14,fontWeight:600}}>{c.sharedData.full_name||'Anonymous Client'}</span>
+                <I n="chevR" s={13} c="var(--tx-3)"/></div>
+              <div style={{display:'flex',gap:4}}>
+                <span className="tag tag-green"><I n="lock" s={9}/>E2EE</span>
+                <span className="tag tag-blue">{Object.keys(c.sharedData).length} fields</span></div>
+            </div>)}
+          </div></>}
+      </div>}
+
+      {/* STAFF ROSTER VIEW */}
+      {view==='staff'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
+          <div><h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Staff Roster</h2>
+            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Manage staff membership and roles. Each role determines case access level.</p></div>
+          <button onClick={()=>setInviteModal(true)} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>Invite Staff</button>
+        </div>
+        <div className="card" style={{marginBottom:16}}>
+          <span className="section-label">ROLE DEFINITIONS</span>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:6}}>
+            {ORG_ROLES.map(r=><div key={r} style={{padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span className="tag tag-blue" style={{fontSize:9,marginBottom:4}}>{ORG_ROLE_LABELS[r]}</span>
+              <p style={{fontSize:10.5,color:'var(--tx-2)',marginTop:2}}>
+                {r==='admin'?'Full access. Manage staff, see all cases, configure schema.':
+                 r==='case_manager'?'Assigned cases only. Full read/write on assigned bridges.':
+                 r==='outreach_worker'?'Assigned cases. Record encounters. Limited to own observations.':
+                 r==='intake_coordinator'?'Create new bridges. Run intake assessments. Route to case managers.':
+                 'View aggregate dashboards only. No PII access.'}
+              </p>
+            </div>)}
+          </div>
+        </div>
+        <div className="card">
+          <span className="section-label">CURRENT STAFF ({staff.length})</span>
+          <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:6}}>
+            {staff.map(s=><div key={s.userId} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+              <div>
+                <span style={{fontSize:13,fontWeight:500,display:'block'}}>{s.userId}</span>
+                <span style={{fontSize:10,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>Joined {s.joined?new Date(s.joined).toLocaleDateString():'—'}</span>
+              </div>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <span className={`tag ${s.role==='admin'?'tag-gold':'tag-blue'}`} style={{fontSize:9}}>{ORG_ROLE_LABELS[s.role]}</span>
+                {s.userId!==svc.userId&&<button onClick={()=>handleRemoveStaff(s.userId)} className="b-gho b-xs" style={{color:'var(--red)'}}><I n="trash" s={11}/></button>}
+              </div>
+            </div>)}
+          </div>
+        </div>
+      </div>}
+
+      {/* ORG CASE VIEW */}
+      {view==='case'&&activeCaseData&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+        <button onClick={()=>{setView('dashboard');setActiveCase(null)}} className="b-gho b-sm" style={{marginBottom:14,display:'flex',alignItems:'center',gap:4}}><I n="back" s={13}/>All Cases</button>
+        <div style={{marginBottom:20}}>
+          <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>{activeCaseData.sharedData.full_name||activeCaseData.clientUserId}</h2>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+            <span className="tag tag-green"><I n="lock" s={9}/>E2EE</span>
+            <span className="tag tag-blue">{orgMeta.name}</span>
+            <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>Client-owned bridge</span></div>
+        </div>
+        <div className="card" style={{marginBottom:16}}>
+          <span className="section-label">SHARED DATA — CLIENT CONTROLLED</span>
+          {FIELD_CATEGORIES.map(cat=>{const fields=VAULT_FIELDS.filter(f=>f.category===cat&&activeCaseData.sharedData[f.key]);
+            if(!fields.length) return null;
+            return <div key={cat} style={{marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                <span style={{color:`var(--${CAT_COLORS[cat]})`}}><I n={CAT_ICONS[cat]} s={12}/></span>
+                <span style={{fontSize:10.5,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.05em'}}>{CAT_LABELS[cat].toUpperCase()}</span></div>
+              {fields.map(f=><div key={f.key} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+                <span style={{fontSize:12,color:'var(--tx-1)'}}>{f.label}</span>
+                <span style={{fontSize:12.5,fontWeight:500}}>{activeCaseData.sharedData[f.key]}</span>
+              </div>)}
+            </div>;})}
+        </div>
+        {/* Provider observations */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <span className="section-label" style={{marginBottom:0}}>PROVIDER OBSERVATIONS (MEANT)</span>
+            <span className="tag tag-gold">EPISTEMIC: MEANT</span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:6,marginBottom:12}}>
+            {DEFAULT_PROVIDER_PROMPTS.map(p=><div key={p.id} className="card-h" onClick={()=>{setProvObsModal(p);setProvObsValue('');setProvObsNotes('')}}
+              style={{padding:8}}>
+              <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'purple'}`} style={{fontSize:8,marginBottom:3}}>{p.category}</span>
+              <span style={{fontSize:11,fontWeight:600,display:'block'}}>{p.question}</span>
+            </div>)}
+          </div>
+          {provObservations.length>0&&<div style={{display:'flex',flexDirection:'column',gap:3}}>
+            {[...provObservations].reverse().map((obs,i)=>{
+              const prompt = DEFAULT_PROVIDER_PROMPTS.find(p=>p.id===obs.prompt_id||p.key===obs.prompt_key);
+              const optLabel = prompt?.options?.find(o=>o.v===obs.value)?.l || obs.value;
+              return <div key={obs.id||i} style={{padding:'6px 10px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:6}}>
+                <span className="tag tag-gold" style={{fontSize:8}}>MEANT</span>
+                <span style={{fontSize:11,flex:1}}>{prompt?.question}: <strong>{optLabel}</strong></span>
+                <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{obs.ts?new Date(obs.ts).toLocaleTimeString():''}</span>
+              </div>;
+            })}
+          </div>}
+        </div>
+        {/* Messages */}
+        <div className="card">
+          <span className="section-label">BRIDGE MESSAGES</span>
+          <div style={{maxHeight:200,overflow:'auto',marginBottom:10}}>
+            {messages.length===0?<p style={{color:'var(--tx-3)',fontSize:12,padding:'10px 0',textAlign:'center'}}>No messages</p>
+            :messages.map((msg,i)=><div key={msg.id||i} style={{padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                <span style={{fontFamily:'var(--mono)',fontSize:10,color:msg.sender===svc.userId?'var(--blue)':'var(--teal)'}}>{msg.sender===svc.userId?'You (Org)':'Client'}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--tx-3)'}}>{msg.ts?new Date(msg.ts).toLocaleString():''}</span></div>
+              <p style={{fontSize:12,color:'var(--tx-1)'}}>{msg.content?.body}</p>
+            </div>)}
+          </div>
+          <div style={{display:'flex',gap:6}}>
+            <input value={msgText} onChange={e=>setMsgText(e.target.value)} placeholder="Message (E2EE)..." onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey)handleSendMsg()}} style={{flex:1}}/>
+            <button onClick={handleSendMsg} className="b-pri"><I n="send" s={13}/></button>
+          </div>
+        </div>
+      </div>}
+
+      {/* SCHEMA & AUTHORITIES VIEW */}
+      {view==='schema'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:6}}>Schema & Authorities</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Every definition traces to an external authority. A dataset cannot be its own dictionary.</p>
+
+        {/* Authorities */}
+        <div className="card" style={{marginBottom:16}}>
+          <span className="section-label">DEFINITION AUTHORITIES ({DEFAULT_AUTHORITIES.length})</span>
+          <p style={{fontSize:11,color:'var(--tx-2)',marginBottom:10}}>External sources that ground schema definitions. Meaning must come from outside the system that uses it.</p>
+          {DEFAULT_AUTHORITIES.map(a=><div key={a.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <span className="tag tag-purple" style={{fontSize:9}}>{a.authority_type}</span>
+              <span style={{fontSize:13,fontWeight:600}}>{a.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>{a.authority_org} {a.version}</span>
+            </div>
+            <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)',display:'block',marginBottom:4,wordBreak:'break-all'}}>{a.uri}</span>
+            {a.terms.length>0&&<div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {a.terms.map(t=><span key={t.id} style={{fontSize:9.5,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>{t.label}</span>)}
+            </div>}
+          </div>)}
+        </div>
+
+        {/* Client prompts */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <span className="section-label" style={{marginBottom:0}}>CLIENT OBSERVATION PROMPTS ({DEFAULT_PROMPTS.length})</span>
+            <span className="tag tag-teal" style={{fontSize:8}}>AUDIENCE: CLIENT</span>
+            <span className="tag tag-teal" style={{fontSize:8}}>EPISTEMIC: GIVEN</span>
+          </div>
+          {DEFAULT_PROMPTS.map(p=><div key={p.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'blue'}`}>{p.category}</span>
+              <span style={{fontSize:13,fontWeight:600}}>{p.question}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{p.version||1}</span>
+            </div>
+            {p.eo?.trace&&<div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:4,padding:'3px 8px',background:'var(--purple-dim)',borderRadius:'var(--r)',display:'inline-block'}}>{p.eo.trace}</div>}
+            <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
+              {p.options.map(o=><span key={o.v} style={{fontSize:9.5,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>
+                {o.l}{o.eo?` (${o.eo.op})`:''}
+              </span>)}
+            </div>
+          </div>)}
+        </div>
+
+        {/* Provider prompts */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <span className="section-label" style={{marginBottom:0}}>PROVIDER OBSERVATION PROMPTS ({DEFAULT_PROVIDER_PROMPTS.length})</span>
+            <span className="tag tag-gold" style={{fontSize:8}}>AUDIENCE: PROVIDER</span>
+            <span className="tag tag-gold" style={{fontSize:8}}>EPISTEMIC: MEANT</span>
+          </div>
+          {DEFAULT_PROVIDER_PROMPTS.map(p=><div key={p.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <span className={`tag tag-${OBS_CAT_COLORS[p.category]||'purple'}`}>{p.category}</span>
+              <span style={{fontSize:13,fontWeight:600}}>{p.question}</span>
+              <span className="tag tag-gold" style={{fontSize:8}}>v{p.version||1}</span>
+            </div>
+            {p.eo?.trace&&<div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:4,padding:'3px 8px',background:'var(--purple-dim)',borderRadius:'var(--r)',display:'inline-block'}}>{p.eo.trace}</div>}
+            {p.type==='numeric'&&p.thresholds&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
+              {p.thresholds.map((t,i)=><span key={i} style={{fontSize:9.5,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>{t.v}+ {t.l}</span>)}
+            </div>}
+            {p.options&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
+              {p.options.map(o=><span key={o.v} style={{fontSize:9.5,padding:'2px 8px',background:'var(--bg-3)',borderRadius:10,color:'var(--tx-1)'}}>{o.l}</span>)}
+            </div>}
+          </div>)}
+        </div>
+
+        {/* Classification definitions with EO chains */}
+        <div className="card" style={{marginBottom:16}}>
+          <span className="section-label">CLASSIFICATION DEFINITIONS ({DEFAULT_DEFINITIONS.length})</span>
+          <p style={{fontSize:11,color:'var(--tx-2)',marginBottom:10}}>How GIVEN observations become MEANT classifications. Each rule shows the epistemic crossing.</p>
+          {DEFAULT_DEFINITIONS.map(d=><div key={d.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <span style={{fontSize:14,fontWeight:600}}>{d.name}</span>
+              <span className="tag tag-blue" style={{fontSize:8}}>v{d.version||1}</span>
+            </div>
+            {d.eo?.trace&&<div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--purple)',marginBottom:6,padding:'3px 8px',background:'var(--purple-dim)',borderRadius:'var(--r)',display:'inline-block'}}>{d.eo.trace}</div>}
+            {d.rules.map((r,i)=><div key={i} style={{padding:'6px 0',display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <span className="tag tag-gold" style={{fontSize:9}}>{r.category}</span>
+                <span style={{color:'var(--tx-1)',fontSize:11.5}}>{r.criteria}</span>
+                {r.hud!=null&&<span style={{color:'var(--tx-3)',fontFamily:'var(--mono)',fontSize:10}}>HUD {r.hud}</span>}
+              </div>
+              {r.eo?.chain&&<div style={{marginLeft:12,marginTop:2}}>
+                {r.eo.chain.map((step,si)=><span key={si} style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--tx-2)',display:'block'}}>
+                  {step.op}: {step.target?.local||step.target?.source||step.target?.entity} → {step.target?.external||step.target?.destination||''}
+                  {step.context?.epistemic_crossing&&<span style={{color:'var(--orange)',marginLeft:6}}>[{step.context.epistemic_crossing}]</span>}
+                </span>)}
+              </div>}
+            </div>)}
+          </div>)}
+        </div>
+
+        {/* Transforms */}
+        <div className="card">
+          <span className="section-label">ANONYMIZATION TRANSFORMS</span>
+          {Object.entries(DEFAULT_TRANSFORMS).map(([k,t])=><div key={k} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+            <span style={{fontSize:12.5,fontWeight:500}}>{k}</span>
+            <span className={`tag ${t.method==='block'?'tag-red':'tag-teal'}`} style={{fontSize:9}}>{t.method}</span>
+          </div>)}
+        </div>
+      </div>}
+
+      {/* NETWORK VIEW */}
+      {view==='network'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Network</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:20}}>Organization-level network membership. Schema propagation flows from network → org → staff → clients.</p>
+        {!networkRoom?<div className="card" style={{textAlign:'center',padding:'30px',borderStyle:'dashed'}}><I n="globe" s={32}/><p style={{color:'var(--tx-2)',marginTop:8}}>Not part of a network yet. Network membership is organizational.</p></div>
+        :<div className="card"><span className="tag tag-green"><I n="globe" s={10}/>CONNECTED</span>
+          <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)',display:'block',marginTop:4}}>{networkRoom}</span></div>}
+      </div>}
+
+      {/* ACTIVITY */}
+      {view==='activity'&&<ActivityStream session={session}/>}
+    </div>
+
+    {/* INVITE STAFF MODAL */}
+    <Modal open={inviteModal} onClose={()=>setInviteModal(false)} title="Invite Staff Member">
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>Invite a staff member to your organization. They'll receive access to cases based on their assigned role.</p>
+      <div style={{marginBottom:14}}><span className="section-label">MATRIX ID</span>
+        <input value={inviteUserId} onChange={e=>setInviteUserId(e.target.value)} placeholder="@staff:matrix.org"/></div>
+      <div style={{marginBottom:14}}><span className="section-label">ROLE</span>
+        <select value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>
+          {ORG_ROLES.map(r=><option key={r} value={r}>{ORG_ROLE_LABELS[r]}</option>)}
+        </select></div>
+      <div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:14,fontSize:11.5,color:'var(--tx-1)'}}>
+        Role determines which cases and data the staff member can access. Admins see everything; outreach workers see only assigned cases.
+      </div>
+      <button onClick={handleInviteStaff} className="b-pri" style={{width:'100%'}}>Send Invite</button>
+    </Modal>
+
+    {/* PROVIDER OBSERVATION MODAL */}
+    <Modal open={!!provObsModal} onClose={()=>setProvObsModal(null)} title={provObsModal?.question||'Record Observation'} w={500}>
+      {provObsModal&&<>
+        {provObsModal.eo?.trace&&<div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'8px 12px',marginBottom:14}}>
+          <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--purple)'}}>{provObsModal.eo.trace}</span>
+        </div>}
+        <div style={{marginBottom:14}}>
+          <span className="section-label">RESPONSE</span>
+          {provObsModal.type==='numeric'?
+            <div>
+              <input type="number" value={provObsValue} onChange={e=>setProvObsValue(e.target.value)}
+                placeholder={`${provObsModal.range?.min||0} — ${provObsModal.range?.max||100}`}
+                min={provObsModal.range?.min} max={provObsModal.range?.max}/>
+              {provObsModal.thresholds&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
+                {provObsModal.thresholds.map((t,i)=><span key={i} style={{fontSize:9.5,padding:'2px 8px',
+                  background:provObsValue>=t.v&&(i===provObsModal.thresholds.length-1||provObsValue<provObsModal.thresholds[i+1]?.v)?'var(--gold-dim)':'var(--bg-3)',
+                  borderRadius:10,color:provObsValue>=t.v&&(i===provObsModal.thresholds.length-1||provObsValue<provObsModal.thresholds[i+1]?.v)?'var(--gold)':'var(--tx-2)'}}>
+                  {t.v}+ {t.l}</span>)}
+              </div>}
+            </div>
+          :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {provObsModal.options?.map(o=><div key={o.v} onClick={()=>setProvObsValue(o.v)}
+              style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',
+                border:`1px solid ${provObsValue===o.v?'var(--gold)':'var(--border-1)'}`,
+                background:provObsValue===o.v?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+              <span style={{fontSize:12.5,color:provObsValue===o.v?'var(--gold)':'var(--tx-1)'}}>{o.l}</span>
+            </div>)}
+          </div>}
+        </div>
+        <div style={{marginBottom:14}}>
+          <span className="section-label">CLINICAL NOTES (OPTIONAL)</span>
+          <textarea value={provObsNotes} onChange={e=>setProvObsNotes(e.target.value)} placeholder="Additional clinical context..." style={{minHeight:50}}/>
+        </div>
+        <button onClick={handleProviderObservation} className="b-pri" disabled={!provObsValue} style={{width:'100%'}}>Record Observation</button>
+      </>}
+    </Modal>
   </div>;
 };
 
@@ -1813,6 +2892,8 @@ const App = () => {
   return <>
     {accountType === 'client' ?
       <ClientApp session={session} onLogout={handleLogout} showToast={showToast}/> :
+     accountType === 'organization' ?
+      <OrgApp session={session} onLogout={handleLogout} showToast={showToast}/> :
       <ProviderApp session={session} onLogout={handleLogout} showToast={showToast}/>
     }
     {toast && <Toast key={toast.k} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
