@@ -984,18 +984,23 @@ const LoginScreen = ({onLogin}) => {
   const [hs,setHs] = useState('matrix.org'); const [user,setUser] = useState(''); const [pass,setPass] = useState('');
   const [loading,setLoading] = useState(false); const [err,setErr] = useState('');
 
+  // Extract host server from username if present (e.g. @user:matrix.org -> matrix.org)
+  const userHost = user.includes(':') ? user.split(':').slice(1).join(':') : '';
+  const effectiveHs = userHost || hs;
+  const hideHs = !!userHost;
+
   const go = async (e) => {
     e.preventDefault(); setLoading(true); setErr('');
     try {
       if (mode === 'register') {
-        const baseUrl = hs.startsWith('http') ? hs : `https://${hs}`;
+        const baseUrl = effectiveHs.startsWith('http') ? effectiveHs : `https://${effectiveHs}`;
         const resp = await fetch(`${baseUrl}/_matrix/client/v3/register`, {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ username: user.replace(/^@/,'').split(':')[0], password: pass, auth: { type: 'm.login.dummy' } })
         });
         if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error || `Registration failed (${resp.status}). Try logging in if account exists.`); }
       }
-      const s = await svc.login(hs, user, pass); onLogin(s);
+      const s = await svc.login(effectiveHs, user, pass); onLogin(s);
     }
     catch (e) { setErr(e.message); }
     setLoading(false);
@@ -1024,9 +1029,9 @@ const LoginScreen = ({onLogin}) => {
         </div>}
 
         <form onSubmit={go}>
-          <div style={{marginBottom:14}}><span className="section-label">HOMESERVER</span><input value={hs} onChange={e=>setHs(e.target.value)} placeholder="matrix.org"/></div>
           <div style={{marginBottom:14}}><span className="section-label">USERNAME</span><input value={user} onChange={e=>setUser(e.target.value)} placeholder={mode==='register'?'choose a username':'@you:matrix.org'} autoComplete="username"/></div>
-          <div style={{marginBottom:24}}><span className="section-label">PASSWORD</span><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" autoComplete={mode==='register'?'new-password':'current-password'}/></div>
+          <div style={{marginBottom:14}}><span className="section-label">PASSWORD</span><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" autoComplete={mode==='register'?'new-password':'current-password'}/></div>
+          {!hideHs&&<div style={{marginBottom:14}}><span className="section-label">HOMESERVER</span><input value={hs} onChange={e=>setHs(e.target.value)} placeholder="matrix.org"/></div>}
           {err&&<div style={{background:'var(--red-dim)',border:'1px solid rgba(232,93,93,.2)',borderRadius:'var(--r)',padding:'9px 14px',fontSize:12.5,color:'var(--red)',marginBottom:16}}>{err}</div>}
           <button type="submit" className="b-pri" disabled={loading} style={{width:'100%',padding:12,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
             {loading?<Spin s={16}/>:<I n="lock" s={16}/>} {loading?'Connecting...':(mode==='register'?'Create Account & Connect':'Connect')}
