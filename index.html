@@ -378,6 +378,371 @@ const Toast = ({msg, type='info', onClose}) => {
   return <div className="anim-up" style={{position:'fixed',bottom:20,right:20,zIndex:9999,background:'var(--bg-2)',border:`1px solid ${c}30`,borderLeft:`3px solid ${c}`,borderRadius:'var(--r)',padding:'11px 18px',fontSize:12.5,boxShadow:'0 8px 32px rgba(0,0,0,.5)',maxWidth:400}}>{msg}</div>;
 };
 
+/* ═══════════════════ ACTIVITY STREAM (DEV) ═══════════════════ */
+const OP_COLORS = { INS:'green', ALT:'blue', DES:'gold', SEG:'teal', NUL:'red', REC:'orange', CON:'blue', SUP:'gold' };
+const ROOM_COLORS = { vault:'teal', bridge:'blue', roster:'gold', unknown:'orange' };
+const OP_LEGEND = [
+  {op:'INS', label:'Insert', desc:'New data enters the system'},
+  {op:'ALT', label:'Alter', desc:'Existing data is modified'},
+  {op:'DES', label:'Describe', desc:'Interpretation or assessment'},
+  {op:'SEG', label:'Segment', desc:'Data shared or partitioned'},
+  {op:'NUL', label:'Nullify', desc:'Data revoked or tombstoned'},
+  {op:'REC', label:'Record Policy', desc:'Rule or consent recorded'},
+  {op:'CON', label:'Connect', desc:'Entities linked together'},
+  {op:'SUP', label:'Supersede', desc:'New version replaces old'},
+];
+
+const classifyRoom = async (roomId) => {
+  const identity = await svc.getState(roomId, EVT.IDENTITY);
+  if (identity) {
+    if (identity.type === 'client') return {type:'vault', label:'Client Vault', color:'teal'};
+    if (identity.type === 'provider') return {type:'roster', label:'Provider Roster', color:'gold'};
+  }
+  const meta = await svc.getState(roomId, EVT.BRIDGE_META);
+  if (meta) return {type:'bridge', label:'Bridge Room', color:'blue'};
+  return {type:'unknown', label:'Unknown', color:'orange'};
+};
+
+const classifyEvent = (ev, roomInfo) => {
+  const type = ev.getType();
+  const content = ev.getContent();
+  if (ev.isState && ev.isState()) {
+    switch (type) {
+      case EVT.IDENTITY:    return {op:'INS', epistemic:'GIVEN', label:'Identity Declaration', desc:`Type: ${content.type}`};
+      case EVT.VAULT_DATA:  return {op:'ALT', epistemic:'GIVEN', label:'Vault Data Update', desc:`${Object.keys(content.fields||{}).length} fields`};
+      case EVT.VAULT_INDEX: return {op:'SEG', epistemic:'GIVEN', label:'Provider Index', desc:`${(content.providers||[]).length} providers`};
+      case EVT.BRIDGE_META: return {op:'CON', epistemic:'MEANT', label:'Bridge Connection', desc:`${content.status} — ${content.client?.slice(0,16)} ↔ ${content.provider?.slice(0,16)}`};
+      case EVT.BRIDGE_REFS: return {op:'SEG', epistemic:'MEANT', label:'Field Refs Update', desc:`${Object.keys(content.fields||{}).length} encrypted refs${content.revoked?' (REVOKED)':''}`};
+      case EVT.ROSTER:      return {op:'ALT', epistemic:'MEANT', label:'Roster Update', desc:`${(content.cases||[]).length} cases`};
+      case 'm.room.encryption': return {op:'REC', epistemic:'GIVEN', label:'Encryption Policy', desc:content.algorithm};
+      case 'm.room.tombstone':  return {op:'NUL', epistemic:'MEANT', label:'Room Tombstoned', desc:`→ ${content.replacement_room?.slice(0,24)}…`};
+      case 'm.room.create':     return {op:'INS', epistemic:'GIVEN', label:'Room Created', desc:'New room initialized'};
+      case 'm.room.name':       return {op:'ALT', epistemic:'MEANT', label:'Room Name Set', desc:content.name?.slice(0,40)};
+      case 'm.room.topic':      return {op:'ALT', epistemic:'MEANT', label:'Room Topic Set', desc:content.topic?.slice(0,40)};
+      case 'm.room.member': {
+        const ms = content.membership;
+        if (ms==='join')   return {op:'CON', epistemic:'MEANT', label:'Member Joined', desc:ev.getStateKey()};
+        if (ms==='invite') return {op:'CON', epistemic:'MEANT', label:'Member Invited', desc:ev.getStateKey()};
+        if (ms==='leave')  return {op:'NUL', epistemic:'MEANT', label:'Member Left/Kicked', desc:ev.getStateKey()};
+        return {op:'ALT', epistemic:'MEANT', label:`Membership: ${ms}`, desc:ev.getStateKey()};
+      }
+      default: return {op:'INS', epistemic:'GIVEN', label:type, desc:'State event'};
+    }
+  }
+  if (type === 'm.room.message') {
+    const cvType = content[`${NS}.type`];
+    if (cvType==='request') return {op:'DES', epistemic:'MEANT', label:'Info Request', desc:content.body?.slice(0,60)};
+    if (cvType==='note')    return {op:'INS', epistemic: roomInfo.type==='vault'?'GIVEN':'MEANT', label:'Bridge Note', desc:content.body?.slice(0,60)};
+    return {op:'INS', epistemic:'GIVEN', label:'Message', desc:content.body?.slice(0,60)};
+  }
+  return {op:'INS', epistemic:'GIVEN', label:type, desc:'Timeline event'};
+};
+
+const ActivityStream = ({session, accountType}) => {
+  const [events, setEvents] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState({roomType:'all', operator:'all', epistemic:'all'});
+  const [expanded, setExpanded] = useState(new Set());
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const roomIds = await svc.getJoinedRooms();
+      const allRooms = [];
+      const allEvents = [];
+      for (const rid of roomIds) {
+        const roomInfo = await classifyRoom(rid);
+        allRooms.push({id:rid, ...roomInfo});
+        if (svc.client) {
+          const room = svc.client.getRoom(rid);
+          if (room) {
+            const timeline = room.getLiveTimeline().getEvents();
+            for (const ev of timeline) {
+              const cls = classifyEvent(ev, roomInfo);
+              allEvents.push({
+                id: ev.getId(), roomId: rid, roomInfo, sender: ev.getSender(),
+                ts: ev.getTs(), type: ev.getType(),
+                stateKey: (ev.isState && ev.isState()) ? ev.getStateKey() : null,
+                content: ev.getContent(),
+                isState: ev.isState && ev.isState(),
+                ...cls,
+              });
+            }
+          }
+        }
+      }
+      allEvents.sort((a,b) => b.ts - a.ts);
+      setRooms(allRooms);
+      setEvents(allEvents);
+    } catch (e) { console.error('Activity stream error:', e); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadEvents(); }, []);
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const iv = setInterval(loadEvents, 5000);
+    return () => clearInterval(iv);
+  }, [autoRefresh]);
+
+  const filtered = useMemo(() => events.filter(ev => {
+    if (filter.roomType !== 'all' && ev.roomInfo.type !== filter.roomType) return false;
+    if (filter.operator !== 'all' && ev.op !== filter.operator) return false;
+    if (filter.epistemic !== 'all' && ev.epistemic !== filter.epistemic) return false;
+    return true;
+  }), [events, filter]);
+
+  const stats = useMemo(() => {
+    const s = {total:events.length, byOp:{}, byRoom:{}, given:0, meant:0};
+    events.forEach(ev => {
+      s.byOp[ev.op] = (s.byOp[ev.op]||0)+1;
+      s.byRoom[ev.roomInfo.type] = (s.byRoom[ev.roomInfo.type]||0)+1;
+      if (ev.epistemic==='GIVEN') s.given++; else s.meant++;
+    });
+    return s;
+  }, [events]);
+
+  const toggle = (id) => setExpanded(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  if (loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}><Spin s={28}/></div>;
+
+  return <div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
+    {/* Header */}
+    <div style={{marginBottom:24}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+        <I n="zap" s={20} c="var(--orange)"/>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:24,fontWeight:700,letterSpacing:'-0.02em'}}>Activity Stream</h2>
+        <span className="tag tag-orange">DEV</span>
+      </div>
+      <p style={{color:'var(--tx-1)',fontSize:13}}>
+        Live event stream — EO operations across all rooms. Shows internal event structure, epistemic classification, and room topology.
+      </p>
+    </div>
+
+    {/* Room topology */}
+    <div className="card" style={{marginBottom:16,padding:16}}>
+      <span className="section-label">ROOM TOPOLOGY</span>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:8}}>
+        {rooms.map(r => (
+          <div key={r.id} style={{padding:'8px 12px',borderRadius:'var(--r)',background:`var(--${r.color}-dim)`,border:`1px solid var(--${r.color})20`,display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:`var(--${r.color})`}}/>
+            <div>
+              <span style={{fontSize:11,fontWeight:600,color:`var(--${r.color})`,display:'block'}}>{r.label}</span>
+              <span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--tx-3)'}}>{r.id.slice(0,28)}…</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Flow diagram */}
+      <div style={{marginTop:14,padding:'12px 16px',background:'var(--bg-3)',borderRadius:'var(--r)',fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-2)',lineHeight:1.9,whiteSpace:'pre'}}>
+{`SCHEMA ROOM (MEANT)  →  defines prompts, categories, definitions
+       ↓
+CLIENT VAULT (GIVEN)  →  observations, identity fields, provider index
+       ↓  selective share (SEG, per-field AES-GCM)
+BRIDGE ROOM  (MEANT)  →  encrypted refs, interpretations, messages
+       ↓  anonymized projection (consent-gated)
+METRICS ROOM (MEANT)  →  anonymized observations, demographics, cohort hashes
+
+PROVIDER ROSTER (MEANT)  →  case index, provider-side labels`}
+      </div>
+    </div>
+
+    {/* Stats row */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(130px, 1fr))',gap:10,marginBottom:16}}>
+      {[
+        {l:'TOTAL EVENTS',v:stats.total,c:null},
+        {l:'GIVEN',v:stats.given,c:'teal'},
+        {l:'MEANT',v:stats.meant,c:'gold'},
+        {l:'ROOMS',v:rooms.length,c:null},
+      ].map((s,i) => (
+        <div key={i} className="card" style={{padding:14}}>
+          <span className="section-label">{s.l}</span>
+          <span style={{fontSize:22,fontWeight:700,display:'block',marginTop:2,color:s.c?`var(--${s.c})`:'var(--tx-0)'}}>{s.v}</span>
+        </div>
+      ))}
+    </div>
+
+    {/* Operator breakdown */}
+    <div className="card" style={{marginBottom:16,padding:14}}>
+      <span className="section-label">OPERATOR DISTRIBUTION</span>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+        {Object.entries(stats.byOp).sort((a,b)=>b[1]-a[1]).map(([op,count]) => (
+          <div key={op} style={{padding:'5px 11px',borderRadius:'var(--r)',background:`var(--${OP_COLORS[op]||'blue'}-dim)`,border:`1px solid var(--${OP_COLORS[op]||'blue'})20`,display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontFamily:'var(--mono)',fontSize:11,fontWeight:700,color:`var(--${OP_COLORS[op]||'blue'})`}}>{op}</span>
+            <span style={{fontSize:12,color:'var(--tx-1)'}}>{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Filters */}
+    <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+      <select value={filter.roomType} onChange={e=>setFilter({...filter,roomType:e.target.value})} style={{width:'auto',padding:'6px 10px',fontSize:12}}>
+        <option value="all">All Rooms</option>
+        <option value="vault">Vault</option>
+        <option value="bridge">Bridge</option>
+        <option value="roster">Roster</option>
+        <option value="unknown">Unknown</option>
+      </select>
+      <select value={filter.operator} onChange={e=>setFilter({...filter,operator:e.target.value})} style={{width:'auto',padding:'6px 10px',fontSize:12}}>
+        <option value="all">All Operators</option>
+        {['INS','ALT','DES','SEG','NUL','REC','CON','SUP'].map(op => <option key={op} value={op}>{op}</option>)}
+      </select>
+      <select value={filter.epistemic} onChange={e=>setFilter({...filter,epistemic:e.target.value})} style={{width:'auto',padding:'6px 10px',fontSize:12}}>
+        <option value="all">All Epistemic</option>
+        <option value="GIVEN">GIVEN</option>
+        <option value="MEANT">MEANT</option>
+      </select>
+      <div style={{marginLeft:'auto',display:'flex',gap:8,alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:10,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>AUTO</span>
+          <Toggle on={autoRefresh} onChange={()=>setAutoRefresh(!autoRefresh)}/>
+        </div>
+        <button onClick={loadEvents} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="search" s={11}/>Refresh</button>
+      </div>
+    </div>
+
+    {/* Showing count */}
+    <div style={{fontSize:11,color:'var(--tx-3)',fontFamily:'var(--mono)',marginBottom:10}}>
+      Showing {filtered.length} of {events.length} events
+    </div>
+
+    {/* Event list */}
+    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+      {filtered.length === 0 && (
+        <div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}>
+          <I n="search" s={28}/><p style={{color:'var(--tx-3)',marginTop:10,fontSize:13}}>No events match current filters</p>
+        </div>
+      )}
+      {filtered.map((ev,i) => {
+        const isExpanded = expanded.has(ev.id);
+        const opC = OP_COLORS[ev.op]||'blue';
+        const rmC = ROOM_COLORS[ev.roomInfo.type]||'orange';
+        return <div key={ev.id||i} style={{background:'var(--bg-2)',border:'1px solid var(--border-0)',borderRadius:'var(--r)',overflow:'hidden'}}>
+          <div onClick={()=>toggle(ev.id)} style={{padding:'10px 14px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',transition:'background .15s'}}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{width:9,height:9,borderRadius:'50%',background:`var(--${opC})`,flexShrink:0,boxShadow:`0 0 6px var(--${opC}-dim)`}}/>
+            <span className={`tag tag-${opC}`} style={{fontSize:9.5,minWidth:28,textAlign:'center'}}>{ev.op}</span>
+            <span className={`tag tag-${rmC}`} style={{fontSize:9}}>{ev.roomInfo.type.toUpperCase()}</span>
+            <span className={`tag ${ev.epistemic==='GIVEN'?'tag-teal':'tag-gold'}`} style={{fontSize:9}}>{ev.epistemic}</span>
+            <span style={{fontSize:12,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.label}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)',fontFamily:'var(--mono)',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:0}}>{ev.desc}</span>
+            <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',flexShrink:0}}>{ev.ts?new Date(ev.ts).toLocaleTimeString():''}</span>
+            <I n={isExpanded?'x':'chevR'} s={11} c="var(--tx-3)"/>
+          </div>
+          {isExpanded && (
+            <div className="anim-in" style={{borderTop:'1px solid var(--border-0)',padding:'14px 16px',background:'var(--bg-1)'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                <div>
+                  <span className="section-label">EVENT TYPE</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block',wordBreak:'break-all'}}>{ev.type}</span>
+                </div>
+                <div>
+                  <span className="section-label">SENDER</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block',wordBreak:'break-all'}}>{ev.sender}</span>
+                </div>
+                <div>
+                  <span className="section-label">ROOM ID</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block',wordBreak:'break-all'}}>{ev.roomId}</span>
+                </div>
+                <div>
+                  <span className="section-label">FULL TIMESTAMP</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block'}}>{ev.ts?new Date(ev.ts).toISOString():'—'}</span>
+                </div>
+                {ev.stateKey !== null && <div>
+                  <span className="section-label">STATE KEY</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block'}}>{ev.stateKey || '(empty)'}</span>
+                </div>}
+                <div>
+                  <span className="section-label">EVENT ID</span>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',display:'block',wordBreak:'break-all'}}>{ev.id}</span>
+                </div>
+              </div>
+              <span className="section-label">RAW CONTENT</span>
+              <pre style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--tx-1)',background:'var(--bg-0)',border:'1px solid var(--border-0)',borderRadius:'var(--r)',padding:12,overflow:'auto',maxHeight:280,lineHeight:1.5,whiteSpace:'pre-wrap',wordBreak:'break-all',marginTop:4}}>
+{JSON.stringify(ev.content, null, 2)}
+              </pre>
+              {/* EO classification box */}
+              <div style={{marginTop:12,padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+                <span className="section-label" style={{marginBottom:8}}>EO MODEL CLASSIFICATION</span>
+                <div style={{display:'flex',gap:20,flexWrap:'wrap',marginTop:6}}>
+                  <div>
+                    <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block'}}>OPERATOR</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:700,color:`var(--${opC})`}}>{ev.op}</span>
+                  </div>
+                  <div>
+                    <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block'}}>EPISTEMIC</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:700,color:ev.epistemic==='GIVEN'?'var(--teal)':'var(--gold)'}}>{ev.epistemic}</span>
+                  </div>
+                  <div>
+                    <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block'}}>FRAME</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:700,color:`var(--${rmC})`}}>{ev.roomInfo.type.toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <span style={{fontSize:9,color:'var(--tx-3)',fontFamily:'var(--mono)',display:'block'}}>STATE?</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:700}}>{ev.isState?'YES':'NO'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>;
+      })}
+    </div>
+
+    {/* Legend */}
+    <div className="card" style={{marginTop:20,padding:16}}>
+      <span className="section-label">EO OPERATOR LEGEND</span>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))',gap:6,marginTop:8}}>
+        {OP_LEGEND.map(item => (
+          <div key={item.op} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'5px 0'}}>
+            <span className={`tag tag-${OP_COLORS[item.op]}`} style={{fontSize:10,minWidth:30,textAlign:'center',flexShrink:0}}>{item.op}</span>
+            <div>
+              <span style={{fontSize:12,fontWeight:600,display:'block'}}>{item.label}</span>
+              <span style={{fontSize:10.5,color:'var(--tx-2)'}}>{item.desc}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:14,borderTop:'1px solid var(--border-0)',paddingTop:12}}>
+        <span className="section-label">EPISTEMIC TYPES</span>
+        <div style={{display:'flex',gap:24,marginTop:8,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span className="tag tag-teal">GIVEN</span>
+            <span style={{fontSize:11.5,color:'var(--tx-1)'}}>Observation — what was seen, reported, or decided by the data owner</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span className="tag tag-gold">MEANT</span>
+            <span style={{fontSize:11.5,color:'var(--tx-1)'}}>Interpretation — derived, institutional, always traceable to GIVEN</span>
+          </div>
+        </div>
+      </div>
+      <div style={{marginTop:14,borderTop:'1px solid var(--border-0)',paddingTop:12}}>
+        <span className="section-label">FRAME TYPES (ROOM TOPOLOGY)</span>
+        <div style={{display:'flex',gap:20,marginTop:8,flexWrap:'wrap'}}>
+          {[
+            {type:'VAULT',color:'teal',desc:'Client-owned, private, observations'},
+            {type:'BRIDGE',color:'blue',desc:'Client + provider, shared fields'},
+            {type:'ROSTER',color:'gold',desc:'Provider-only case index'},
+          ].map(f => (
+            <div key={f.type} style={{display:'flex',alignItems:'center',gap:8}}>
+              <span className={`tag tag-${f.color}`}>{f.type}</span>
+              <span style={{fontSize:11.5,color:'var(--tx-1)'}}>{f.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>;
+};
+
 /* ═══════════════════ LOGIN ═══════════════════ */
 const LoginScreen = ({onLogin}) => {
   const [hs, setHs] = useState('matrix.org');
@@ -688,6 +1053,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
         {[
           {id:'vault', icon:'folder', label:'My Vault'},
           {id:'providers', icon:'users', label:'My Providers'},
+          {id:'activity', icon:'zap', label:'Activity Stream'},
         ].map(item => (
           <div key={item.id} onClick={()=>{setView(item.id);setActiveBridge(null)}}
             style={{padding:'11px 12px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:2,
@@ -907,6 +1273,11 @@ const ClientApp = ({session, onLogout, showToast}) => {
           </div>
         </div>
       )}
+
+      {/* ACTIVITY STREAM VIEW */}
+      {view === 'activity' && !activeBridge && (
+        <ActivityStream session={session} accountType="client"/>
+      )}
     </div>
 
     {/* EDIT VAULT MODAL */}
@@ -974,6 +1345,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [rosterRoom, setRosterRoom] = useState(null);
   const [cases, setCases] = useState([]); // [{bridgeRoomId, clientUserId, sharedData:{}, meta:{}}]
   const [activeCase, setActiveCase] = useState(null);
+  const [showActivity, setShowActivity] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
@@ -1047,6 +1419,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   };
 
   const openCase = (bridgeRoomId) => {
+    setShowActivity(false);
     setActiveCase(bridgeRoomId);
     loadMessages(bridgeRoomId);
   };
@@ -1073,7 +1446,26 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 8px'}}>
-        <div style={{padding:'8px 12px 6px'}}><span className="section-label">CASES ({cases.length})</span></div>
+        {[
+          {id:'dashboard', icon:'briefcase', label:'Dashboard'},
+          {id:'activity', icon:'zap', label:'Activity Stream'},
+        ].map(item => (
+          <div key={item.id} onClick={()=>{
+            if(item.id==='dashboard'){setShowActivity(false);setActiveCase(null);}
+            if(item.id==='activity'){setShowActivity(true);setActiveCase(null);}
+          }}
+            style={{padding:'11px 12px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:2,
+              background:(item.id==='dashboard'&&!showActivity&&!activeCase)||(item.id==='activity'&&showActivity)?'var(--bg-4)':'transparent',
+              borderLeft:(item.id==='dashboard'&&!showActivity&&!activeCase)||(item.id==='activity'&&showActivity)?'2px solid var(--gold)':'2px solid transparent',
+              display:'flex',alignItems:'center',gap:10,transition:'all .15s',
+              color:(item.id==='dashboard'&&!showActivity&&!activeCase)||(item.id==='activity'&&showActivity)?'var(--tx-0)':'var(--tx-1)'}}
+            onMouseEnter={e=>{const isActive=(item.id==='dashboard'&&!showActivity&&!activeCase)||(item.id==='activity'&&showActivity);if(!isActive)e.currentTarget.style.background='var(--bg-3)'}}
+            onMouseLeave={e=>{const isActive=(item.id==='dashboard'&&!showActivity&&!activeCase)||(item.id==='activity'&&showActivity);if(!isActive)e.currentTarget.style.background='transparent'}}>
+            <I n={item.icon} s={15}/><span style={{fontSize:13,fontWeight:((item.id==='dashboard'&&!showActivity)||(item.id==='activity'&&showActivity))?600:400}}>{item.label}</span>
+          </div>
+        ))}
+
+        <div style={{padding:'16px 12px 6px'}}><span className="section-label">CASES ({cases.length})</span></div>
         {cases.length === 0 && <p style={{color:'var(--tx-3)',fontSize:12,padding:'16px 12px',textAlign:'center'}}>No clients have shared with you yet</p>}
         {cases.map((c,i) => (
           <div key={c.bridgeRoomId} onClick={()=>openCase(c.bridgeRoomId)} className="anim-sl"
@@ -1102,7 +1494,9 @@ const ProviderApp = ({session, onLogout, showToast}) => {
 
     {/* Main */}
     <div style={{flex:1,overflow:'auto',padding:28}}>
-      {!activeCase ? (
+      {showActivity ? (
+        <ActivityStream session={session} accountType="provider"/>
+      ) : !activeCase ? (
         <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
           <h2 style={{fontFamily:'var(--serif)',fontSize:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:6}}>Provider Dashboard</h2>
           <p style={{color:'var(--tx-1)',fontSize:13,marginBottom:28}}>You can only see data that clients have explicitly shared with you. Each case is a separate encrypted bridge room.</p>
