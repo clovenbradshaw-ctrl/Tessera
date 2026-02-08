@@ -420,6 +420,67 @@ class KhoraService {
     } catch { return []; }
   }
 
+  // Batch-fetch all Khora state across joined rooms in a single request.
+  // When the SDK is available, reads local sync state (no HTTP calls).
+  // When using the API fallback, uses /sync with a tight filter — one request
+  // instead of 2*N individual getState calls that produce 404s for non-Khora rooms.
+  // Returns: { [roomId]: { [eventType]: content } }
+  async scanRooms(extraTypes = []) {
+    const types = [EVT.IDENTITY, EVT.BRIDGE_META, EVT.BRIDGE_REFS, ...extraTypes];
+    if (this.client) {
+      const result = {};
+      for (const room of this.client.getRooms()) {
+        const state = {};
+        for (const type of types) {
+          const ev = room.currentState.getStateEvents(type, '');
+          if (ev) state[type] = ev.getContent();
+        }
+        if (Object.keys(state).length > 0) result[room.roomId] = state;
+      }
+      return result;
+    }
+    // Fallback: single /sync with filter — avoids per-room 404 spam
+    const filter = JSON.stringify({
+      room: {
+        state: { types },
+        timeline: { limit: 0 },
+        ephemeral: { types: [] }
+      },
+      presence: { types: [] },
+      account_data: { types: [] }
+    });
+    try {
+      const data = await this._api('GET', `/sync?filter=${encodeURIComponent(filter)}&timeout=0`);
+      const result = {};
+      const joined = data?.rooms?.join || {};
+      for (const [roomId, roomData] of Object.entries(joined)) {
+        const events = roomData?.state?.events || [];
+        const state = {};
+        for (const ev of events) {
+          if (ev.state_key === '') state[ev.type] = ev.content;
+        }
+        if (Object.keys(state).length > 0) result[roomId] = state;
+      }
+      return result;
+    } catch (e) {
+      console.warn('scanRooms sync fallback failed, falling back to per-room scan:', e.message);
+      // Last resort: per-room scan (original behavior)
+      const rooms = await this.getJoinedRooms();
+      const result = {};
+      for (const rid of rooms) {
+        try {
+          const allState = await this._api('GET', `/rooms/${encodeURIComponent(rid)}/state`);
+          const state = {};
+          for (const ev of allState) {
+            if (ev.state_key === '' && types.includes(ev.type)) state[ev.type] = ev.content;
+          }
+          if (Object.keys(state).length > 0) result[rid] = state;
+        } catch { /* skip rooms we can't read */ }
+      }
+      return result;
+    }
+  }
+
   async logout() {
     if (this.client) { this.client.stopClient(); try { await this.client.logout(); } catch {} }
     this.client = null; this._token = null; this._userId = null;
@@ -800,8 +861,10 @@ const Toast = ({msg,type='info',onClose}) => {
 const OP_COLORS = {INS:'green',ALT:'blue',DES:'gold',SEG:'teal',NUL:'red',REC:'orange',CON:'blue',SYN:'purple',SUP:'gold'};
 const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',org:'blue',schema:'purple',metrics:'orange',network:'green',unknown:'orange'};
 
-const classifyRoom = async (roomId) => {
-  const id = await svc.getState(roomId, EVT.IDENTITY);
+// Classify a room from pre-scanned state (no HTTP calls) or fallback to getState
+const classifyRoom = async (roomId, scannedState) => {
+  const state = scannedState || {};
+  const id = state[EVT.IDENTITY] || await svc.getState(roomId, EVT.IDENTITY);
   if (id) {
     if (id.account_type==='client') return {type:'vault',label:'Client Vault',color:'teal'};
     if (id.account_type==='provider') return {type:'roster',label:'Provider Roster',color:'gold'};
@@ -810,7 +873,7 @@ const classifyRoom = async (roomId) => {
     if (id.account_type==='metrics') return {type:'metrics',label:'Metrics Room',color:'orange'};
     if (id.account_type==='network') return {type:'network',label:'Network Room',color:'green'};
   }
-  const meta = await svc.getState(roomId, EVT.BRIDGE_META);
+  const meta = state[EVT.BRIDGE_META] || await svc.getState(roomId, EVT.BRIDGE_META);
   if (meta) return {type:'bridge',label:'Bridge Room',color:'blue'};
   return {type:'unknown',label:'Unknown',color:'orange'};
 };
@@ -875,9 +938,12 @@ const ActivityStream = ({session}) => {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const roomIds = await svc.getJoinedRooms(); const allRooms=[]; const allEvents=[];
+      // Single scan: classify all rooms without per-room HTTP calls
+      const scanned = await svc.scanRooms();
+      const roomIds = svc.client ? svc.client.getRooms().map(r=>r.roomId) : Object.keys(scanned);
+      const allRooms=[]; const allEvents=[];
       for (const rid of roomIds) {
-        const roomInfo = await classifyRoom(rid); allRooms.push({id:rid,...roomInfo});
+        const roomInfo = await classifyRoom(rid, scanned[rid]); allRooms.push({id:rid,...roomInfo});
         if (svc.client) {
           const room = svc.client.getRoom(rid);
           if (room) {
@@ -1120,14 +1186,12 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setLoading(true);
     setInitError(null);
     try {
-      const rooms = await svc.getJoinedRooms();
+      const scanned = await svc.scanRooms();
       let vault = null, schema = null;
-      for (const rid of rooms) {
-        try {
-          const id = await svc.getState(rid, EVT.IDENTITY);
-          if (id?.account_type === 'client' && id.owner === svc.userId) vault = rid;
-          if (id?.account_type === 'schema' && id.owner === svc.userId) schema = rid;
-        } catch { /* skip rooms we can't read state from */ }
+      for (const [rid, state] of Object.entries(scanned)) {
+        const id = state[EVT.IDENTITY];
+        if (id?.account_type === 'client' && id.owner === svc.userId) vault = rid;
+        if (id?.account_type === 'schema' && id.owner === svc.userId) schema = rid;
       }
       if (!vault) {
         vault = await svc.createRoom('[Khora Vault]', 'Personal data vault', [
@@ -1744,16 +1808,20 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setLoading(true);
     setInitError(null);
     try {
-      const rooms = await svc.getJoinedRooms();
+      // Single-pass scan: fetch all Khora state across rooms in one request
+      const scanned = await svc.scanRooms();
       let roster=null, metricsR=null, schema=null, network=null;
-      for (const rid of rooms) {
-        try {
-          const id = await svc.getState(rid, EVT.IDENTITY);
-          if (id?.account_type==='provider'&&id.owner===svc.userId) roster=rid;
-          if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
-          if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
-          if (id?.account_type==='network') network=rid;
-        } catch { /* skip rooms we can't read state from */ }
+      const bridgeData = [];
+      for (const [rid, state] of Object.entries(scanned)) {
+        const id = state[EVT.IDENTITY];
+        if (id?.account_type==='provider'&&id.owner===svc.userId) roster=rid;
+        if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
+        if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
+        if (id?.account_type==='network') network=rid;
+        const meta = state[EVT.BRIDGE_META];
+        if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
+          bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+        }
       }
       if (!roster) {
         roster = await svc.createRoom('[Khora Roster]','Provider case index',[
@@ -1784,7 +1852,9 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       }
       setRosterRoom(roster); setMetricsRoom(metricsR); setSchemaRoom(schema);
       if (network) { setNetworkRoom(network); await loadNetworkMembers(network); }
-      await loadCases(rooms); await loadMetrics(metricsR);
+      // Process bridge data collected during scan (no second pass needed)
+      await loadCasesFromScan(bridgeData, metricsR);
+      await loadMetrics(metricsR);
     } catch (e) {
       console.error('Provider init failed:', e);
       setInitError(e.message || 'Failed to initialize provider workspace.');
@@ -1792,30 +1862,35 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setLoading(false);
   };
 
-  const loadCases = async (roomIds) => {
-    const roomList = roomIds || await svc.getJoinedRooms();
+  const loadCasesFromScan = async (bridgeData, mRoom) => {
     const found = [];
-    for (const rid of roomList) {
-      try {
-        const meta = await svc.getState(rid, EVT.BRIDGE_META);
-        if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
-          const refsData = await svc.getState(rid, EVT.BRIDGE_REFS);
-          const decrypted = {};
-          if (refsData?.fields) {
-            for (const [key,ref] of Object.entries(refsData.fields)) {
-              try {
-                if (ref.key&&ref.ciphertext&&ref.iv) {
-                  const plain = await FieldCrypto.decrypt(ref.ciphertext, ref.iv, ref.key);
-                  if (plain!==null) decrypted[key]=plain;
-                }
-              } catch { /* skip undecryptable field */ }
+    for (const {rid, meta, refs} of bridgeData) {
+      const decrypted = {};
+      if (refs?.fields) {
+        for (const [key,ref] of Object.entries(refs.fields)) {
+          try {
+            if (ref.key&&ref.ciphertext&&ref.iv) {
+              const plain = await FieldCrypto.decrypt(ref.ciphertext, ref.iv, ref.key);
+              if (plain!==null) decrypted[key]=plain;
             }
-          }
-          found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted, metricsRoom:metricsRoom});
+          } catch { /* skip undecryptable field */ }
         }
-      } catch { /* skip rooms we can't read */ }
+      }
+      found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted, metricsRoom:mRoom||metricsRoom});
     }
     setCases(found);
+  };
+
+  const loadCases = async () => {
+    const scanned = await svc.scanRooms();
+    const bridgeData = [];
+    for (const [rid, state] of Object.entries(scanned)) {
+      const meta = state[EVT.BRIDGE_META];
+      if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
+        bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+      }
+    }
+    await loadCasesFromScan(bridgeData);
   };
 
   const loadMetrics = async (mRoom) => {
@@ -1886,10 +1961,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       const existing = cases.find(c=>c.clientUserId===discoverUserId);
       if (existing) { showToast('Already connected with this client','info'); setDiscoverModal(false); return; }
       // We can't create the bridge — the client must initiate. But we can check if one exists.
-      const rooms = await svc.getJoinedRooms();
+      const scanned = await svc.scanRooms();
       let found = false;
-      for (const rid of rooms) {
-        const meta = await svc.getState(rid, EVT.BRIDGE_META);
+      for (const [rid, state] of Object.entries(scanned)) {
+        const meta = state[EVT.BRIDGE_META];
         if (meta && meta.client===discoverUserId && meta.provider===svc.userId) { found=true; break; }
       }
       if (found) {
@@ -2400,16 +2475,20 @@ const OrgApp = ({session, onLogout, showToast}) => {
     setLoading(true);
     setInitError(null);
     try {
-      const rooms = await svc.getJoinedRooms();
+      // Single-pass scan with org-specific state types included
+      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER]);
       let org=null, metricsR=null, schema=null, network=null;
-      for (const rid of rooms) {
-        try {
-          const id = await svc.getState(rid, EVT.IDENTITY);
-          if (id?.account_type==='organization'&&id.owner===svc.userId) org=rid;
-          if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
-          if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
-          if (id?.account_type==='network') network=rid;
-        } catch { /* skip rooms we can't read state from */ }
+      const bridgeData = [];
+      for (const [rid, state] of Object.entries(scanned)) {
+        const id = state[EVT.IDENTITY];
+        if (id?.account_type==='organization'&&id.owner===svc.userId) org=rid;
+        if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
+        if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
+        if (id?.account_type==='network') network=rid;
+        const meta = state[EVT.BRIDGE_META];
+        if (meta && meta.status!=='tombstoned') {
+          bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+        }
       }
       if (!org) {
         setSetupStep('name');
@@ -2439,11 +2518,17 @@ const OrgApp = ({session, onLogout, showToast}) => {
       }
       setOrgRoom(org); setMetricsRoom(metricsR); setSchemaRoom(schema);
       if (network) setNetworkRoom(network);
-      const meta = await svc.getState(org, EVT.ORG_METADATA);
+      // Use org state from scan instead of extra getState calls
+      const orgState = scanned[org] || {};
+      const meta = orgState[EVT.ORG_METADATA];
       if (meta) setOrgMeta(meta);
-      const roster = await svc.getState(org, EVT.ORG_ROSTER);
+      const roster = orgState[EVT.ORG_ROSTER];
       if (roster?.staff) setStaff(roster.staff);
-      await loadCases(rooms);
+      // Filter bridge data for org staff
+      const orgStaff = roster?.staff || [];
+      const orgCases = bridgeData.filter(({meta: m}) =>
+        m.provider===svc.userId || orgStaff.some(s=>s.userId===m.provider));
+      await loadCasesFromScan(orgCases);
     } catch (e) {
       console.error('Org init failed:', e);
       setInitError(e.message || 'Failed to initialize organization workspace.');
@@ -2516,34 +2601,38 @@ const OrgApp = ({session, onLogout, showToast}) => {
     } catch(e) { showToast('Error: '+e.message,'error'); }
   };
 
-  const loadCases = async (roomIds) => {
-    const roomList = roomIds || await svc.getJoinedRooms();
+  const loadCasesFromScan = async (bridgeData) => {
     const found = [];
-    for (const rid of roomList) {
-      try {
-        const meta = await svc.getState(rid, EVT.BRIDGE_META);
-        if (meta && meta.status!=='tombstoned') {
-          // Check if any org staff is the provider, or if org is the provider
-          const isOrgBridge = meta.provider===svc.userId || staff.some(s=>s.userId===meta.provider);
-          if (isOrgBridge) {
-            const refsData = await svc.getState(rid, EVT.BRIDGE_REFS);
-            const decrypted = {};
-            if (refsData?.fields) {
-              for (const [key,ref] of Object.entries(refsData.fields)) {
-                try {
-                  if (ref.key&&ref.ciphertext&&ref.iv) {
-                    const plain = await FieldCrypto.decrypt(ref.ciphertext, ref.iv, ref.key);
-                    if (plain!==null) decrypted[key]=plain;
-                  }
-                } catch { /* skip undecryptable field */ }
-              }
+    for (const {rid, meta, refs} of bridgeData) {
+      const decrypted = {};
+      if (refs?.fields) {
+        for (const [key,ref] of Object.entries(refs.fields)) {
+          try {
+            if (ref.key&&ref.ciphertext&&ref.iv) {
+              const plain = await FieldCrypto.decrypt(ref.ciphertext, ref.iv, ref.key);
+              if (plain!==null) decrypted[key]=plain;
             }
-            found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted});
-          }
+          } catch { /* skip undecryptable field */ }
         }
-      } catch { /* skip rooms we can't read */ }
+      }
+      found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted});
     }
     setCases(found);
+  };
+
+  const loadCases = async () => {
+    const scanned = await svc.scanRooms();
+    const bridgeData = [];
+    for (const [rid, state] of Object.entries(scanned)) {
+      const meta = state[EVT.BRIDGE_META];
+      if (meta && meta.status!=='tombstoned') {
+        const isOrgBridge = meta.provider===svc.userId || staff.some(s=>s.userId===meta.provider);
+        if (isOrgBridge) {
+          bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+        }
+      }
+    }
+    await loadCasesFromScan(bridgeData);
   };
 
   const loadMessages = async (bid) => { setMessages(await svc.getMessages(bid)); };
