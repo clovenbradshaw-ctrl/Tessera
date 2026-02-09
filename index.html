@@ -1823,6 +1823,78 @@ const ActivityStream = ({session}) => {
   </div>;
 };
 
+/* ═══════════════════ WELCOME / INVITATION SCREEN ═══════════════════ */
+
+const WelcomeScreen = ({onContinue}) => (
+  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div className="anim-up" style={{width:'100%',maxWidth:600,padding:20}}>
+      <div style={{background:'var(--bg-1)',border:'1px solid var(--border-0)',borderRadius:'var(--r-lg)',padding:'48px 44px',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg, var(--gold), var(--teal), var(--blue))'}}/>
+
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:6}}>
+          <div style={{width:48,height:48,borderRadius:'var(--r-lg)',background:'var(--gold-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gold)'}}><I n="shield" s={26}/></div>
+          <div><h1 style={{fontSize:28,fontWeight:800,fontFamily:'var(--serif)',letterSpacing:'-0.02em'}}>Khora</h1>
+            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)',letterSpacing:'.08em'}}>SOVEREIGN CASE MANAGEMENT</span></div>
+        </div>
+
+        <p style={{color:'var(--tx-0)',fontSize:15,marginTop:24,lineHeight:1.7,fontWeight:500}}>
+          You've been invited to access Khora — a system where <em>you</em> own your data.
+        </p>
+        <p style={{color:'var(--tx-1)',fontSize:13.5,marginTop:12,lineHeight:1.7}}>
+          Khora runs on the <strong style={{color:'var(--tx-0)'}}>Matrix protocol</strong>, which means your information lives on a server you choose — not locked inside a single company's platform. To get started you'll need a free Matrix account.
+        </p>
+
+        <div style={{background:'var(--bg-2)',border:'1px solid var(--border-1)',borderRadius:'var(--r-lg)',padding:'20px 22px',marginTop:24}}>
+          <span style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--gold)',letterSpacing:'.06em',fontWeight:600,display:'block',marginBottom:12}}>GETTING STARTED</span>
+          <div style={{display:'flex',gap:14,marginBottom:16}}>
+            <div style={{width:24,height:24,borderRadius:'50%',background:'var(--teal-dim)',color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,fontFamily:'var(--mono)',flexShrink:0,marginTop:1}}>1</div>
+            <div>
+              <div style={{fontSize:13.5,fontWeight:600,color:'var(--tx-0)',marginBottom:4}}>Create a Matrix account</div>
+              <div style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>
+                You can register with any Matrix homeserver. For a free, general-purpose account we recommend <a href="https://app.element.io/#/register" target="_blank" rel="noopener noreferrer" style={{color:'var(--teal)',textDecoration:'none',fontWeight:600}}>matrix.org</a> — sign up takes under a minute.
+              </div>
+              <div style={{fontSize:11.5,color:'var(--tx-2)',lineHeight:1.5,marginTop:6}}>
+                If your organization runs its own server, use that address instead. Your admin will know the homeserver URL.
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:14,marginBottom:16}}>
+            <div style={{width:24,height:24,borderRadius:'50%',background:'var(--teal-dim)',color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,fontFamily:'var(--mono)',flexShrink:0,marginTop:1}}>2</div>
+            <div>
+              <div style={{fontSize:13.5,fontWeight:600,color:'var(--tx-0)',marginBottom:4}}>Sign in here</div>
+              <div style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>
+                Use your Matrix username (e.g. <span style={{fontFamily:'var(--mono)',color:'var(--tx-0)',fontSize:12}}>@you:matrix.org</span>) and password to connect.
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:14}}>
+            <div style={{width:24,height:24,borderRadius:'50%',background:'var(--teal-dim)',color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,fontFamily:'var(--mono)',flexShrink:0,marginTop:1}}>3</div>
+            <div>
+              <div style={{fontSize:13.5,fontWeight:600,color:'var(--tx-0)',marginBottom:4}}>Choose your role</div>
+              <div style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>
+                Select <strong style={{color:'var(--teal)'}}>Client</strong> to own your data vault, or <strong style={{color:'var(--gold)'}}>Provider</strong> to manage cases. Clients control exactly which fields providers can see.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'12px 16px',marginTop:20,fontSize:12,color:'var(--tx-1)',lineHeight:1.6,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <div style={{flexShrink:0,marginTop:1}}><I n="lock" s={15}/></div>
+          <span>Your data is encrypted per-field on your device before it ever leaves. Providers see only the specific fields you share. You can revoke access at any time.</span>
+        </div>
+
+        <button onClick={onContinue} className="b-pri" style={{width:'100%',padding:14,fontSize:15,marginTop:28,display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
+          Get Started <I n="chevR" s={18}/>
+        </button>
+
+        <p style={{textAlign:'center',marginTop:16,fontSize:11.5,color:'var(--tx-3)',fontFamily:'var(--mono)',letterSpacing:'.03em'}}>
+          Already have an account? Click above to sign in.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 /* ═══════════════════ LOGIN ═══════════════════ */
 const LoginScreen = ({onLogin}) => {
   const [mode,setMode] = useState('login'); // login | register
@@ -1870,7 +1942,7 @@ const LoginScreen = ({onLogin}) => {
         </div>
 
         {mode==='register'&&<div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
-          <strong style={{color:'var(--teal)'}}>Create a free Matrix account</strong> at matrix.org — or enter your own homeserver URL if you run one. Matrix is a decentralized protocol; your data stays on your server.
+          <strong style={{color:'var(--teal)'}}>Pick any Matrix homeserver</strong> — we recommend <strong style={{color:'var(--tx-0)'}}>matrix.org</strong> for a free, general-purpose account. If your organization runs its own server, enter that homeserver URL instead.
         </div>}
 
         <form onSubmit={go}>
@@ -3720,12 +3792,14 @@ const ProviderApp = ({session, onLogout, showToast}) => {
 
 /* ═══════════════════ MAIN APP ═══════════════════ */
 const App = () => {
+  const [welcomed, setWelcomed] = useState(false);
   const [session, setSession] = useState(null);
   const [accountType, setAccountType] = useState(null);
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type='info') => setToast({msg, type, k:Date.now()});
 
+  if (!welcomed && !session) return <WelcomeScreen onContinue={() => setWelcomed(true)}/>;
   if (!session) return <LoginScreen onLogin={s => setSession(s)}/>;
   if (!accountType) return <AccountTypeScreen onSelect={t => setAccountType(t)}/>;
 
