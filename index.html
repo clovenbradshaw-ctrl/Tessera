@@ -581,6 +581,52 @@ class KhoraService {
     if (this.client) { this.client.stopClient(); try { await this.client.logout(); } catch {} }
     this.client = null; this._token = null; this._userId = null;
   }
+
+  // Scan invited rooms — returns rooms the user has been invited to but hasn't joined.
+  // Uses invite state from /sync (SDK) or invite section of sync response (API).
+  async scanInvitedRooms(types = [EVT.IDENTITY]) {
+    if (this.client) {
+      const result = {};
+      for (const room of this.client.getRooms()) {
+        const membership = room.getMyMembership();
+        if (membership !== 'invite') continue;
+        const state = {};
+        for (const type of types) {
+          const ev = room.currentState.getStateEvents(type, '');
+          if (ev) state[type] = ev.getContent();
+        }
+        if (Object.keys(state).length > 0) result[room.roomId] = state;
+      }
+      return result;
+    }
+    // API fallback: /sync includes invite section with stripped state
+    const filter = JSON.stringify({
+      room: { state: { types }, timeline: { limit: 0 }, ephemeral: { types: [] } },
+      presence: { types: [] }, account_data: { types: [] }
+    });
+    try {
+      const data = await this._api('GET', `/sync?filter=${encodeURIComponent(filter)}&timeout=0`);
+      const result = {};
+      const invited = data?.rooms?.invite || {};
+      for (const [roomId, roomData] of Object.entries(invited)) {
+        const events = roomData?.invite_state?.events || [];
+        const state = {};
+        for (const ev of events) {
+          if (ev.state_key === '' && types.includes(ev.type)) state[ev.type] = ev.content;
+        }
+        if (Object.keys(state).length > 0) result[roomId] = state;
+      }
+      return result;
+    } catch { return {}; }
+  }
+
+  async joinRoom(roomId) {
+    if (this.client) {
+      await this._withRetry(() => this.client.joinRoom(roomId));
+    } else {
+      await this._api('POST', `/join/${encodeURIComponent(roomId)}`, {});
+    }
+  }
 }
 
 const svc = new KhoraService();
@@ -1949,6 +1995,18 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setLoading(true);
     setInitError(null);
     try {
+      // Phase 1: Auto-join any invited client_record rooms so they appear in scanRooms
+      try {
+        const invited = await svc.scanInvitedRooms([EVT.IDENTITY]);
+        for (const [rid, state] of Object.entries(invited)) {
+          const id = state[EVT.IDENTITY];
+          if (id?.account_type === 'client_record' && id.client_matrix_id === svc.userId) {
+            try { await svc.joinRoom(rid); } catch (e) { console.warn('Auto-join failed for', rid, e.message); }
+          }
+        }
+      } catch (e) { console.warn('Invited room scan failed:', e.message); }
+
+      // Phase 2: Scan joined rooms (now includes any rooms we just auto-joined)
       const scanned = await svc.scanRooms();
       let vault = null, schema = null;
       const detectedPending = [], detectedClaimed = [];
@@ -2144,6 +2202,8 @@ const ClientApp = ({session, onLogout, showToast}) => {
 
   const handleClaimRoom = async (record) => {
     try {
+      // 0. Ensure we've joined the room (required before writing state)
+      try { await svc.joinRoom(record.roomId); } catch {}
       const prevIdentity = await svc.getState(record.roomId, EVT.IDENTITY);
       const previousOwner = prevIdentity?.owner || record.owner;
       // 1. Ensure client has PL 100 and provider drops to PL 50
