@@ -154,6 +154,9 @@ grid:<svg {...p}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" widt
 globe:<svg {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
 bar:<svg {...p}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
 clipboard:<svg {...p}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>,
+link:<svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+copy:<svg {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+userPlus:<svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
 };
 return <span style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>{d[n]}</span>;
 };
@@ -308,6 +311,8 @@ const EVT = {
   MATCH_TOKEN:    `${NS}.match.token`,
   MATCH_HIT:      `${NS}.match.hit`,
   MATCH_RESOLVE:  `${NS}.match.resolve`,
+  // Client records (provider-created rooms representing clients)
+  CLIENT_RECORD:  `${NS}.client.record`,
 };
 
 /* ═══════════════════ MATRIX SERVICE ═══════════════════ */
@@ -390,6 +395,47 @@ class KhoraService {
     } else {
       const r = await this._api('POST', '/createRoom', { name, topic, visibility: 'private', preset: 'private_chat', initial_state });
       return r.room_id;
+    }
+  }
+
+  async createClientRoom(name, topic, extraState = [], clientMatrixId = null) {
+    const initial_state = [
+      { type: 'm.room.encryption', state_key: '', content: { algorithm: 'm.megolm.v1.aes-sha2' } },
+      ...extraState,
+    ];
+    const opts = { name, topic, visibility: 'private', preset: 'private_chat', initial_state };
+    // If we know the client's Matrix ID, pre-set them as room admin (PL 100)
+    // Provider gets PL 50 — client can kick provider but not vice versa
+    if (clientMatrixId) {
+      opts.power_level_content_override = {
+        users: { [this._userId]: 50, [clientMatrixId]: 100 },
+        events_default: 0, state_default: 50, kick: 50, ban: 50, invite: 50, redact: 50,
+      };
+    }
+    if (this.client) {
+      const r = await this._withRetry(() => this.client.createRoom(opts));
+      return r.room_id;
+    } else {
+      const r = await this._api('POST', '/createRoom', opts);
+      return r.room_id;
+    }
+  }
+
+  async setPowerLevel(roomId, userId, level) {
+    if (this.client) {
+      const room = this.client.getRoom(roomId);
+      if (room) {
+        const plEvent = room.currentState.getStateEvents('m.room.power_levels', '');
+        const content = plEvent ? { ...plEvent.getContent() } : {};
+        content.users = { ...(content.users || {}), [userId]: level };
+        await this._withRetry(() => this.client.sendStateEvent(roomId, 'm.room.power_levels', content, ''));
+      }
+    } else {
+      let current;
+      try { current = await this._api('GET', `/rooms/${encodeURIComponent(roomId)}/state/m.room.power_levels/`); }
+      catch { current = {}; }
+      current.users = { ...(current.users || {}), [userId]: level };
+      await this._api('PUT', `/rooms/${encodeURIComponent(roomId)}/state/m.room.power_levels/`, current);
     }
   }
 
@@ -1574,7 +1620,7 @@ const SchemaWorkbench = ({isOrg = false}) => {
 };
 
 /* ═══════════════════ ACTIVITY STREAM ═══════════════════ */
-const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',org:'blue',schema:'purple',metrics:'orange',network:'green',unknown:'orange'};
+const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',org:'blue',schema:'purple',metrics:'orange',network:'green',client_record:'teal',unknown:'orange'};
 
 // Classify a room from pre-scanned state (no HTTP calls) or fallback to getState
 const classifyRoom = async (roomId, scannedState) => {
@@ -1582,6 +1628,7 @@ const classifyRoom = async (roomId, scannedState) => {
   const id = state[EVT.IDENTITY] || await svc.getState(roomId, EVT.IDENTITY);
   if (id) {
     if (id.account_type==='client') return {type:'vault',label:'Client Vault',color:'teal'};
+    if (id.account_type==='client_record') return {type:'client_record',label:'Client Record',color:'teal'};
     if (id.account_type==='provider') return {type:'roster',label:'Provider Roster',color:'gold'};
     if (id.account_type==='organization') return {type:'org',label:'Organization',color:'blue'};
     if (id.account_type==='schema') return {type:'schema',label:'Schema Room',color:'purple'};
@@ -2476,6 +2523,15 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [inviteModal, setInviteModal] = useState(false);
   const [inviteUserId, setInviteUserId] = useState('');
   const [inviteRole, setInviteRole] = useState('case_manager');
+  // Client records — provider-created rooms representing clients
+  const [clientRecords, setClientRecords] = useState([]);
+  const [createClientModal, setCreateClientModal] = useState(false);
+  const [clientInviteModal, setClientInviteModal] = useState(null); // client record object or null
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientMatrixId, setNewClientMatrixId] = useState('');
+  const [newClientNotes, setNewClientNotes] = useState('');
+  const [clientInviteMatrixId, setClientInviteMatrixId] = useState('');
+  const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => { initProvider(); }, []);
 
@@ -2493,12 +2549,17 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       let roster=null, metricsR=null, schema=null, network=null;
       let detectedOrg=null, detectedOrgRole=null;
       const bridgeData = [];
+      const detectedClientRecords = [];
       for (const [rid, state] of Object.entries(scanned)) {
         const id = state[EVT.IDENTITY];
         if (id?.account_type==='provider'&&id.owner===svc.userId) roster=rid;
         if (id?.account_type==='metrics'&&id.owner===svc.userId) metricsR=rid;
         if (id?.account_type==='schema'&&id.owner===svc.userId) schema=rid;
         if (id?.account_type==='network') network=rid;
+        // Detect client record rooms created by this provider
+        if (id?.account_type==='client_record'&&id.owner===svc.userId) {
+          detectedClientRecords.push({roomId:rid, ...id});
+        }
         // Detect org rooms — owned or joined as staff
         if (id?.account_type==='organization') {
           if (id.owner===svc.userId) {
@@ -2549,6 +2610,24 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         const orgState = scanned[detectedOrg];
         if (orgState?.[EVT.ORG_METADATA]) setOrgMeta(orgState[EVT.ORG_METADATA]);
         if (orgState?.[EVT.ORG_ROSTER]?.staff) setStaff(orgState[EVT.ORG_ROSTER].staff);
+      }
+      // Load client records detected during scan
+      if (detectedClientRecords.length > 0) {
+        // Check room membership to determine status
+        const enriched = [];
+        for (const rec of detectedClientRecords) {
+          let status = rec.status || 'created';
+          if (rec.client_matrix_id && svc.client) {
+            try {
+              const members = await svc.getRoomMembers(rec.roomId);
+              const clientMember = members.find(m => m.userId === rec.client_matrix_id);
+              if (clientMember) status = 'joined';
+              else if (status === 'created' && rec.client_matrix_id) status = 'invited';
+            } catch {}
+          }
+          enriched.push({ ...rec, status });
+        }
+        setClientRecords(enriched);
       }
       // Process bridge data collected during scan (no second pass needed)
       await loadCasesFromScan(bridgeData, metricsR);
@@ -2649,6 +2728,84 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       .filter(e=>e.getType()===EVT.OBSERVATION)
       .map(e=>e.getContent());
     setProvObservations(obs);
+  };
+
+  // ─── Client record management ───
+  const handleCreateClientRecord = async () => {
+    if (!newClientName.trim()) return;
+    try {
+      const clientId = newClientMatrixId.trim() || null;
+      const roomId = await svc.createClientRoom(
+        `[Client] ${newClientName}`,
+        `Client record for ${newClientName}`,
+        [
+          { type: EVT.IDENTITY, state_key: '', content: {
+            account_type: 'client_record', owner: svc.userId, created: Date.now(),
+            client_name: newClientName, client_matrix_id: clientId,
+            notes: newClientNotes || undefined, status: 'created',
+          }},
+        ],
+        clientId
+      );
+      // If client Matrix ID provided, invite them and set them as admin
+      if (clientId) {
+        try {
+          await svc.invite(roomId, clientId);
+          await svc.setState(roomId, EVT.IDENTITY, {
+            account_type: 'client_record', owner: svc.userId, created: Date.now(),
+            client_name: newClientName, client_matrix_id: clientId,
+            notes: newClientNotes || undefined, status: 'invited',
+          });
+        } catch (e) { console.warn('Invite failed:', e.message); }
+      }
+      const newRecord = {
+        roomId, client_name: newClientName, client_matrix_id: clientId,
+        notes: newClientNotes || undefined, owner: svc.userId,
+        created: Date.now(), status: clientId ? 'invited' : 'created',
+      };
+      setClientRecords(prev => [...prev, newRecord]);
+      setCreateClientModal(false);
+      setNewClientName(''); setNewClientMatrixId(''); setNewClientNotes('');
+      showToast(`Client "${newClientName}" created${clientId ? ' — invite sent' : ''}`,'success');
+    } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+  };
+
+  const handleClientInvite = async () => {
+    if (!clientInviteModal || !clientInviteMatrixId.trim()) return;
+    try {
+      const clientId = clientInviteMatrixId.trim();
+      // Set power levels: client gets PL 100 (superadmin), provider stays at 50
+      await svc.setPowerLevel(clientInviteModal.roomId, clientId, 100);
+      await svc.setPowerLevel(clientInviteModal.roomId, svc.userId, 50);
+      // Invite the client
+      await svc.invite(clientInviteModal.roomId, clientId);
+      // Update identity state with the client's Matrix ID
+      await svc.setState(clientInviteModal.roomId, EVT.IDENTITY, {
+        ...clientInviteModal, client_matrix_id: clientId, status: 'invited',
+      });
+      setClientRecords(prev => prev.map(r =>
+        r.roomId === clientInviteModal.roomId
+          ? { ...r, client_matrix_id: clientId, status: 'invited' }
+          : r
+      ));
+      showToast(`Invite sent to ${clientId} — they will have full room control`, 'success');
+    } catch (e) { showToast('Invite failed: ' + e.message, 'error'); }
+  };
+
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch { showToast('Copy failed — please select and copy manually', 'warn'); }
+  };
+
+  const getInviteUrl = (roomId) => `https://matrix.to/#/${roomId}`;
+
+  const getSetupInstructions = (roomId) => {
+    const hs = svc._baseUrl ? svc._baseUrl.replace(/^https?:\/\//, '') : 'matrix.org';
+    const link = getInviteUrl(roomId);
+    return `You've been invited to securely manage your information on Khora.\n\nTo get started:\n\n1. Create a free Matrix account:\n   Go to https://${hs} and click "Create Account"\n   (Matrix is a secure, decentralized messaging protocol — your data stays on the server you choose)\n\n2. Download a Matrix client (optional):\n   Web: https://app.element.io\n   Mobile: Search "Element" in your app store\n   Or use any Matrix-compatible app\n\n3. Sign in with your new account\n\n4. Click this link to join your room:\n   ${link}\n\n5. You will have full control of this room — you can remove anyone from it at any time.\n\nQuestions? Contact your provider for help getting set up.`;
   };
 
   // Discover client by Matrix ID
@@ -2843,7 +3000,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </div>
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
         {/* Personal nav */}
-        {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'metrics',icon:'bar',label:'Metrics'},
+        {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'clients',icon:'users',label:'Clients'},
+          {id:'metrics',icon:'bar',label:'Metrics'},
           {id:'schema',icon:'grid',label:'Schema'},
           {id:'activity',icon:'zap',label:'Activity Stream'}
         ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
@@ -2953,6 +3111,79 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <div style={{background:'var(--gold-dim)',border:'1px solid var(--gold-mid)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:20,display:'flex',gap:10,alignItems:'flex-start'}}>
           <I n="eye" s={16} c="var(--gold)"/>
           <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>As a provider, you cannot modify client vault data. Clients can revoke your access at any time.{!orgRoom&&' Create or join an organization to manage staff, cases across your team, and participate in networks.'}</span>
+        </div>
+      </div>}
+
+      {/* CLIENTS TABLE VIEW */}
+      {view==='clients'&&!activeCase&&<div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
+          <div>
+            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Clients</h2>
+            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Each client record is a private encrypted room. Invite clients to give them full control.</p>
+          </div>
+          <button onClick={()=>{setCreateClientModal(true);setNewClientName('');setNewClientMatrixId('');setNewClientNotes('')}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>New Client</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:20}}>
+          {[{l:'Total Clients',v:clientRecords.length,c:'teal',i:'users'},
+            {l:'Invited',v:clientRecords.filter(r=>r.status==='invited').length,c:'gold',i:'send'},
+            {l:'Joined',v:clientRecords.filter(r=>r.status==='joined').length,c:'green',i:'check'},
+            {l:'Pending',v:clientRecords.filter(r=>r.status==='created').length,c:'orange',i:'clock'},
+          ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
+              <span style={{fontSize:18,fontWeight:700}}>{s.v}</span>
+              <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
+        </div>
+        {clientRecords.length===0?
+          <div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}>
+            <I n="users" s={32}/>
+            <p style={{color:'var(--tx-2)',marginTop:10,fontSize:13}}>No client records yet</p>
+            <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Click "New Client" to create a record. Each client gets their own encrypted room.</p>
+          </div>
+        :<div className="card" style={{padding:0,overflow:'hidden'}}>
+          {/* Table header */}
+          <div style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1.2fr',gap:0,padding:'10px 16px',background:'var(--bg-3)',borderBottom:'1px solid var(--border-1)'}}>
+            {['NAME','MATRIX ID','STATUS','CREATED','ACTIONS'].map(h=>
+              <span key={h} style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.07em',fontWeight:600}}>{h}</span>)}
+          </div>
+          {/* Table rows */}
+          {clientRecords.map((rec,i)=>{
+            const statusColors = {created:'orange',invited:'gold',joined:'green'};
+            const statusLabels = {created:'Pending',invited:'Invited',joined:'Joined'};
+            return <div key={rec.roomId} style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1.2fr',gap:0,padding:'12px 16px',
+              borderBottom:i<clientRecords.length-1?'1px solid var(--border-0)':'none',alignItems:'center',
+              transition:'background .15s'}}
+              onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <div>
+                <span style={{fontSize:13,fontWeight:600,display:'block'}}>{rec.client_name}</span>
+                {rec.notes&&<span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:2}}>{rec.notes}</span>}
+              </div>
+              <span style={{fontFamily:'var(--mono)',fontSize:10.5,color:rec.client_matrix_id?'var(--tx-1)':'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {rec.client_matrix_id||'—'}
+              </span>
+              <span className={`tag tag-${statusColors[rec.status]||'orange'}`} style={{fontSize:9,justifySelf:'start'}}>
+                {statusLabels[rec.status]||rec.status}
+              </span>
+              <span style={{fontSize:10.5,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>
+                {rec.created?new Date(rec.created).toLocaleDateString():'—'}
+              </span>
+              <div style={{display:'flex',gap:4}}>
+                <button onClick={()=>{setClientInviteModal(rec);setClientInviteMatrixId(rec.client_matrix_id||'');setCopiedField(null)}}
+                  className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:3}}>
+                  <I n="userPlus" s={11}/>Invite
+                </button>
+                <button onClick={()=>openCase(rec.roomId)} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:3}}>
+                  <I n="chevR" s={11}/>Open
+                </button>
+              </div>
+            </div>;
+          })}
+        </div>}
+        <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:20,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <I n="shield" s={16} c="var(--teal)"/>
+          <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>
+            <strong style={{color:'var(--teal)'}}>Client sovereignty:</strong> When a client joins their room, they receive superadmin power level (100). They can kick anyone — including you — from their room at any time. You cannot remove a joined client.
+          </span>
         </div>
       </div>}
 
@@ -3390,6 +3621,96 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           This observation is recorded as a MEANT event — a professional assessment with full EO provenance chain.
         </div>
         <button onClick={handleProviderObservation} className="b-pri" disabled={!provObsValue} style={{width:'100%'}}>Record Provider Observation</button>
+      </>}
+    </Modal>
+
+    {/* CREATE CLIENT RECORD MODAL */}
+    <Modal open={createClientModal} onClose={()=>setCreateClientModal(false)} title="New Client Record" w={520}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>
+        Create a client record. This creates a private encrypted Matrix room. If you provide a Matrix ID, the client will be invited and given superadmin control (power level 100) — they can remove anyone from the room.
+      </p>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">CLIENT NAME *</span>
+        <input value={newClientName} onChange={e=>setNewClientName(e.target.value)} placeholder="e.g. John Doe"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">CLIENT MATRIX ID (OPTIONAL)</span>
+        <input value={newClientMatrixId} onChange={e=>setNewClientMatrixId(e.target.value)} placeholder="@client:matrix.org"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>If provided, the client will be invited immediately. You can also invite them later.</span>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">NOTES (OPTIONAL)</span>
+        <textarea value={newClientNotes} onChange={e=>setNewClientNotes(e.target.value)} placeholder="Any notes about this client..." style={{minHeight:50}}/>
+      </div>
+      <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+        <strong style={{color:'var(--teal)'}}>Data sovereignty:</strong> The client will receive power level 100 (superadmin). They can kick any member — including you — from their room at any time.
+      </div>
+      <button onClick={handleCreateClientRecord} className="b-pri" disabled={!newClientName.trim()} style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="plus" s={16}/> Create Client Record
+      </button>
+    </Modal>
+
+    {/* CLIENT INVITE MODAL */}
+    <Modal open={!!clientInviteModal} onClose={()=>{setClientInviteModal(null);setCopiedField(null)}} title={`Invite: ${clientInviteModal?.client_name||''}`} w={600}>
+      {clientInviteModal&&<>
+        <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+          Generate an invite link and setup instructions to share with this client. When they join, they'll have full control of their room.
+        </p>
+
+        {/* Matrix ID input */}
+        <div style={{marginBottom:16}}>
+          <span className="section-label">CLIENT MATRIX ID</span>
+          <div style={{display:'flex',gap:6}}>
+            <input value={clientInviteMatrixId} onChange={e=>setClientInviteMatrixId(e.target.value)}
+              placeholder="@client:matrix.org" style={{flex:1}}/>
+            <button onClick={handleClientInvite} className="b-pri" disabled={!clientInviteMatrixId.trim()}
+              style={{whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
+              <I n="send" s={12}/>Send Invite
+            </button>
+          </div>
+          <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>
+            Enter the client's Matrix ID to send a direct room invite and grant them superadmin (PL 100).
+          </span>
+        </div>
+
+        {/* Invite link */}
+        <div style={{marginBottom:16}}>
+          <span className="section-label">INVITE LINK</span>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <div style={{flex:1,fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',background:'var(--bg-3)',padding:'10px 14px',borderRadius:'var(--r)',border:'1px solid var(--border-1)',wordBreak:'break-all',userSelect:'all'}}>
+              {getInviteUrl(clientInviteModal.roomId)}
+            </div>
+            <button onClick={()=>copyToClipboard(getInviteUrl(clientInviteModal.roomId),'link')}
+              className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+              <I n={copiedField==='link'?'check':'copy'} s={12}/>
+              {copiedField==='link'?'Copied':'Copy'}
+            </button>
+          </div>
+        </div>
+
+        {/* Setup instructions */}
+        <div style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <span className="section-label" style={{marginBottom:0}}>SETUP INSTRUCTIONS — SHARE WITH CLIENT</span>
+            <button onClick={()=>copyToClipboard(getSetupInstructions(clientInviteModal.roomId),'instructions')}
+              className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:3}}>
+              <I n={copiedField==='instructions'?'check':'copy'} s={11}/>
+              {copiedField==='instructions'?'Copied':'Copy All'}
+            </button>
+          </div>
+          <div style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--tx-1)',background:'var(--bg-1)',border:'1px solid var(--border-1)',
+            borderRadius:'var(--r)',padding:'14px 16px',lineHeight:1.7,whiteSpace:'pre-wrap',maxHeight:300,overflow:'auto'}}>
+            {getSetupInstructions(clientInviteModal.roomId)}
+          </div>
+        </div>
+
+        {/* Power level info */}
+        <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'12px 16px',display:'flex',gap:10,alignItems:'flex-start'}}>
+          <I n="shield" s={16} c="var(--teal)"/>
+          <div style={{fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+            <strong style={{color:'var(--teal)'}}>Client gets power level 100 (superadmin).</strong> Once joined, they can remove anyone from this room — including you. This ensures the client always has sovereign control over who can access their space.
+          </div>
+        </div>
       </>}
     </Modal>
   </div>;
