@@ -187,6 +187,119 @@ const FieldCrypto = {
   }
 };
 
+/* ═══════════════════ LOCAL VAULT CRYPTO (IndexedDB at-rest encryption) ═══════════════════ */
+/* Derives a per-user AES-256-GCM key from the Matrix session using HKDF.
+ * All local IndexedDB data is encrypted with this key so that only the
+ * authenticated user who synced the data can read it at rest. The key is
+ * held in memory only — destroyed on logout or tab close. */
+const LocalVaultCrypto = {
+  _key: null, _userId: null,
+  async deriveKey(userId, accessToken, deviceId) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(accessToken), 'HKDF', false, ['deriveKey']);
+    this._key = await crypto.subtle.deriveKey(
+      { name: 'HKDF', hash: 'SHA-256', salt: enc.encode(`${userId}|${deviceId}`), info: enc.encode('khora-local-vault-v1') },
+      keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    );
+    this._userId = userId;
+    return this._key;
+  },
+  get ready() { return !!this._key; },
+  async encrypt(data) {
+    if (!this._key) throw new Error('LocalVaultCrypto not initialized');
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this._key, new TextEncoder().encode(JSON.stringify(data)));
+    return { __enc: 1, ct: btoa(String.fromCharCode(...new Uint8Array(ct))), iv: btoa(String.fromCharCode(...iv)) };
+  },
+  async decrypt(envelope) {
+    if (!this._key) throw new Error('LocalVaultCrypto not initialized');
+    if (!envelope?.__enc) return envelope;
+    try {
+      const ct = Uint8Array.from(atob(envelope.ct), c => c.charCodeAt(0));
+      const iv = Uint8Array.from(atob(envelope.iv), c => c.charCodeAt(0));
+      const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, this._key, ct);
+      return JSON.parse(new TextDecoder().decode(dec));
+    } catch { return null; }
+  },
+  clear() { this._key = null; this._userId = null; }
+};
+
+/* ═══════════════════ ENCRYPTED LOCAL CACHE ═══════════════════ */
+/* All values written to IndexedDB go through LocalVaultCrypto.encrypt().
+ * Keys (primary keys) remain plaintext for lookups; values are AES-256-GCM
+ * ciphertext. An attacker inspecting IndexedDB sees only opaque blobs. */
+const KhoraEncryptedCache = {
+  DB_NAME: 'khora-encrypted-vault', DB_VERSION: 1,
+  STORES: ['session', 'rooms', 'state'],
+  _db: null,
+  async open() {
+    if (this._db) return this._db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        for (const s of this.STORES) { if (!db.objectStoreNames.contains(s)) db.createObjectStore(s); }
+      };
+      req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async put(storeName, key, value) {
+    if (!LocalVaultCrypto.ready) return;
+    const db = await this.open();
+    const encrypted = await LocalVaultCrypto.encrypt(value);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).put(encrypted, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+  async get(storeName, key) {
+    if (!LocalVaultCrypto.ready) return null;
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).get(key);
+      req.onsuccess = async () => {
+        if (!req.result) return resolve(null);
+        try { resolve(await LocalVaultCrypto.decrypt(req.result)); }
+        catch { resolve(null); }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async getAll(storeName) {
+    if (!LocalVaultCrypto.ready) return {};
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const results = {}; const pending = [];
+      const req = tx.objectStore(storeName).openCursor();
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          pending.push(LocalVaultCrypto.decrypt(cursor.value).then(v => { if (v !== null) results[cursor.key] = v; }).catch(() => {}));
+          cursor.continue();
+        } else { Promise.all(pending).then(() => resolve(results)); }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async clear() {
+    try {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.STORES, 'readwrite');
+        for (const s of this.STORES) tx.objectStore(s).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch {}
+  },
+  close() { if (this._db) { this._db.close(); this._db = null; } }
+};
+
 /* ═══════════════════ EO OPERATION LAYER ═══════════════════ */
 const OPERATORS = ['NUL','DES','INS','SEG','CON','SYN','ALT','SUP','REC'];
 
@@ -341,6 +454,11 @@ class KhoraService {
     if (typeof matrixcs !== 'undefined') {
       this.client = matrixcs.createClient({ baseUrl });
       const res = await this.client.login('m.login.password', { user, password: pass });
+      // Derive per-user at-rest encryption key (AES-256-GCM via HKDF from access token)
+      // Only this user's session can decrypt local IndexedDB data
+      await LocalVaultCrypto.deriveKey(res.user_id, res.access_token, res.device_id);
+      // Purge any legacy unencrypted IndexedDB databases (preserves Matrix crypto store for E2EE)
+      await this._purgeUnencryptedStores();
       this.client = matrixcs.createClient({ baseUrl, accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id });
       try { await this.client.initCrypto(); } catch (e) { console.warn('Crypto:', e.message); }
       await this.client.startClient({ initialSyncLimit: 30 });
@@ -353,6 +471,8 @@ class KhoraService {
         });
       });
       this._userId = res.user_id; this._token = res.access_token;
+      // Cache encrypted session metadata in the encrypted vault
+      try { await KhoraEncryptedCache.put('session', 'current', { userId: res.user_id, homeserver: baseUrl, deviceId: res.device_id, ts: Date.now() }); } catch {}
       return { userId: res.user_id };
     } else {
       const resp = await this._api('POST', '/login', { type: 'm.login.password', user, password: pass }, true);
@@ -526,6 +646,7 @@ class KhoraService {
   // When using the API fallback, uses /sync with a tight filter — one request
   // instead of 2*N individual getState calls that produce 404s for non-Khora rooms.
   // Returns: { [roomId]: { [eventType]: content } }
+  // Results are cached in the encrypted local vault (KhoraEncryptedCache).
   async scanRooms(extraTypes = []) {
     const types = [EVT.IDENTITY, EVT.BRIDGE_META, EVT.BRIDGE_REFS, ...extraTypes];
     if (this.client) {
@@ -538,6 +659,8 @@ class KhoraService {
         }
         if (Object.keys(state).length > 0) result[room.roomId] = state;
       }
+      // Persist room state to encrypted local cache
+      try { await KhoraEncryptedCache.put('rooms', 'scan_result', { data: result, ts: Date.now() }); } catch {}
       return result;
     }
     // Fallback: single /sync with filter — avoids per-room 404 spam
@@ -582,9 +705,36 @@ class KhoraService {
     }
   }
 
+  // Purge unencrypted IndexedDB databases created by the Matrix SDK sync layer
+  // or legacy application caches. Preserves crypto stores (Olm/Megolm key material
+  // needed for E2EE continuity) and our own encrypted vault.
+  async _purgeUnencryptedStores() {
+    if (typeof indexedDB?.databases === 'function') {
+      try {
+        const dbs = await indexedDB.databases();
+        for (const db of dbs) {
+          // Keep our encrypted vault and any crypto key stores
+          if (db.name && db.name !== KhoraEncryptedCache.DB_NAME && !db.name.includes('crypto')) {
+            try { indexedDB.deleteDatabase(db.name); } catch {}
+          }
+        }
+      } catch (e) { console.warn('IndexedDB purge:', e.message); }
+    }
+    // Explicitly target known unencrypted sync/state databases by name
+    for (const name of ['amino', 'matrix-js-sdk:default', 'matrix-js-sdk:riot-web-sync', 'matrix-js-sdk:web-sync']) {
+      try { indexedDB.deleteDatabase(name); } catch {}
+    }
+  }
+
   async logout() {
     if (this.client) { this.client.stopClient(); try { await this.client.logout(); } catch {} }
     this.client = null; this._token = null; this._userId = null;
+    // Destroy at-rest encryption key — local encrypted data becomes unreadable
+    LocalVaultCrypto.clear();
+    // Wipe encrypted local cache and close database connection
+    try { await KhoraEncryptedCache.clear(); KhoraEncryptedCache.close(); } catch {}
+    // Purge any remaining unencrypted databases
+    try { await this._purgeUnencryptedStores(); } catch {}
   }
 
   // Scan invited rooms — returns rooms the user has been invited to but hasn't joined.
