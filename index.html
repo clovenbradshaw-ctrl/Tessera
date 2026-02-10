@@ -631,6 +631,39 @@ class KhoraService {
 
 const svc = new KhoraService();
 
+/* ═══════════════════ WEBHOOK / AIRTABLE BRIDGE ═══════════════════
+ * Fetches table and record data from n8n webhook endpoints backed by
+ * the amino Postgres schema. Auth is forwarded via query-param so the
+ * browser never sends an Authorization header, avoiding CORS preflight.
+ * ═══════════════════════════════════════════════════════════════════ */
+const WEBHOOK_BASE = 'https://n8n.intelechia.com/webhook';
+
+async function webhookFetch(path, token) {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${WEBHOOK_BASE}${path}${token ? `${sep}access_token=${encodeURIComponent(token)}` : ''}`;
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Webhook ${resp.status}`);
+  }
+  return resp.json();
+}
+
+async function hydrateFromWebhooks(token) {
+  const { tables } = await webhookFetch('/api/tables', token);
+  const allTables = {};
+  await Promise.all(tables.map(async (t) => {
+    try {
+      const data = await webhookFetch(`/api/records/${encodeURIComponent(t.table_id)}`, token);
+      allTables[t.table_id] = { ...t, records: data.records || [] };
+    } catch (e) {
+      console.warn(`Failed to hydrate table ${t.table_id}:`, e.message);
+      allTables[t.table_id] = { ...t, records: [] };
+    }
+  }));
+  return allTables;
+}
+
 /* ═══════════════════ DOMAIN CONFIG (§C.0) ═══════════════════
  * All domain-specific content is consolidated here. To adapt Tessera for a
  * different sector, replace the contents of DOMAIN_CONFIG — the application
@@ -4021,19 +4054,31 @@ const App = () => {
   const [session, setSession] = useState(null);
   const [accountType, setAccountType] = useState(null);
   const [toast, setToast] = useState(null);
+  const [webhookData, setWebhookData] = useState(null);
 
   const showToast = (msg, type='info') => setToast({msg, type, k:Date.now()});
 
+  const handleLogin = async (s) => {
+    setSession(s);
+    // Hydrate Airtable data from n8n webhooks in background
+    try {
+      const tables = await hydrateFromWebhooks(svc._token);
+      setWebhookData(tables);
+    } catch (e) {
+      console.warn('Webhook hydration failed (CORS or network):', e.message);
+    }
+  };
+
   if (!welcomed && !session) return <WelcomeScreen onContinue={() => setWelcomed(true)}/>;
-  if (!session) return <LoginScreen onLogin={s => setSession(s)}/>;
+  if (!session) return <LoginScreen onLogin={handleLogin}/>;
   if (!accountType) return <AccountTypeScreen onSelect={t => setAccountType(t)}/>;
 
-  const handleLogout = async () => { await svc.logout(); setSession(null); setAccountType(null); };
+  const handleLogout = async () => { await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null); };
 
   return <>
     {accountType === 'client' ?
-      <ClientApp session={session} onLogout={handleLogout} showToast={showToast}/> :
-      <ProviderApp session={session} onLogout={handleLogout} showToast={showToast}/>
+      <ClientApp session={session} onLogout={handleLogout} showToast={showToast} webhookData={webhookData}/> :
+      <ProviderApp session={session} onLogout={handleLogout} showToast={showToast} webhookData={webhookData}/>
     }
     {toast && <Toast key={toast.k} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
   </>;
