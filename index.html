@@ -602,12 +602,12 @@ class KhoraService {
       if (!room) return [];
       return room.getLiveTimeline().getEvents()
         .filter(ev => ev.getType() === 'm.room.message')
-        .map(ev => ({ id: ev.getId(), sender: ev.getSender(), content: ev.getContent(), ts: ev.getTs() }))
-        .reverse();
+        .map(ev => ({ id: ev.getId(), sender: ev.getSender(), content: ev.getContent(), ts: ev.getTs() }));
     }
     const d = await this._api('GET', `/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=${limit}`);
     return (d.chunk || []).filter(e => e.type === 'm.room.message')
-      .map(e => ({ id: e.event_id, sender: e.sender, content: e.content, ts: e.origin_server_ts }));
+      .map(e => ({ id: e.event_id, sender: e.sender, content: e.content, ts: e.origin_server_ts }))
+      .reverse();
   }
 
   async invite(roomId, userId) {
@@ -3405,11 +3405,26 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const networkFrame = (room) => ({type:'network',room:room||networkRoom,role:'provider',epistemic:'MEANT'});
   const orgFrame = (room) => ({type:'org',room:room||orgRoom,role:orgRole||'admin',epistemic:'MEANT'});
 
+  const autoJoinBridgeInvites = async () => {
+    try {
+      const invited = await svc.scanInvitedRooms([EVT.BRIDGE_META]);
+      for (const [rid, state] of Object.entries(invited)) {
+        const meta = state[EVT.BRIDGE_META];
+        if (meta?.provider === svc.userId && meta.status !== 'tombstoned') {
+          try { await svc.joinRoom(rid); } catch (e) { console.warn('Auto-join bridge failed for', rid, e.message); }
+        }
+      }
+    } catch (e) { console.warn('Bridge invite scan failed:', e.message); }
+  };
+
   const initProvider = async () => {
     setLoading(true);
     setInitError(null);
     try {
-      // Single-pass scan: fetch all Khora state across rooms in one request
+      // Phase 1: Auto-join any invited bridge rooms so they appear in scanRooms
+      await autoJoinBridgeInvites();
+
+      // Phase 2: Single-pass scan — fetch all Khora state across rooms in one request
       const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER]);
       let roster=null, metricsR=null, schema=null, network=null;
       let detectedOrg=null, detectedOrgRole=null;
@@ -3529,6 +3544,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   };
 
   const loadCases = async () => {
+    // Auto-join any new bridge invites before scanning
+    await autoJoinBridgeInvites();
     const scanned = await svc.scanRooms();
     const bridgeData = [];
     for (const [rid, state] of Object.entries(scanned)) {
@@ -3685,7 +3702,9 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       // Check if we already have a bridge with this client
       const existing = cases.find(c=>c.clientUserId===discoverUserId);
       if (existing) { showToast('Already connected with this client','info'); setDiscoverModal(false); return; }
-      // We can't create the bridge — the client must initiate. But we can check if one exists.
+      // Auto-join any pending bridge invites first
+      await autoJoinBridgeInvites();
+      // Now scan joined rooms (includes any we just auto-joined)
       const scanned = await svc.scanRooms();
       let found = false;
       for (const [rid, state] of Object.entries(scanned)) {
