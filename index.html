@@ -7388,7 +7388,7 @@ const App = () => {
       <ProviderApp session={session} onLogout={handleLogout} showToast={showToast} webhookData={webhookData}/>
     }
     {/* Context switcher — visible when user has multiple role contexts */}
-    {availableContexts.length > 1 && <div style={{position:'fixed',top:14,right:64,zIndex:30,display:'flex',gap:6,padding:'6px',border:'1px solid var(--border-0)',background:'var(--bg-2)',borderRadius:'999px',backdropFilter:'blur(4px)'}}>
+    {availableContexts.length > 1 && <div style={{position:'fixed',bottom:14,right:14,zIndex:30,display:'flex',gap:6,padding:'6px',border:'1px solid var(--border-0)',background:'var(--bg-2)',borderRadius:'999px',backdropFilter:'blur(4px)'}}>
       {[{id:'provider',label:'Provider',icon:'briefcase'},{id:'client',label:'Client',icon:'shield'}]
         .filter(opt => availableContexts.includes(opt.id))
         .map(opt => <button key={opt.id} onClick={()=>switchContext(opt.id)} className={activeContext===opt.id?'b-pri b-xs':'b-gho b-xs'} style={{display:'inline-flex',alignItems:'center',gap:4,borderRadius:'999px'}}>
