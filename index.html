@@ -25,6 +25,29 @@
   --serif:'Source Serif 4',Georgia,serif;--sans:'Manrope',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
   --r:5px;--r-lg:8px;
 }
+/* ═══ Light theme — WCAG AA accessible (4.5:1+ text contrast) ═══ */
+html.light {
+  --bg-0:#f5f5f7;--bg-1:#ebedf0;--bg-2:#e0e2e7;--bg-3:#d4d7dd;--bg-4:#c8ccd4;
+  --border-0:#cdd0d7;--border-1:#b8bcc6;--border-2:#a0a5b2;
+  --tx-0:#1a1c20;--tx-1:#3d4250;--tx-2:#5a6073;--tx-3:#7e8498;
+  --gold:#8a6d1e;--gold-dim:rgba(138,109,30,0.10);--gold-mid:rgba(138,109,30,0.18);
+  --green:#177a4a;--green-dim:rgba(23,122,74,0.10);
+  --red:#c03030;--red-dim:rgba(192,48,48,0.10);
+  --blue:#2563b0;--blue-dim:rgba(37,99,176,0.10);
+  --teal:#137a6a;--teal-dim:rgba(19,122,106,0.10);
+  --orange:#a0600a;--orange-dim:rgba(160,96,10,0.10);
+  --purple:#6938c0;--purple-dim:rgba(105,56,192,0.10);
+}
+html.light .b-pri:hover{box-shadow:0 4px 16px rgba(138,109,30,0.18)}
+html.light .b-red{border-color:rgba(192,48,48,.22)}
+html.light .b-grn{border-color:rgba(23,122,74,.22)}
+html.light .toggle-knob{box-shadow:0 1px 3px rgba(0,0,0,.15);border:1px solid var(--border-1)}
+html.light ::-webkit-scrollbar-thumb{background:var(--border-2)}
+html.light .grid-bg{background-image:radial-gradient(circle at 20% 20%,rgba(138,109,30,.05) 0%,transparent 50%),radial-gradient(circle at 80% 80%,rgba(37,99,176,.04) 0%,transparent 50%),linear-gradient(var(--border-0) 1px,transparent 1px),linear-gradient(90deg,var(--border-0) 1px,transparent 1px);}
+html.light .gm-crossing{background:linear-gradient(135deg,rgba(19,122,106,.10) 0%,rgba(138,109,30,.10) 100%);border-left-color:rgba(19,122,106,.25);border-right-color:rgba(138,109,30,.25)}
+html.light .gm-crossing::before{background:repeating-linear-gradient(180deg,transparent,transparent 8px,rgba(138,109,30,.06) 8px,rgba(138,109,30,.06) 16px)}
+html.light .gm-divergence{background:rgba(138,109,30,.08)}
+html.light .gm-obs-field{background:var(--teal-dim);border-color:rgba(19,122,106,.20)}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body,#root{height:100%;background:var(--bg-0);color:var(--tx-0);font-family:var(--sans);}
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border-1);border-radius:3px;}
@@ -38,7 +61,7 @@ input,textarea,select{font-family:var(--sans);background:var(--bg-1);border:1px 
 input:focus,textarea:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim)}
 input::placeholder,textarea::placeholder{color:var(--tx-3)}textarea{resize:vertical;min-height:72px;line-height:1.55}
 button{font-family:var(--sans);cursor:pointer;border:none;border-radius:var(--r);font-size:12.5px;font-weight:600;padding:8px 16px;transition:all .18s;letter-spacing:.01em;}
-.b-pri{background:var(--gold);color:var(--bg-0)}.b-pri:hover{background:#d4af5e;transform:translateY(-1px);box-shadow:0 4px 16px var(--gold-dim)}.b-pri:disabled{opacity:.5;transform:none;cursor:default}
+.b-pri{background:var(--gold);color:var(--bg-0)}.b-pri:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 4px 16px var(--gold-dim)}.b-pri:disabled{opacity:.5;transform:none;cursor:default;filter:none}
 .b-gho{background:transparent;color:var(--tx-1);border:1px solid var(--border-1)}.b-gho:hover{background:var(--bg-3);color:var(--tx-0);border-color:var(--border-2)}
 .b-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(232,93,93,.18)}.b-red:hover{background:rgba(232,93,93,.18)}
 .b-grn{background:var(--green-dim);color:var(--green);border:1px solid rgba(61,214,140,.18)}
@@ -159,8 +182,62 @@ copy:<svg {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15
 userPlus:<svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
 upload:<svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
 download:<svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+sun:<svg {...p}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+moon:<svg {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+'alert-triangle':<svg {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+'refresh-cw':<svg {...p}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
 };
 return <span style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>{d[n]}</span>;
+};
+
+/* ═══════════════════ THEME SYSTEM ═══════════════════ */
+const getInitialTheme = () => {
+  const stored = localStorage.getItem('khora-theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+};
+
+// Apply theme immediately to avoid flash
+(() => {
+  const t = getInitialTheme();
+  if (t === 'light') document.documentElement.classList.add('light');
+})();
+
+const ThemeContext = React.createContext({theme:'dark', toggle:()=>{}});
+
+const ThemeProvider = ({children}) => {
+  const [theme, setTheme] = useState(getInitialTheme);
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
+    localStorage.setItem('khora-theme', theme);
+  }, [theme]);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const handler = (e) => {
+      if (!localStorage.getItem('khora-theme')) setTheme(e.matches ? 'light' : 'dark');
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  const toggle = useCallback(() => setTheme(t => t === 'dark' ? 'light' : 'dark'), []);
+  return <ThemeContext.Provider value={{theme, toggle}}>{children}</ThemeContext.Provider>;
+};
+
+const useTheme = () => React.useContext(ThemeContext);
+
+const ThemeToggle = ({style:sx}) => {
+  const {theme, toggle} = useTheme();
+  const isDark = theme === 'dark';
+  return <button onClick={toggle} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    style={{background:'var(--bg-3)',border:'1px solid var(--border-1)',borderRadius:'var(--r)',
+      padding:'6px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6,
+      color:'var(--tx-1)',fontSize:11,fontFamily:'var(--sans)',fontWeight:500,
+      transition:'all .18s',...sx}}
+    onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--gold)';e.currentTarget.style.color='var(--tx-0)'}}
+    onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border-1)';e.currentTarget.style.color='var(--tx-1)'}}>
+    <I n={isDark?'moon':'sun'} s={14}/>{isDark?'Dark':'Light'}
+  </button>;
 };
 
 /* ═══════════════════ PER-FIELD CRYPTO (AES-256-GCM) ═══════════════════ */
@@ -403,6 +480,11 @@ const EVT = {
   ORG_ROSTER:     `${NS}.org.roster`,
   ORG_METADATA:   `${NS}.org.metadata`,
   ORG_INVITE:     `${NS}.org.invite`,
+  ORG_OPACITY:    `${NS}.org.opacity`,
+  ORG_MSG_ACCESS: `${NS}.org.msg_access`,
+  // Inter-org messaging
+  ORG_MSG_CHANNEL:`${NS}.org.msg.channel`,
+  ORG_MSG_ENVELOPE:`${NS}.org.msg.envelope`,
   // Schema
   SCHEMA_PROMPT:  `${NS}.schema.prompt`,
   SCHEMA_DEF:     `${NS}.schema.definition`,
@@ -430,6 +512,8 @@ const EVT = {
   CLIENT_RECORD:  `${NS}.client.record`,
   // Import
   IMPORT_MANIFEST:`${NS}.import.manifest`,
+  // Provider profile (self-reported identity & credentials)
+  PROVIDER_PROFILE: `${NS}.provider.profile`,
 };
 
 /* ═══════════════════ MATRIX SERVICE ═══════════════════ */
@@ -475,6 +559,8 @@ class KhoraService {
         });
       });
       this._userId = res.user_id; this._token = res.access_token;
+      // Persist session to sessionStorage so it survives page refresh
+      try { sessionStorage.setItem('khora_session', JSON.stringify({ homeserver: baseUrl, accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id })); } catch {}
       // Cache encrypted session metadata in the encrypted vault
       try { await KhoraEncryptedCache.put('session', 'current', { userId: res.user_id, homeserver: baseUrl, deviceId: res.device_id, ts: Date.now() }); } catch {}
       return { userId: res.user_id };
@@ -482,6 +568,39 @@ class KhoraService {
       const resp = await this._api('POST', '/login', { type: 'm.login.password', user, password: pass }, true);
       this._token = resp.access_token; this._userId = resp.user_id;
       return { userId: resp.user_id };
+    }
+  }
+
+  async restoreSession() {
+    try {
+      const raw = sessionStorage.getItem('khora_session');
+      if (!raw) return null;
+      const { homeserver, accessToken, userId, deviceId } = JSON.parse(raw);
+      if (!homeserver || !accessToken || !userId || !deviceId) return null;
+      this._baseUrl = homeserver;
+      await LocalVaultCrypto.deriveKey(userId, accessToken, deviceId);
+      if (typeof matrixcs !== 'undefined') {
+        this.client = matrixcs.createClient({ baseUrl: homeserver, accessToken, userId, deviceId });
+        try { await this.client.initCrypto(); } catch (e) { console.warn('Crypto:', e.message); }
+        await this.client.startClient({ initialSyncLimit: 30 });
+        await new Promise((resolve, reject) => {
+          if (this.client.isInitialSyncComplete()) return resolve();
+          const timeout = setTimeout(() => reject(new Error('Sync timed out')), 60000);
+          this.client.on('sync', (state, prev, data) => {
+            if (state === 'PREPARED') { clearTimeout(timeout); resolve(); }
+            else if (state === 'ERROR') { clearTimeout(timeout); reject(new Error(data?.error?.message || 'Sync failed')); }
+          });
+        });
+      }
+      this._userId = userId; this._token = accessToken;
+      return { userId };
+    } catch (e) {
+      console.warn('Session restore failed:', e.message);
+      sessionStorage.removeItem('khora_session');
+      sessionStorage.removeItem('khora_account_type');
+      this.client = null; this._token = null; this._userId = null;
+      LocalVaultCrypto.clear();
+      return null;
     }
   }
 
@@ -1108,6 +1227,27 @@ const DOMAIN_CONFIG = {
   orgTypes: ['direct_service','administrative','clinical','legal','coordinating_body','advocacy','other'],
   orgTypeLabels: {direct_service:'Direct Service',administrative:'Administrative',clinical:'Clinical',
     legal:'Legal',coordinating_body:'Coordinating Body',advocacy:'Advocacy',other:'Other'},
+
+  /* ── Org Opacity Levels ── */
+  // Controls how much of the org's internal structure is visible to external orgs during messaging
+  opacityLevels: ['transparent','translucent','opaque'],
+  opacityLabels: {
+    transparent: 'Transparent',     // sender name & org visible
+    translucent: 'Translucent',     // org name visible, individual sender hidden
+    opaque:      'Opaque',          // only "an organization" — no name, no members
+  },
+  opacityDescriptions: {
+    transparent: 'External orgs see which staff member sent each message and your org name.',
+    translucent: 'External orgs see your org name but individual sender identities are hidden.',
+    opaque:      'External orgs see only that a response came from an organization. Org name and all member identities are hidden.',
+  },
+
+  /* ── Org Message Access Roles ── */
+  // Which org roles can access inter-org messages by default
+  msgAccessDefaults: {
+    read: ['admin','case_manager'],
+    respond: ['admin'],
+  },
 };
 
 /* ── Derived constants (backward-compatible references) ── */
@@ -1131,6 +1271,10 @@ const ORG_ROLES = DOMAIN_CONFIG.orgRoles;
 const ORG_ROLE_LABELS = DOMAIN_CONFIG.orgRoleLabels;
 const ORG_TYPES = DOMAIN_CONFIG.orgTypes;
 const ORG_TYPE_LABELS = DOMAIN_CONFIG.orgTypeLabels;
+const OPACITY_LEVELS = DOMAIN_CONFIG.opacityLevels;
+const OPACITY_LABELS = DOMAIN_CONFIG.opacityLabels;
+const OPACITY_DESCRIPTIONS = DOMAIN_CONFIG.opacityDescriptions;
+const MSG_ACCESS_DEFAULTS = DOMAIN_CONFIG.msgAccessDefaults;
 
 /* ═══════════════════ FRAMEWORK BINDINGS (§C.2) ═══════════════════ */
 // Multi-framework value mappings: same observation value → different classifications
@@ -2184,7 +2328,7 @@ const RecordGivenMeant = ({promptKey, value, reporter, timestamp}) => {
 };
 
 /* ═══════════════════ SCHEMA WORKBENCH ═══════════════════ */
-const SWC = {
+const SWC_DARK = {
   bg: "#07090d", surface: "#0e1218", raised: "#151b23", hover: "#1b2330",
   border: "#1d2735", borderLit: "#2c3d52", text: "#adb8c4", muted: "#586a7c",
   dim: "#2d3c4d", white: "#e3e9ef",
@@ -2195,6 +2339,20 @@ const SWC = {
   fwBorder: i => `${["#60a5fa","#f0abfc","#fbbf24","#34d399","#fb7185"][i%5]}40`,
   sup: "#fbbf24", supBg: "rgba(251,191,36,0.06)", red: "#f87171",
 };
+const SWC_LIGHT = {
+  bg: "#f5f5f7", surface: "#ebedf0", raised: "#e0e2e7", hover: "#d4d7dd",
+  border: "#b8bcc6", borderLit: "#a0a5b2", text: "#3d4250", muted: "#5a6073",
+  dim: "#c8ccd4", white: "#1a1c20",
+  given: "#137a6a", givenBorder: "#0a5c4d",
+  meant: "#6938c0", meantBorder: "#4a2d8a",
+  fw: ["#2563b0","#9333b0","#8a6d1e","#177a4a","#c03050"],
+  fwBg: i => `${["#2563b0","#9333b0","#8a6d1e","#177a4a","#c03050"][i%5]}14`,
+  fwBorder: i => `${["#2563b0","#9333b0","#8a6d1e","#177a4a","#c03050"][i%5]}40`,
+  sup: "#8a6d1e", supBg: "rgba(138,109,30,0.08)", red: "#c03030",
+};
+const useSWC = () => { const {theme} = useTheme(); return theme === 'light' ? SWC_LIGHT : SWC_DARK; };
+/* Legacy alias — components that haven't migrated yet still read SWC */
+let SWC = SWC_DARK;
 
 let _swId = 100;
 const swUid = () => `id_${_swId++}`;
@@ -2295,6 +2453,7 @@ function SwMRow({opt,frameworks,getBindingCode,setBind,clearBind,hasConflict,isL
 }
 
 const SchemaWorkbench = ({isOrg = false}) => {
+  SWC = useSWC();
   const [screen, setScreen] = useState("start");
   const [prompts, setPrompts] = useState([]);
   const [frameworks, setFrameworks] = useState([]);
@@ -3056,7 +3215,8 @@ const ActivityStream = ({session}) => {
 /* ═══════════════════ WELCOME / INVITATION SCREEN ═══════════════════ */
 
 const WelcomeScreen = ({onContinue}) => (
-  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+    <div style={{position:'absolute',top:16,right:16}}><ThemeToggle/></div>
     <div className="anim-up" style={{width:'100%',maxWidth:600,padding:20}}>
       <div style={{background:'var(--bg-1)',border:'1px solid var(--border-0)',borderRadius:'var(--r-lg)',padding:'48px 44px',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg, var(--gold), var(--teal), var(--blue))'}}/>
@@ -3153,7 +3313,8 @@ const LoginScreen = ({onLogin}) => {
     setLoading(false);
   };
 
-  return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+  return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+    <div style={{position:'absolute',top:16,right:16}}><ThemeToggle/></div>
     <div className="anim-up" style={{width:'100%',maxWidth:440,padding:20}}>
       <div style={{background:'var(--bg-1)',border:'1px solid var(--border-0)',borderRadius:'var(--r-lg)',padding:'44px 40px',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg, var(--gold), var(--teal), var(--blue))'}}/>
@@ -3197,7 +3358,8 @@ const LoginScreen = ({onLogin}) => {
 
 /* ═══════════════════ ACCOUNT TYPE SELECTOR ═══════════════════ */
 const AccountTypeScreen = ({onSelect}) => (
-  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+    <div style={{position:'absolute',top:16,right:16}}><ThemeToggle/></div>
     <div className="anim-up" style={{textAlign:'center',maxWidth:700,padding:20}}>
       <h2 style={{fontFamily:'var(--serif)',fontSize:28,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Choose your role</h2>
       <p style={{color:'var(--tx-1)',fontSize:14,marginBottom:36}}>This determines your data access model and room topology</p>
@@ -3241,8 +3403,43 @@ const ClientApp = ({session, onLogout, showToast}) => {
   const [initError, setInitError] = useState(null);
   const [claimedRooms, setClaimedRooms] = useState([]);
   const [pendingClaims, setPendingClaims] = useState([]);
+  const [customFieldDefs, setCustomFieldDefs] = useState([]); // [{key,label,category,sensitive}]
+  const [addFieldModal, setAddFieldModal] = useState(false);
+  const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [newFieldCategory, setNewFieldCategory] = useState('details');
+  const [newFieldSensitive, setNewFieldSensitive] = useState(false);
 
   useEffect(() => { initVault(); }, []);
+
+  // Merge built-in fields with client-defined custom fields
+  const allFields = useMemo(() => [...VAULT_FIELDS, ...customFieldDefs], [customFieldDefs]);
+  const allCategories = useMemo(() => {
+    const cats = [...FIELD_CATEGORIES];
+    for (const f of customFieldDefs) { if (!cats.includes(f.category)) cats.push(f.category); }
+    return cats;
+  }, [customFieldDefs]);
+
+  const handleAddCustomField = async () => {
+    const label = newFieldLabel.trim();
+    if (!label) return;
+    const key = 'custom_' + label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    if (allFields.some(f => f.key === key)) { showToast('A field with that name already exists','error'); return; }
+    const def = {key, label, category: newFieldCategory, sensitive: newFieldSensitive, custom: true};
+    const updated = [...customFieldDefs, def];
+    await emitOp(vaultRoom, 'INS', {field:key,entity:'custom_field_def'}, {label,category:newFieldCategory,sensitive:newFieldSensitive}, vaultFrame());
+    await saveSnapshot(undefined, undefined, undefined, updated);
+    setAddFieldModal(false); setNewFieldLabel(''); setNewFieldCategory('details'); setNewFieldSensitive(false);
+    showToast(`Custom field "${label}" created`, 'success');
+  };
+
+  const handleDeleteCustomField = async (fieldKey) => {
+    const updated = customFieldDefs.filter(f => f.key !== fieldKey);
+    const updatedData = {...vaultData};
+    delete updatedData[fieldKey];
+    await emitOp(vaultRoom, 'NUL', {field:fieldKey,entity:'custom_field_def'}, {reason:'client_deleted'}, vaultFrame());
+    await saveSnapshot(updatedData, undefined, undefined, updated);
+    showToast('Custom field removed', 'warn');
+  };
 
   const vaultFrame = (room) => ({type:'vault',room:room||vaultRoom,role:'client',epistemic:'GIVEN'});
   const bridgeFrame = (room) => ({type:'bridge',room,role:'client',epistemic:'MEANT'});
@@ -3263,9 +3460,10 @@ const ClientApp = ({session, onLogout, showToast}) => {
       } catch (e) { console.warn('Invited room scan failed:', e.message); }
 
       // Phase 2: Scan joined rooms (now includes any rooms we just auto-joined)
-      const scanned = await svc.scanRooms();
+      const scanned = await svc.scanRooms([EVT.PROVIDER_PROFILE]);
       let vault = null, schema = null;
       const detectedPending = [], detectedClaimed = [];
+      const bridgeProfiles = {}; // bridgeRoomId → provider profile
       for (const [rid, state] of Object.entries(scanned)) {
         const id = state[EVT.IDENTITY];
         if (id?.account_type === 'client' && id.owner === svc.userId) vault = rid;
@@ -3278,13 +3476,20 @@ const ClientApp = ({session, onLogout, showToast}) => {
             detectedPending.push({roomId: rid, ...id});
           }
         }
+        // Collect provider profiles from bridge rooms
+        const bridgeMeta = state[EVT.BRIDGE_META];
+        const provProfile = state[EVT.PROVIDER_PROFILE];
+        if (bridgeMeta && bridgeMeta.client === svc.userId && provProfile) {
+          bridgeProfiles[rid] = provProfile;
+        }
       }
       if (!vault) {
         vault = await svc.createRoom('[Khora Vault]', 'Personal data vault', [
           {type:EVT.IDENTITY,state_key:'',content:{account_type:'client',owner:svc.userId,created:Date.now()}},
           {type:EVT.VAULT_SNAPSHOT,state_key:'',content:{fields:{},observations:[],
             metrics_consent:{enabled:false,categories:[]},
-            matching_consent:{enabled:false,layers:[],network_id:null,last_token_ts:null}}},
+            matching_consent:{enabled:false,layers:[],network_id:null,last_token_ts:null},
+            custom_field_defs:[]}},
           {type:EVT.VAULT_PROVIDERS,state_key:'',content:{providers:[]}},
         ]);
         showToast('Vault created — encrypted room ready','success');
@@ -3305,7 +3510,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
         }
       }
       setVaultRoom(vault); setSchemaRoom(schema);
-      await loadVault(vault);
+      await loadVault(vault, bridgeProfiles);
       setPendingClaims(detectedPending);
       setClaimedRooms(detectedClaimed);
     } catch (e) {
@@ -3315,19 +3520,25 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setLoading(false);
   };
 
-  const loadVault = async (rid) => {
+  const loadVault = async (rid, bridgeProfiles) => {
     const snap = await svc.getState(rid, EVT.VAULT_SNAPSHOT);
     setVaultData(snap?.fields || {});
     setObservations(snap?.observations || []);
     setMetricsConsent(snap?.metrics_consent || {enabled:false,categories:[]});
+    setCustomFieldDefs(snap?.custom_field_defs || []);
     const idx = await svc.getState(rid, EVT.VAULT_PROVIDERS);
-    setProviders(idx?.providers || []);
+    // Enrich providers with profile data from bridge rooms
+    const enrichedProviders = (idx?.providers || []).map(p => {
+      const profile = bridgeProfiles?.[p.bridgeRoomId];
+      return profile ? {...p, providerProfile: profile, providerName: profile.display_name || p.providerName} : p;
+    });
+    setProviders(enrichedProviders);
   };
 
-  const saveSnapshot = async (fields, obs, mc) => {
-    const snapshot = {fields:fields??vaultData, observations:obs??observations, metrics_consent:mc??metricsConsent};
+  const saveSnapshot = async (fields, obs, mc, cfd) => {
+    const snapshot = {fields:fields??vaultData, observations:obs??observations, metrics_consent:mc??metricsConsent, custom_field_defs:cfd??customFieldDefs};
     await svc.setState(vaultRoom, EVT.VAULT_SNAPSHOT, snapshot);
-    setVaultData(snapshot.fields); setObservations(snapshot.observations); setMetricsConsent(snapshot.metrics_consent);
+    setVaultData(snapshot.fields); setObservations(snapshot.observations); setMetricsConsent(snapshot.metrics_consent); setCustomFieldDefs(snapshot.custom_field_defs);
   };
 
   const saveProviderIndex = async (provs) => {
@@ -3415,7 +3626,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
     await emitOp(prov.bridgeRoomId, 'SEG', {field:fk,visibility:newShared[fk]?'shared':'revoked'},
       {provider:prov.providerUserId}, bridgeFrame(prov.bridgeRoomId), newShared[fk]?[]:[`prev_seg_${fk}`]);
     await syncFieldsToBridge(prov.bridgeRoomId, newShared, vaultData);
-    const label = VAULT_FIELDS.find(f=>f.key===fk)?.label||fk;
+    const label = allFields.find(f=>f.key===fk)?.label||fk;
     showToast(newShared[fk]?`Shared ${label} — new key issued`:`Revoked ${label} — key destroyed`, newShared[fk]?'success':'warn');
   };
 
@@ -3536,7 +3747,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
 
   const activeProviderIdx = providers.findIndex(p=>p.bridgeRoomId===activeBridge);
   const activeProvider = activeProviderIdx>=0?providers[activeProviderIdx]:null;
-  const filledFields = VAULT_FIELDS.filter(f=>vaultData[f.key]);
+  const filledFields = allFields.filter(f=>vaultData[f.key]);
   const sharedCount = providers.reduce((s,p)=>s+Object.values(p.sharedFields||{}).filter(Boolean).length,0);
 
   if(loading)return<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}><Spin s={28}/></div>;
@@ -3569,7 +3780,6 @@ const ClientApp = ({session, onLogout, showToast}) => {
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
         {[{id:'vault',icon:'folder',label:'My Vault'},{id:'observations',icon:'clipboard',label:'Observations'},
           {id:'providers',icon:'users',label:'My Providers'},{id:'records',icon:'shield',label:'My Records'},
-          {id:'schema',icon:'grid',label:'Schema'},
           {id:'metrics',icon:'bar',label:'Metrics'},{id:'activity',icon:'zap',label:'Activity Stream'}
         ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveBridge(null)}}
           style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
@@ -3590,10 +3800,14 @@ const ClientApp = ({session, onLogout, showToast}) => {
             onMouseEnter={e=>{if(activeBridge!==p.bridgeRoomId)e.currentTarget.style.background='var(--bg-3)'}}
             onMouseLeave={e=>{if(activeBridge!==p.bridgeRoomId)e.currentTarget.style.background='transparent'}}>
             <span style={{fontSize:12,fontWeight:activeBridge===p.bridgeRoomId?600:400,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.providerName||p.providerUserId}</span>
-            <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{Object.values(p.sharedFields||{}).filter(Boolean).length} fields shared</span>
+            <div style={{display:'flex',alignItems:'center',gap:4}}>
+              {p.providerProfile?.org_membership?.verified && <><I n="shieldCheck" s={9} c="var(--blue)"/><span style={{fontSize:8.5,color:'var(--blue)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{p.providerProfile.org_membership.org_name}</span></>}
+              <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{Object.values(p.sharedFields||{}).filter(Boolean).length} fields</span>
+            </div>
           </div>)}</>}
       </div>
-      <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-0)'}}>
+      <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-0)',display:'flex',flexDirection:'column',gap:6}}>
+        <ThemeToggle style={{width:'100%',justifyContent:'center'}}/>
         <button onClick={onLogout} className="b-gho b-sm" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I n="logout" s={12}/>Logout</button>
       </div>
     </div>
@@ -3606,10 +3820,13 @@ const ClientApp = ({session, onLogout, showToast}) => {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
           <div><h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Your Vault</h2>
             <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>All data encrypted in your private Matrix room. Only you can read this.</p></div>
-          <button onClick={()=>{setEditData({...vaultData});setEditModal(true)}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="key" s={14}/>Edit Vault</button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setAddFieldModal(true)} className="b-gho" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>Add Field</button>
+            <button onClick={()=>{setEditData({...vaultData});setEditModal(true)}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="key" s={14}/>Edit Vault</button>
+          </div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10,marginBottom:24}}>
-          {[{l:'Fields',v:`${filledFields.length}/${VAULT_FIELDS.length}`,c:'teal',i:'folder'},
+          {[{l:'Fields',v:`${filledFields.length}/${allFields.length}`,c:'teal',i:'folder'},
             {l:'Providers',v:providers.length,c:'gold',i:'users'},
             {l:'Observations',v:observations.length,c:'blue',i:'clipboard'},
             {l:'Shared Fields',v:sharedCount,c:'orange',i:'share'},
@@ -3618,18 +3835,24 @@ const ClientApp = ({session, onLogout, showToast}) => {
               <span style={{fontSize:18,fontWeight:700}}>{s.v}</span>
               <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
         </div>
-        {FIELD_CATEGORIES.map(cat=>{const fields=VAULT_FIELDS.filter(f=>f.category===cat);const color=CAT_COLORS[cat];
+        {allCategories.map(cat=>{const fields=allFields.filter(f=>f.category===cat);const color=CAT_COLORS[cat]||'gold';
+          if(!fields.length) return null;
           return <div key={cat} style={{marginBottom:16}}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
-              <span style={{color:`var(--${color})`}}><I n={CAT_ICONS[cat]} s={13}/></span>
-              <span className="section-label" style={{marginBottom:0}}>{CAT_LABELS[cat].toUpperCase()}</span></div>
+              <span style={{color:`var(--${color})`}}><I n={CAT_ICONS[cat]||'file'} s={13}/></span>
+              <span className="section-label" style={{marginBottom:0}}>{(CAT_LABELS[cat]||cat.charAt(0).toUpperCase()+cat.slice(1)).toUpperCase()}</span></div>
             <div className="card" style={{padding:0,overflow:'hidden'}}>
               {fields.map((f,fi)=><div key={f.key} style={{padding:'10px 16px',borderBottom:fi<fields.length-1?'1px solid var(--border-0)':'none',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontSize:12.5,fontWeight:500}}>{f.label}</span>
-                  {f.sensitive&&<span className="tag tag-red" style={{fontSize:8.5}}>SENSITIVE</span>}</div>
-                <span style={{fontFamily:'var(--mono)',fontSize:11.5,color:vaultData[f.key]?'var(--tx-1)':'var(--tx-3)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                  {vaultData[f.key]?(f.sensitive?'••••••••':vaultData[f.key]):'—'}</span>
+                  {f.sensitive&&<span className="tag tag-red" style={{fontSize:8.5}}>SENSITIVE</span>}
+                  {f.custom&&<span className="tag tag-purple" style={{fontSize:8.5}}>CUSTOM</span>}</div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11.5,color:vaultData[f.key]?'var(--tx-1)':'var(--tx-3)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {vaultData[f.key]?(f.sensitive?'••••••••':vaultData[f.key]):'—'}</span>
+                  {f.custom&&<span onClick={()=>handleDeleteCustomField(f.key)} style={{cursor:'pointer',color:'var(--tx-3)',transition:'color .15s'}}
+                    onMouseEnter={e=>e.currentTarget.style.color='var(--red)'} onMouseLeave={e=>e.currentTarget.style.color='var(--tx-3)'}><I n="trash" s={12}/></span>}
+                </div>
               </div>)}
             </div>
           </div>;
@@ -3702,12 +3925,25 @@ const ClientApp = ({session, onLogout, showToast}) => {
         {providers.length===0?<div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}><I n="users" s={32}/><p style={{color:'var(--tx-2)',marginTop:10}}>No providers yet</p></div>
         :<div style={{display:'flex',flexDirection:'column',gap:10}}>
           {providers.map((prov,pi)=>{const shCount=Object.values(prov.sharedFields||{}).filter(Boolean).length;
+            const pp = prov.providerProfile;
+            const orgInfo = pp?.org_membership;
             return <div key={prov.bridgeRoomId} className="card" style={{padding:0,overflow:'hidden'}}>
               <div style={{padding:'14px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid var(--border-0)'}}>
-                <div><div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:14,fontWeight:600}}>{prov.providerName||prov.providerUserId}</span>
-                  <span className="tag tag-green"><I n="lock" s={9}/>E2EE</span></div>
-                  <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-3)'}}>Bridge: {prov.bridgeRoomId.slice(0,20)}…</span></div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    <span style={{fontSize:14,fontWeight:600}}>{prov.providerName||prov.providerUserId}</span>
+                    {pp?.title && <span style={{fontSize:11,color:'var(--tx-2)'}}>{pp.title}</span>}
+                    <span className="tag tag-green"><I n="lock" s={9}/>E2EE</span>
+                  </div>
+                  {orgInfo?.verified ? <div style={{display:'flex',alignItems:'center',gap:5,marginTop:4}}>
+                    <I n="shieldCheck" s={12} c="var(--blue)"/>
+                    <span style={{fontSize:11,fontWeight:600,color:'var(--blue)'}}>{orgInfo.org_name}</span>
+                    <span className="tag tag-green" style={{fontSize:7.5,padding:'1px 5px'}}>VERIFIED</span>
+                    {orgInfo.role && <span style={{fontSize:9,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{orgInfo.role}</span>}
+                  </div> : <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-3)'}}>Independent provider</span>}
+                  {pp?.credentials && <div style={{marginTop:2}}><span style={{fontSize:9.5,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{pp.credentials}</span></div>}
+                  <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-3)',display:'block',marginTop:2}}>Bridge: {prov.bridgeRoomId.slice(0,20)}…</span>
+                </div>
                 <div style={{display:'flex',gap:4}}>
                   <button onClick={()=>openBridge(prov.bridgeRoomId)} className="b-gho b-sm">Open Bridge</button>
                   <button onClick={()=>setHardRevokeTarget(pi)} className="b-red b-sm"><I n="zap" s={11}/></button>
@@ -3717,15 +3953,15 @@ const ClientApp = ({session, onLogout, showToast}) => {
               <div style={{padding:'12px 18px'}}>
                 <span className="section-label">FIELD-LEVEL SHARING</span>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0'}}>
-                  {VAULT_FIELDS.map(f=>{const isShared=prov.sharedFields?.[f.key]||false;const hasData=!!vaultData[f.key];
+                  {allFields.map(f=>{const isShared=prov.sharedFields?.[f.key]||false;const hasData=!!vaultData[f.key];
                     return <div key={f.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)',marginRight:16}}>
-                      <span style={{fontSize:12,color:hasData?'var(--tx-0)':'var(--tx-3)'}}>{f.label}</span>
+                      <span style={{fontSize:12,color:hasData?'var(--tx-0)':'var(--tx-3)'}}>{f.label}{f.custom?' ✦':''}</span>
                       <Toggle on={isShared} onChange={()=>handleToggleField(pi,f.key)} disabled={!hasData}/>
                     </div>;})}
                 </div>
                 <div style={{marginTop:10,display:'flex',alignItems:'center',gap:6}}>
                   <I n="key" s={12} c="var(--tx-3)"/>
-                  <span style={{fontSize:10.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{shCount}/{VAULT_FIELDS.length} fields — unique AES-256-GCM keys</span>
+                  <span style={{fontSize:10.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{shCount}/{allFields.length} fields — unique AES-256-GCM keys</span>
                 </div>
               </div>
             </div>;})}
@@ -3814,9 +4050,6 @@ const ClientApp = ({session, onLogout, showToast}) => {
         </div>
       </div>}
 
-      {/* SCHEMA WORKBENCH */}
-      {view==='schema'&&!activeBridge&&<SchemaWorkbench isOrg={false}/>}
-
       {/* METRICS VIEW (§B) */}
       {view==='metrics'&&!activeBridge&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:6}}>Metrics Consent</h2>
@@ -3857,16 +4090,32 @@ const ClientApp = ({session, onLogout, showToast}) => {
       {view==='bridge'&&activeBridge&&activeProvider&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <button onClick={()=>{setView('providers');setActiveBridge(null)}} className="b-gho b-sm" style={{marginBottom:14,display:'flex',alignItems:'center',gap:4}}><I n="back" s={13}/>Back</button>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-          <div><h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>Bridge: {activeProvider.providerName||activeProvider.providerUserId}</h2>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+          <div>
+            <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>Bridge: {activeProvider.providerName||activeProvider.providerUserId}</h2>
+            {activeProvider.providerProfile?.title && <span style={{fontSize:12,color:'var(--tx-2)',display:'block',marginTop:2}}>{activeProvider.providerProfile.title}</span>}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
               <span className="tag tag-green"><I n="lock" s={9}/>Megolm + AES-GCM</span>
-              <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>{activeBridge}</span></div></div>
+              {activeProvider.providerProfile?.org_membership?.verified && <span className="tag tag-blue"><I n="shieldCheck" s={9}/>{activeProvider.providerProfile.org_membership.org_name}</span>}
+              <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>{activeBridge}</span>
+            </div>
+          </div>
           <button onClick={()=>setHardRevokeTarget(activeProviderIdx)} className="b-red b-sm"><I n="zap" s={12}/>Hard Revoke</button>
         </div>
+        {activeProvider.providerProfile?.org_membership?.verified && <div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:28,height:28,borderRadius:'50%',background:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--blue)',border:'2px solid var(--blue)'}}><I n="shieldCheck" s={14}/></div>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{activeProvider.providerProfile.org_membership.org_name}</span>
+              <span className="tag tag-green" style={{fontSize:7.5,padding:'1px 5px'}}>VERIFIED</span>
+            </div>
+            <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{activeProvider.providerProfile.org_membership.org_type ? (ORG_TYPE_LABELS[activeProvider.providerProfile.org_membership.org_type]||activeProvider.providerProfile.org_membership.org_type)+' · ':''}{activeProvider.providerProfile.org_membership.role}</span>
+          </div>
+          {activeProvider.providerProfile.credentials && <span style={{fontSize:9.5,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{activeProvider.providerProfile.credentials}</span>}
+        </div>}
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">CURRENTLY SHARED</span>
           <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
-            {VAULT_FIELDS.filter(f=>activeProvider.sharedFields?.[f.key]).map(f=><span key={f.key} className="tag tag-blue">{f.label}</span>)}
+            {allFields.filter(f=>activeProvider.sharedFields?.[f.key]).map(f=><span key={f.key} className="tag tag-blue">{f.label}</span>)}
             {Object.values(activeProvider.sharedFields||{}).filter(Boolean).length===0&&<span style={{fontSize:12,color:'var(--tx-3)'}}>No fields shared</span>}
           </div>
         </div>
@@ -3895,17 +4144,20 @@ const ClientApp = ({session, onLogout, showToast}) => {
     {/* EDIT VAULT MODAL */}
     <Modal open={editModal} onClose={()=>setEditModal(false)} title="Edit Vault Data" w={540}>
       <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>Changes to shared fields are re-encrypted with new keys per provider. Each edit emits EO operations (INS/ALT/NUL) to the vault timeline.</p>
-      {FIELD_CATEGORIES.map(cat=><div key={cat} style={{marginBottom:14}}>
-        <span className="section-label">{CAT_LABELS[cat].toUpperCase()}</span>
-        {VAULT_FIELDS.filter(f=>f.category===cat).map(f=><div key={f.key} style={{marginBottom:8}}>
+      {allCategories.map(cat=>{const fields=allFields.filter(f=>f.category===cat);
+        if(!fields.length) return null;
+        return <div key={cat} style={{marginBottom:14}}>
+        <span className="section-label">{(CAT_LABELS[cat]||cat.charAt(0).toUpperCase()+cat.slice(1)).toUpperCase()}</span>
+        {fields.map(f=><div key={f.key} style={{marginBottom:8}}>
           <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
             <label style={{fontSize:11.5,color:'var(--tx-1)'}}>{f.label}</label>
-            {f.sensitive&&<span className="tag tag-red" style={{fontSize:8}}>SENSITIVE</span>}</div>
-          {['case_notes','history','medical','documents'].includes(f.key)?
+            {f.sensitive&&<span className="tag tag-red" style={{fontSize:8}}>SENSITIVE</span>}
+            {f.custom&&<span className="tag tag-purple" style={{fontSize:8}}>CUSTOM</span>}</div>
+          {['case_notes','history','medical','documents'].includes(f.key)||(f.custom&&f.category==='case')?
             <textarea value={editData[f.key]||''} onChange={e=>setEditData({...editData,[f.key]:e.target.value})} placeholder={`Enter ${f.label.toLowerCase()}...`} style={{minHeight:50}}/>:
             <input value={editData[f.key]||''} onChange={e=>setEditData({...editData,[f.key]:e.target.value})} placeholder={`Enter ${f.label.toLowerCase()}...`}/>}
         </div>)}
-      </div>)}
+      </div>;})}
       <button onClick={handleEditSave} className="b-pri" style={{width:'100%'}}>Save & Re-encrypt Shared Fields</button>
     </Modal>
 
@@ -3957,6 +4209,27 @@ const ClientApp = ({session, onLogout, showToast}) => {
         <button onClick={()=>handleHardRevoke(hardRevokeTarget)} className="b-red" style={{flex:1}}><I n="zap" s={13}/>Execute</button>
       </div>
     </Modal>
+
+    {/* ADD CUSTOM FIELD MODAL */}
+    <Modal open={addFieldModal} onClose={()=>{setAddFieldModal(false);setNewFieldLabel('');setNewFieldCategory('details');setNewFieldSensitive(false)}} title="Add Custom Field" w={440}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>Create a new field to store any data you want in your vault. Custom fields work just like built-in fields — encrypted, shareable, and fully under your control.</p>
+      <div style={{marginBottom:14}}><span className="section-label">FIELD NAME</span>
+        <input value={newFieldLabel} onChange={e=>setNewFieldLabel(e.target.value)} placeholder="e.g. Emergency Contact, Preferred Language..." autoFocus
+          onKeyDown={e=>{if(e.key==='Enter'&&newFieldLabel.trim())handleAddCustomField()}}/></div>
+      <div style={{marginBottom:14}}><span className="section-label">CATEGORY</span>
+        <select value={newFieldCategory} onChange={e=>setNewFieldCategory(e.target.value)} style={{width:'100%'}}>
+          {FIELD_CATEGORIES.map(c=><option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+        </select></div>
+      <div style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div><span style={{fontSize:12,fontWeight:500}}>Sensitive field</span>
+          <p style={{fontSize:10.5,color:'var(--tx-2)',marginTop:2}}>Sensitive fields are masked in the vault view</p></div>
+        <Toggle on={newFieldSensitive} onChange={()=>setNewFieldSensitive(!newFieldSensitive)}/>
+      </div>
+      <div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:14}}>
+        <span style={{fontSize:11.5,color:'var(--tx-1)',lineHeight:1.5}}>Custom fields are encrypted with AES-256-GCM, stored in your vault, and can be selectively shared with providers — identical to built-in fields.</span>
+      </div>
+      <button onClick={handleAddCustomField} className="b-pri" disabled={!newFieldLabel.trim()} style={{width:'100%'}}>Create Field</button>
+    </Modal>
   </div>;
 };
 
@@ -3970,7 +4243,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [metrics, setMetrics] = useState([]);
   const [networkMembers, setNetworkMembers] = useState([]);
   const [activeCase, setActiveCase] = useState(null);
-  const [view, setView] = useState('dashboard'); // dashboard|case|metrics|schema|network|activity|staff|org-settings
+  const [view, setView] = useState('dashboard'); // dashboard|case|metrics|schema|network|activity|staff|org-settings|org-inbox
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
@@ -4009,6 +4282,22 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [copiedField, setCopiedField] = useState(null);
   // Client data import
   const [importModal, setImportModal] = useState(false);
+  // Provider profile — self-reported identity info
+  const [providerProfile, setProviderProfile] = useState({});
+  const [profileModal, setProfileModal] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({display_name:'',title:'',credentials:'',bio:'',service_types:''});
+  // ─── Inter-org messaging & opacity ───
+  const [orgOpacity, setOrgOpacity] = useState('translucent'); // transparent|translucent|opaque
+  const [orgMsgAccess, setOrgMsgAccess] = useState({read:['admin','case_manager'],respond:['admin']});
+  const [orgChannels, setOrgChannels] = useState([]); // [{roomId, peerOrg:{name,roomId}, lastMessage, unread}]
+  const [activeChannel, setActiveChannel] = useState(null);
+  const [channelMessages, setChannelMessages] = useState([]);
+  const [orgMsgText, setOrgMsgText] = useState('');
+  const [composeOrgModal, setComposeOrgModal] = useState(false);
+  const [composePeerOrgId, setComposePeerOrgId] = useState('');
+  const [composePeerOrgName, setComposePeerOrgName] = useState('');
+  const [msgAccessModal, setMsgAccessModal] = useState(false);
+  const [msgAccessDraft, setMsgAccessDraft] = useState({read:[],respond:[]});
 
   useEffect(() => { initProvider(); }, []);
 
@@ -4022,11 +4311,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setInitError(null);
     try {
       // Single-pass scan: fetch all Khora state across rooms in one request
-      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER]);
+      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER, EVT.PROVIDER_PROFILE, EVT.ORG_OPACITY, EVT.ORG_MSG_ACCESS, EVT.ORG_MSG_CHANNEL]);
       let roster=null, metricsR=null, schema=null, network=null;
       let detectedOrg=null, detectedOrgRole=null;
       const bridgeData = [];
       const detectedClientRecords = [];
+      const detectedOrgChannels = [];
       for (const [rid, state] of Object.entries(scanned)) {
         const id = state[EVT.IDENTITY];
         if (id?.account_type==='provider'&&id.owner===svc.userId) roster=rid;
@@ -4046,6 +4336,11 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             const entry = orgRoster?.staff?.find(s=>s.userId===svc.userId);
             if (entry) { detectedOrg=rid; detectedOrgRole=entry.role; }
           }
+        }
+        // Detect inter-org messaging channels
+        const chanMeta = state[EVT.ORG_MSG_CHANNEL];
+        if (chanMeta && chanMeta.type === 'org_msg_channel') {
+          detectedOrgChannels.push({roomId: rid, ...chanMeta});
         }
         const meta = state[EVT.BRIDGE_META];
         if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
@@ -4080,6 +4375,9 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         }
       }
       setRosterRoom(roster); setMetricsRoom(metricsR); setSchemaRoom(schema);
+      // Load provider profile from roster room
+      const rosterState = scanned[roster];
+      if (rosterState?.[EVT.PROVIDER_PROFILE]) setProviderProfile(rosterState[EVT.PROVIDER_PROFILE]);
       if (network) { setNetworkRoom(network); await loadNetworkMembers(network); }
       // Load org context if detected during scan
       if (detectedOrg) {
@@ -4087,6 +4385,11 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         const orgState = scanned[detectedOrg];
         if (orgState?.[EVT.ORG_METADATA]) setOrgMeta(orgState[EVT.ORG_METADATA]);
         if (orgState?.[EVT.ORG_ROSTER]?.staff) setStaff(orgState[EVT.ORG_ROSTER].staff);
+        // Load opacity & message access settings
+        if (orgState?.[EVT.ORG_OPACITY]) setOrgOpacity(orgState[EVT.ORG_OPACITY].level || 'translucent');
+        if (orgState?.[EVT.ORG_MSG_ACCESS]) setOrgMsgAccess(orgState[EVT.ORG_MSG_ACCESS]);
+        // Load detected org messaging channels
+        if (detectedOrgChannels.length > 0) setOrgChannels(detectedOrgChannels);
       }
       // Load client records detected during scan
       if (detectedClientRecords.length > 0) {
@@ -4371,6 +4674,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           {userId:svc.userId,role:'admin',joined:Date.now()}
         ]}},
         {type:EVT.ROSTER_ASSIGN,state_key:'',content:{}},
+        {type:EVT.ORG_OPACITY,state_key:'',content:{level:'translucent',updated:Date.now(),updated_by:svc.userId}},
+        {type:EVT.ORG_MSG_ACCESS,state_key:'',content:{read:['admin','case_manager'],respond:['admin'],updated:Date.now()}},
       ]);
       await emitOp(org, 'DES', {entity:'organization',designation:setupData.name},
         {type:setupData.type,service_area:setupData.service_area}, orgFrame(org));
@@ -4441,6 +4746,179 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     } catch(e) { showToast('Error: '+e.message,'error'); }
   };
 
+  // ─── Provider profile management ───
+  const handleSaveProfile = async () => {
+    if (!rosterRoom) return;
+    try {
+      const profile = {
+        display_name: profileDraft.display_name.trim(),
+        title: profileDraft.title.trim(),
+        credentials: profileDraft.credentials.trim(),
+        bio: profileDraft.bio.trim(),
+        service_types: profileDraft.service_types.trim(),
+        org_membership: orgRoom ? {
+          org_room_id: orgRoom,
+          org_name: orgMeta.name || '',
+          org_type: orgMeta.type || '',
+          role: orgRole || '',
+          verified: true,
+        } : null,
+        updated: Date.now(),
+      };
+      await svc.setState(rosterRoom, EVT.PROVIDER_PROFILE, profile);
+      setProviderProfile(profile);
+      // Broadcast profile to all bridge rooms so clients can see provider identity
+      for (const c of cases) {
+        try {
+          await svc.setState(c.bridgeRoomId, EVT.PROVIDER_PROFILE, profile);
+        } catch (e) { console.warn('Profile broadcast failed for bridge', c.bridgeRoomId, e.message); }
+      }
+      setProfileModal(false);
+      showToast('Profile updated — broadcast to all bridges', 'success');
+    } catch (e) { showToast('Failed to save profile: ' + e.message, 'error'); }
+  };
+
+  const openProfileModal = () => {
+    setProfileDraft({
+      display_name: providerProfile.display_name || '',
+      title: providerProfile.title || '',
+      credentials: providerProfile.credentials || '',
+      bio: providerProfile.bio || '',
+      service_types: providerProfile.service_types || '',
+    });
+    setProfileModal(true);
+  };
+
+  // ─── Inter-org messaging ───
+
+  // Check if current user has permission for an org messaging action
+  const hasOrgMsgPermission = useCallback((action) => {
+    // action: 'read' or 'respond'
+    if (!orgRole) return false;
+    const allowed = orgMsgAccess[action] || [];
+    return allowed.includes(orgRole);
+  }, [orgRole, orgMsgAccess]);
+
+  // Save opacity setting (admin only)
+  const handleSaveOpacity = async (level) => {
+    if (!orgRoom || orgRole !== 'admin') return;
+    try {
+      await svc.setState(orgRoom, EVT.ORG_OPACITY, {level, updated: Date.now(), updated_by: svc.userId});
+      setOrgOpacity(level);
+      await emitOp(orgRoom, 'ALT', {entity:'org_opacity',field:'level'}, {from:orgOpacity,to:level,changed_by:svc.userId}, orgFrame());
+      showToast(`Opacity set to ${OPACITY_LABELS[level]}`,'success');
+    } catch(e) { showToast('Failed to update opacity: '+e.message,'error'); }
+  };
+
+  // Save message access settings (admin only)
+  const handleSaveMsgAccess = async () => {
+    if (!orgRoom || orgRole !== 'admin') return;
+    try {
+      await svc.setState(orgRoom, EVT.ORG_MSG_ACCESS, {...msgAccessDraft, updated: Date.now()});
+      setOrgMsgAccess(msgAccessDraft);
+      await emitOp(orgRoom, 'ALT', {entity:'org_msg_access',field:'roles'}, {read:msgAccessDraft.read,respond:msgAccessDraft.respond}, orgFrame());
+      setMsgAccessModal(false);
+      showToast('Message access roles updated','success');
+    } catch(e) { showToast('Failed to update access: '+e.message,'error'); }
+  };
+
+  // Create org-to-org messaging channel
+  const handleCreateOrgChannel = async () => {
+    if (!orgRoom || !composePeerOrgId.trim()) return;
+    // Check for existing channel
+    const existing = orgChannels.find(c => c.orgs?.includes(composePeerOrgId.trim()));
+    if (existing) {
+      setActiveChannel(existing.roomId);
+      setView('org-inbox');
+      setComposeOrgModal(false);
+      showToast('Channel already exists — opened','info');
+      return;
+    }
+    try {
+      const peerOrgId = composePeerOrgId.trim();
+      const channelRoom = await svc.createRoom(
+        `[Khora Org Msg] ${orgMeta.name||'Org'} ↔ ${composePeerOrgName||peerOrgId.slice(0,12)}`,
+        'Inter-org messaging channel',
+        [
+          {type:EVT.IDENTITY,state_key:'',content:{account_type:'org_msg_channel',created:Date.now()}},
+          {type:EVT.ORG_MSG_CHANNEL,state_key:'',content:{
+            type:'org_msg_channel',
+            orgs:[orgRoom, peerOrgId],
+            org_names:{[orgRoom]:orgMeta.name||'',[peerOrgId]:composePeerOrgName||''},
+            created:Date.now(), created_by:svc.userId,
+          }},
+        ]
+      );
+      // Invite the peer org room members (the channel inherits access from org rooms)
+      try { await svc.invite(channelRoom, peerOrgId); } catch(e) { console.warn('Peer invite:', e.message); }
+      await emitOp(channelRoom, 'INS', {entity:'org_msg_channel',field:'channel'},
+        {from_org:orgRoom,to_org:peerOrgId}, orgFrame());
+      const newChannel = {roomId:channelRoom,orgs:[orgRoom,peerOrgId],
+        org_names:{[orgRoom]:orgMeta.name||'',[peerOrgId]:composePeerOrgName||''},type:'org_msg_channel',created:Date.now()};
+      setOrgChannels(prev=>[...prev,newChannel]);
+      setActiveChannel(channelRoom);
+      setView('org-inbox');
+      setComposeOrgModal(false); setComposePeerOrgId(''); setComposePeerOrgName('');
+      showToast('Messaging channel created','success');
+    } catch(e) { showToast('Failed to create channel: '+e.message,'error'); }
+  };
+
+  // Load messages for an org channel
+  const loadChannelMessages = async (channelRoomId) => {
+    if (!channelRoomId) return;
+    const msgs = await svc.getMessages(channelRoomId);
+    setChannelMessages(msgs);
+  };
+
+  // Send a message in an org channel — applies opacity envelope
+  const handleSendOrgMsg = async () => {
+    if (!orgMsgText.trim() || !activeChannel) return;
+    if (!hasOrgMsgPermission('respond')) { showToast('You do not have permission to send org messages','warn'); return; }
+    try {
+      // Build opacity envelope: what the receiving org sees depends on our opacity setting
+      const envelope = {
+        [`${NS}.type`]: 'org_message',
+        [`${NS}.envelope`]: {
+          opacity: orgOpacity,
+          org_room_id: orgOpacity === 'opaque' ? undefined : orgRoom,
+          org_name: orgOpacity === 'opaque' ? undefined : (orgMeta.name || undefined),
+          sender_id: orgOpacity === 'transparent' ? svc.userId : undefined,
+          sender_name: orgOpacity === 'transparent' ? (providerProfile.display_name || undefined) : undefined,
+          ts: Date.now(),
+        },
+      };
+      await svc.sendMessage(activeChannel, orgMsgText, envelope);
+      await emitOp(activeChannel, 'INS', {type:'org_message',field:'message'},
+        {opacity:orgOpacity,body_length:orgMsgText.length}, orgFrame());
+      setOrgMsgText('');
+      setTimeout(()=>loadChannelMessages(activeChannel),500);
+    } catch(e) { showToast('Send failed: '+e.message,'error'); }
+  };
+
+  // Open a channel
+  const openChannel = (channelRoomId) => {
+    setActiveChannel(channelRoomId);
+    setView('org-inbox');
+    loadChannelMessages(channelRoomId);
+  };
+
+  // Resolve display info for a message based on opacity
+  const resolveMessageSender = useCallback((msg) => {
+    const env = msg.content?.[`${NS}.envelope`];
+    if (!env) return {label: msg.sender === svc.userId ? 'You' : msg.sender, isOwn: msg.sender === svc.userId};
+    const isOwn = msg.sender === svc.userId || env.org_room_id === orgRoom;
+    switch (env.opacity) {
+      case 'transparent':
+        return {label: env.sender_name || env.sender_id || 'Unknown', org: env.org_name, isOwn};
+      case 'translucent':
+        return {label: env.org_name || 'Organization', org: env.org_name, isOwn};
+      case 'opaque':
+        return {label: 'An organization', org: null, isOwn};
+      default:
+        return {label: msg.sender, isOwn};
+    }
+  }, [orgRoom]);
+
   // Determine network role based on org membership
   const networkRole = useMemo(() => {
     if (!networkRoom || !orgRoom) return null;
@@ -4485,9 +4963,40 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           <div style={{width:28,height:28,borderRadius:'var(--r)',background:'var(--gold-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gold)'}}><I n="briefcase" s={15}/></div>
           <span style={{fontFamily:'var(--serif)',fontWeight:700,fontSize:15}}>Khora</span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8}}>
-          <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{svc.userId}</span>
-          <span className="tag tag-gold">PROVIDER</span>
+        {/* Provider identity card */}
+        <div onClick={openProfileModal} style={{marginTop:10,padding:'10px 12px',background:'var(--bg-2)',border:'1px solid var(--border-1)',borderRadius:'var(--r-lg)',cursor:'pointer',transition:'border-color .2s'}}
+          onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'}
+          onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border-1)'}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:orgRoom?'var(--blue-dim)':'var(--gold-dim)',
+              display:'flex',alignItems:'center',justifyContent:'center',color:orgRoom?'var(--blue)':'var(--gold)',
+              border:orgRoom?'2px solid var(--blue)':'2px solid var(--gold)'}}>
+              <I n={orgRoom?'shieldCheck':'user'} s={16}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{fontSize:13,fontWeight:700,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--tx-0)'}}>
+                {providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || 'Provider'}
+              </span>
+              {providerProfile.title && <span style={{fontSize:10,color:'var(--tx-2)',display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{providerProfile.title}</span>}
+            </div>
+          </div>
+          {orgRoom ? <div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.2)',borderRadius:'var(--r)',padding:'6px 8px',display:'flex',alignItems:'center',gap:6}}>
+            <I n="shieldCheck" s={12} c="var(--blue)"/>
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{fontSize:10.5,fontWeight:600,color:'var(--blue)',display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{orgMeta.name || 'Organization'}</span>
+              <span style={{fontSize:9,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{ORG_ROLE_LABELS[orgRole]||orgRole} · {ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type}</span>
+            </div>
+            <span className="tag tag-green" style={{fontSize:7.5,padding:'1px 5px'}}>VERIFIED</span>
+          </div> : <div style={{display:'flex',alignItems:'center',gap:4,padding:'4px 0'}}>
+            <span style={{fontSize:9.5,color:'var(--tx-3)',fontStyle:'italic'}}>No organization — unaffiliated</span>
+          </div>}
+          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:6}}>
+            <span style={{fontFamily:'var(--mono)',fontSize:8.5,color:'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{svc.userId}</span>
+            <span className="tag tag-gold" style={{fontSize:8}}>PROVIDER</span>
+          </div>
+          {providerProfile.credentials && <div style={{marginTop:4}}>
+            <span style={{fontSize:9,color:'var(--tx-2)',fontFamily:'var(--mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block'}}>{providerProfile.credentials}</span>
+          </div>}
         </div>
       </div>
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
@@ -4519,9 +5028,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>
           {[
             {id:'org-settings',icon:'settings',label:'Org Settings',reqRole:'admin'},
+            {id:'org-inbox',icon:'msg',label:`Inbox${orgChannels.length?` (${orgChannels.length})`:''}`},
             {id:'staff',icon:'users',label:'Staff'},
             {id:'network',icon:'globe',label:'Network'},
-          ].filter(item=>!item.reqRole||orgRole===item.reqRole).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
+          ].filter(item=>!item.reqRole||orgRole===item.reqRole).filter(item=>item.id!=='org-inbox'||hasOrgMsgPermission('read')).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
             style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
               background:view===item.id&&!activeCase?'var(--bg-4)':'transparent',
               borderLeft:view===item.id&&!activeCase?'2px solid var(--blue)':'2px solid transparent',
@@ -4556,7 +5066,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           <button onClick={()=>loadCases()} className="b-gho b-xs" style={{width:'100%'}}><I n="search" s={10}/>Refresh</button>
         </div>
       </div>
-      <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-0)'}}>
+      <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-0)',display:'flex',flexDirection:'column',gap:6}}>
+        <ThemeToggle style={{width:'100%',justifyContent:'center'}}/>
         <button onClick={onLogout} className="b-gho b-sm" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I n="logout" s={12}/>Logout</button>
       </div>
     </div>
@@ -4569,15 +5080,43 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Provider Dashboard</h2>
         <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>You can only see data clients have explicitly shared. Each case is a separate encrypted bridge room.</p>
 
-        {/* Org context banner */}
-        {orgRoom&&<div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.15)',borderRadius:'var(--r)',padding:'12px 16px',marginBottom:20,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:32,height:32,borderRadius:'var(--r)',background:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--blue)'}}><I n="users" s={16}/></div>
-          <div style={{flex:1}}>
-            <span style={{fontSize:13,fontWeight:600,display:'block'}}>{orgMeta.name||'Organization'}</span>
-            <span style={{fontSize:10.5,color:'var(--tx-2)'}}>{ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type} · {staff.length} staff · {orgRole}</span>
+        {/* Provider identity card */}
+        <div className="card" style={{marginBottom:20,padding:0,overflow:'hidden'}}>
+          <div style={{padding:'16px 18px',display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:48,height:48,borderRadius:'50%',background:orgRoom?'var(--blue-dim)':'var(--gold-dim)',
+              display:'flex',alignItems:'center',justifyContent:'center',color:orgRoom?'var(--blue)':'var(--gold)',
+              border:orgRoom?'2px solid var(--blue)':'2px solid var(--gold)',flexShrink:0}}>
+              <I n={orgRoom?'shieldCheck':'user'} s={24}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{fontSize:17,fontWeight:700,display:'block'}}>{providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || 'Provider'}</span>
+              {providerProfile.title && <span style={{fontSize:12,color:'var(--tx-2)',display:'block'}}>{providerProfile.title}</span>}
+              {providerProfile.credentials && <span style={{fontSize:10.5,color:'var(--tx-2)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>{providerProfile.credentials}</span>}
+            </div>
+            <button onClick={openProfileModal} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="settings" s={11}/>Edit</button>
           </div>
-          <button onClick={()=>setView('org-settings')} className="b-gho b-xs"><I n="settings" s={11}/></button>
-        </div>}
+          {orgRoom ? <div style={{padding:'10px 18px',background:'var(--blue-dim)',borderTop:'1px solid rgba(91,156,245,.12)',display:'flex',alignItems:'center',gap:10}}>
+            <I n="shieldCheck" s={16} c="var(--blue)"/>
+            <div style={{flex:1}}>
+              <span style={{fontSize:12.5,fontWeight:600,color:'var(--blue)',display:'block'}}>{orgMeta.name||'Organization'}</span>
+              <span style={{fontSize:10,color:'var(--tx-2)'}}>{ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type} · {staff.length} staff · {ORG_ROLE_LABELS[orgRole]||orgRole}</span>
+            </div>
+            <span className="tag tag-green" style={{fontSize:8}}>VERIFIED</span>
+            <button onClick={()=>setView('org-settings')} className="b-gho b-xs"><I n="settings" s={11}/></button>
+          </div> : <div style={{padding:'10px 18px',background:'var(--gold-dim)',borderTop:'1px solid var(--gold-mid)',display:'flex',alignItems:'center',gap:8}}>
+            <I n="alert" s={14} c="var(--gold)"/>
+            <span style={{fontSize:11,color:'var(--gold)',flex:1}}>Not affiliated with an organization</span>
+            <button onClick={()=>setCreateOrgModal(true)} className="b-gho b-xs">Set Up</button>
+          </div>}
+          {providerProfile.bio && <div style={{padding:'10px 18px',borderTop:'1px solid var(--border-0)'}}>
+            <span style={{fontSize:11.5,color:'var(--tx-1)',lineHeight:1.5}}>{providerProfile.bio}</span>
+          </div>}
+          {!providerProfile.display_name && <div style={{padding:'10px 18px',borderTop:'1px solid var(--border-0)',display:'flex',alignItems:'center',gap:8}}>
+            <I n="alert" s={13} c="var(--gold)"/>
+            <span style={{fontSize:11,color:'var(--gold)'}}>Set up your profile — clients will see your name, title, and org membership on bridges.</span>
+            <button onClick={openProfileModal} className="b-pri b-xs">Set Up</button>
+          </div>}
+        </div>
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:24}}>
           {[{l:'Active Cases',v:cases.length,c:'gold',i:'briefcase'},
@@ -4698,22 +5237,33 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">SHARED DATA — CLIENT CONTROLLED</span>
-          {FIELD_CATEGORIES.map(cat=>{const fields=VAULT_FIELDS.filter(f=>f.category===cat&&activeCaseData.sharedData[f.key]);
-            if(!fields.length) return null;
-            return <div key={cat} style={{marginBottom:10}}>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                <span style={{color:`var(--${CAT_COLORS[cat]})`}}><I n={CAT_ICONS[cat]} s={12}/></span>
-                <span style={{fontSize:10.5,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.05em'}}>{CAT_LABELS[cat].toUpperCase()}</span></div>
-              {fields.map(f=><div key={f.key} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
-                <span style={{fontSize:12,color:'var(--tx-1)'}}>{f.label}</span>
-                <span style={{fontSize:12.5,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeCaseData.sharedData[f.key]}</span>
-              </div>)}
-            </div>;})}
+          {(()=>{
+            const knownKeys = new Set(VAULT_FIELDS.map(f=>f.key));
+            const customShared = Object.keys(activeCaseData.sharedData).filter(k=>!knownKeys.has(k));
+            return <>
+              {FIELD_CATEGORIES.map(cat=>{const fields=VAULT_FIELDS.filter(f=>f.category===cat&&activeCaseData.sharedData[f.key]);
+                if(!fields.length) return null;
+                return <div key={cat} style={{marginBottom:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                    <span style={{color:`var(--${CAT_COLORS[cat]})`}}><I n={CAT_ICONS[cat]} s={12}/></span>
+                    <span style={{fontSize:10.5,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.05em'}}>{CAT_LABELS[cat].toUpperCase()}</span></div>
+                  {fields.map(f=><div key={f.key} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+                    <span style={{fontSize:12,color:'var(--tx-1)'}}>{f.label}</span>
+                    <span style={{fontSize:12.5,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeCaseData.sharedData[f.key]}</span>
+                  </div>)}
+                </div>;})}
+              {customShared.length>0&&<div style={{marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                  <span style={{color:'var(--purple)'}}><I n="file" s={12}/></span>
+                  <span style={{fontSize:10.5,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.05em'}}>CLIENT CUSTOM FIELDS</span></div>
+                {customShared.map(k=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+                  <span style={{fontSize:12,color:'var(--tx-1)'}}>{k.replace(/^custom_/,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</span>
+                  <span style={{fontSize:12.5,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeCaseData.sharedData[k]}</span>
+                </div>)}
+              </div>}
+            </>;
+          })()}
           {Object.keys(activeCaseData.sharedData).length===0&&<p style={{color:'var(--tx-3)',fontSize:12,padding:'10px 0'}}>No fields shared yet</p>}
-          <div style={{marginTop:10,padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:6}}>
-            <I n="eyeOff" s={13} c="var(--tx-3)"/>
-            <span style={{fontSize:10.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{VAULT_FIELDS.length-Object.keys(activeCaseData.sharedData).length} fields exist but not shared</span>
-          </div>
         </div>
         {/* GIVEN/MEANT DIVIDE — Record-level framework interpretations */}
         {provObservations.filter(obs => {
@@ -4869,7 +5419,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       {/* ORG SETTINGS VIEW (admin only) */}
       {view==='org-settings'&&orgRoom&&orgRole==='admin'&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Organization Settings</h2>
-        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Manage your organization metadata and configuration.</p>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Manage your organization metadata, privacy, and inter-org messaging configuration.</p>
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">ORGANIZATION DETAILS</span>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:8}}>
@@ -4880,10 +5430,120 @@ const ProviderApp = ({session, onLogout, showToast}) => {
               <span style={{fontSize:13,fontWeight:500,display:'block'}}>{s.v}</span></div>)}
           </div>
         </div>
+
+        {/* OPACITY SETTINGS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <I n="eyeOff" s={16} c="var(--purple)"/>
+            <span className="section-label" style={{marginBottom:0}}>ORGANIZATION OPACITY</span>
+            <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>{OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:14,lineHeight:1.6}}>
+            Controls how much of your organization's identity is revealed when communicating with other organizations. This affects all outgoing inter-org messages.
+          </p>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {OPACITY_LEVELS.map(level => <div key={level} onClick={()=>handleSaveOpacity(level)}
+              style={{padding:'14px 16px',borderRadius:'var(--r-lg)',cursor:'pointer',
+                border:`2px solid ${orgOpacity===level?'var(--gold)':'var(--border-1)'}`,
+                background:orgOpacity===level?'var(--gold-dim)':'var(--bg-3)',transition:'all .18s'}}
+              onMouseEnter={e=>{if(orgOpacity!==level)e.currentTarget.style.borderColor='var(--border-2)'}}
+              onMouseLeave={e=>{if(orgOpacity!==level)e.currentTarget.style.borderColor='var(--border-1)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <span style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${orgOpacity===level?'var(--gold)':'var(--tx-3)'}`,
+                  background:orgOpacity===level?'var(--gold)':'transparent',flexShrink:0}}/>
+                <span style={{fontSize:14,fontWeight:700,color:orgOpacity===level?'var(--gold)':'var(--tx-0)'}}>{OPACITY_LABELS[level]}</span>
+                {level==='opaque'&&<span className="tag tag-red" style={{fontSize:8}}>MAX PRIVACY</span>}
+                {level==='translucent'&&<span className="tag tag-gold" style={{fontSize:8}}>RECOMMENDED</span>}
+                {level==='transparent'&&<span className="tag tag-green" style={{fontSize:8}}>OPEN</span>}
+              </div>
+              <p style={{fontSize:11.5,color:'var(--tx-2)',lineHeight:1.5,marginLeft:18}}>{OPACITY_DESCRIPTIONS[level]}</p>
+              {/* Preview of what external org sees */}
+              <div style={{marginTop:8,marginLeft:18,padding:'8px 12px',background:'var(--bg-1)',borderRadius:'var(--r)',border:'1px solid var(--border-0)'}}>
+                <span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:4}}>EXTERNAL ORG SEES:</span>
+                <span style={{fontSize:11,color:'var(--tx-1)'}}>
+                  {level==='transparent'?`"${providerProfile.display_name||'Jamie R.'} from ${orgMeta.name||'Your Org'}"`
+                  :level==='translucent'?`"${orgMeta.name||'Your Org'}"`
+                  :'"An organization"'}
+                </span>
+              </div>
+            </div>)}
+          </div>
+        </div>
+
+        {/* MESSAGE ACCESS CONTROLS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <I n="lock" s={16} c="var(--blue)"/>
+              <span className="section-label" style={{marginBottom:0}}>INTER-ORG MESSAGE ACCESS</span>
+            </div>
+            <button onClick={()=>{setMsgAccessDraft({...orgMsgAccess});setMsgAccessModal(true)}} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="settings" s={11}/>Configure</button>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:12,lineHeight:1.6}}>
+            Control which staff roles can read and respond to messages sent to your organization from other organizations.
+          </p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>CAN READ</span>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {orgMsgAccess.read?.map(r=><span key={r} className="tag tag-blue" style={{fontSize:9}}>{ORG_ROLE_LABELS[r]||r}</span>)}
+                {(!orgMsgAccess.read||orgMsgAccess.read.length===0)&&<span style={{fontSize:10,color:'var(--tx-3)',fontStyle:'italic'}}>No roles assigned</span>}
+              </div>
+            </div>
+            <div style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>CAN RESPOND</span>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {orgMsgAccess.respond?.map(r=><span key={r} className="tag tag-gold" style={{fontSize:9}}>{ORG_ROLE_LABELS[r]||r}</span>)}
+                {(!orgMsgAccess.respond||orgMsgAccess.respond.length===0)&&<span style={{fontSize:10,color:'var(--tx-3)',fontStyle:'italic'}}>No roles assigned</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ORG MESSAGING CHANNELS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <I n="msg" s={16} c="var(--teal)"/>
+              <span className="section-label" style={{marginBottom:0}}>MESSAGING CHANNELS ({orgChannels.length})</span>
+            </div>
+            <button onClick={()=>setComposeOrgModal(true)} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>New Channel</button>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:10,lineHeight:1.6}}>
+            Secure encrypted channels for org-to-org communication. Messages are governed by your opacity setting.
+          </p>
+          {orgChannels.length===0?<div style={{textAlign:'center',padding:'20px 0'}}>
+            <I n="msg" s={24}/>
+            <p style={{color:'var(--tx-3)',fontSize:11,marginTop:6}}>No messaging channels yet. Create one to start communicating with another organization.</p>
+          </div>
+          :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {orgChannels.map(ch=>{
+              const peerOrgId = ch.orgs?.find(o=>o!==orgRoom);
+              const peerName = ch.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+              return <div key={ch.roomId} onClick={()=>openChannel(ch.roomId)}
+                className="card-h" style={{padding:'10px 14px'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)'}}><I n="msg" s={14}/></div>
+                    <div>
+                      <span style={{fontSize:12.5,fontWeight:600,display:'block'}}>{peerName}</span>
+                      <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{ch.roomId?.slice(0,20)}…</span>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:8}}>{OPACITY_LABELS[orgOpacity]}</span>
+                    <I n="chevR" s={13} c="var(--tx-3)"/>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </div>}
+        </div>
+
         <div className="card">
           <span className="section-label">ORG ROOM ID</span>
           <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',background:'var(--bg-3)',padding:'8px 12px',borderRadius:'var(--r)',wordBreak:'break-all',marginTop:4}}>{orgRoom}</div>
-          <p style={{fontSize:11,color:'var(--tx-2)',marginTop:8}}>Share this room ID with providers who want to join your organization.</p>
+          <p style={{fontSize:11,color:'var(--tx-2)',marginTop:8}}>Share this room ID with providers who want to join your organization, or with other orgs to open a messaging channel.</p>
         </div>
       </div>}
 
@@ -5036,6 +5696,131 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>}
       </div>}
 
+      {/* ORG INBOX — Inter-org messaging view */}
+      {view==='org-inbox'&&orgRoom&&<div className="anim-up" style={{maxWidth:860,margin:'0 auto'}}>
+        {!activeChannel ? <>
+          {/* Channel list */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
+            <div>
+              <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Organization Inbox</h2>
+              <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>
+                Encrypted org-to-org messaging. Your opacity is set to <strong style={{color:orgOpacity==='opaque'?'var(--red)':orgOpacity==='translucent'?'var(--gold)':'var(--green)'}}>{OPACITY_LABELS[orgOpacity]}</strong>.
+                {orgRole==='admin'&&<span style={{color:'var(--tx-3)'}}> — change in Org Settings</span>}
+              </p>
+            </div>
+            <button onClick={()=>setComposeOrgModal(true)} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>New Channel</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:20}}>
+            {[{l:'Channels',v:orgChannels.length,c:'teal',i:'msg'},
+              {l:'Opacity',v:OPACITY_LABELS[orgOpacity],c:orgOpacity==='opaque'?'red':orgOpacity==='translucent'?'gold':'green',i:'eyeOff'},
+              {l:'Your Role',v:ORG_ROLE_LABELS[orgRole]||orgRole,c:'blue',i:'user'},
+            ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
+                <span style={{fontSize:16,fontWeight:700}}>{s.v}</span>
+                <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
+          </div>
+          {orgChannels.length===0?
+            <div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}>
+              <I n="msg" s={32}/>
+              <p style={{color:'var(--tx-2)',marginTop:10,fontSize:13}}>No messaging channels</p>
+              <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Create a channel to start communicating with another organization.</p>
+              <button onClick={()=>setComposeOrgModal(true)} className="b-pri" style={{marginTop:14}}><I n="plus" s={14}/>New Channel</button>
+            </div>
+          :<div className="card" style={{padding:0,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',background:'var(--bg-3)',borderBottom:'1px solid var(--border-1)',display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:0}}>
+              {['ORGANIZATION','OPACITY','ACTIONS'].map(h=>
+                <span key={h} style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.07em',fontWeight:600}}>{h}</span>)}
+            </div>
+            {orgChannels.map((ch,i)=>{
+              const peerOrgId = ch.orgs?.find(o=>o!==orgRoom);
+              const peerName = ch.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+              return <div key={ch.roomId} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:0,padding:'12px 16px',
+                borderBottom:i<orgChannels.length-1?'1px solid var(--border-0)':'none',alignItems:'center',transition:'background .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:28,height:28,borderRadius:'50%',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)'}}><I n="msg" s={14}/></div>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:600,display:'block'}}>{peerName}</span>
+                    <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{ch.roomId?.slice(0,20)}…</span>
+                  </div>
+                </div>
+                <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9,justifySelf:'start'}}>{OPACITY_LABELS[orgOpacity]}</span>
+                <button onClick={()=>openChannel(ch.roomId)} className="b-gho b-sm" style={{justifySelf:'start',display:'flex',alignItems:'center',gap:4}}>
+                  <I n="msg" s={12}/>Open
+                </button>
+              </div>;
+            })}
+          </div>}
+          <div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:20,display:'flex',gap:10,alignItems:'flex-start'}}>
+            <I n="eyeOff" s={16} c="var(--purple)"/>
+            <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>
+              <strong style={{color:'var(--purple)'}}>Opacity governs outgoing messages.</strong> When your org responds, the receiving org will see your identity according to your opacity setting ({OPACITY_LABELS[orgOpacity]}). Incoming messages are displayed according to the <em>sending</em> org's opacity setting — you cannot force another org to reveal more than they choose to.
+            </span>
+          </div>
+        </>
+        : <>
+          {/* Active channel — message thread */}
+          <button onClick={()=>{setActiveChannel(null);setChannelMessages([])}} className="b-gho b-sm" style={{marginBottom:14,display:'flex',alignItems:'center',gap:4}}><I n="back" s={13}/>All Channels</button>
+          {(() => {
+            const ch = orgChannels.find(c=>c.roomId===activeChannel);
+            const peerOrgId = ch?.orgs?.find(o=>o!==orgRoom);
+            const peerName = ch?.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+            return <>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                <div>
+                  <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>{peerName}</h2>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+                    <span className="tag tag-teal"><I n="lock" s={9}/>E2EE</span>
+                    <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>OUTGOING: {OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>org-to-org channel</span>
+                  </div>
+                </div>
+                <button onClick={()=>loadChannelMessages(activeChannel)} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="refresh-cw" s={11}/>Refresh</button>
+              </div>
+              <div className="card" style={{marginBottom:16}}>
+                <span className="section-label">MESSAGES</span>
+                <div style={{maxHeight:400,overflow:'auto',marginBottom:12}}>
+                  {channelMessages.length===0?
+                    <p style={{color:'var(--tx-3)',fontSize:12,padding:'20px 0',textAlign:'center'}}>No messages yet. Start the conversation.</p>
+                  :channelMessages.map((msg,i)=>{
+                    const sender = resolveMessageSender(msg);
+                    return <div key={msg.id||i} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{fontFamily:'var(--mono)',fontSize:10.5,fontWeight:600,
+                            color:sender.isOwn?'var(--gold)':'var(--teal)'}}>
+                            {sender.isOwn?'You'+(sender.org?` (${sender.org})`:''):sender.label}
+                          </span>
+                          {msg.content?.[`${NS}.envelope`]&&<span className={`tag ${
+                            msg.content[`${NS}.envelope`].opacity==='opaque'?'tag-red':
+                            msg.content[`${NS}.envelope`].opacity==='translucent'?'tag-gold':'tag-green'
+                          }`} style={{fontSize:7.5}}>
+                            {msg.content[`${NS}.envelope`].opacity?.toUpperCase()}
+                          </span>}
+                        </div>
+                        <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--tx-3)'}}>{msg.ts?new Date(msg.ts).toLocaleString():''}</span>
+                      </div>
+                      <p style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.5}}>{msg.content?.body}</p>
+                    </div>;
+                  })}
+                </div>
+                {hasOrgMsgPermission('respond')?<div style={{display:'flex',gap:6}}>
+                  <input value={orgMsgText} onChange={e=>setOrgMsgText(e.target.value)}
+                    placeholder={`Message as ${orgOpacity==='transparent'?(providerProfile.display_name||'you'):orgOpacity==='translucent'?(orgMeta.name||'your org'):'anonymous org'}... (E2EE)`}
+                    onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey)handleSendOrgMsg()}} style={{flex:1}}/>
+                  <button onClick={handleSendOrgMsg} className="b-pri" style={{display:'flex',alignItems:'center',gap:4}}><I n="send" s={13}/>Send</button>
+                </div>
+                :<div style={{padding:'10px 14px',background:'var(--gold-dim)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:8}}>
+                  <I n="lock" s={13} c="var(--gold)"/>
+                  <span style={{fontSize:11.5,color:'var(--gold)'}}>Your role ({ORG_ROLE_LABELS[orgRole]||orgRole}) does not have permission to respond to org messages. Contact your admin.</span>
+                </div>}
+              </div>
+            </>;
+          })()}
+        </>}
+      </div>}
+
       {/* ACTIVITY */}
       {view==='activity'&&<ActivityStream session={session}/>}
     </div>
@@ -5159,6 +5944,55 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </>}
     </Modal>
 
+    {/* PROVIDER PROFILE MODAL */}
+    <Modal open={profileModal} onClose={()=>setProfileModal(false)} title="Provider Profile" w={520}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+        Your profile is stored in your roster room and broadcast to all bridge rooms. Clients see your name, title, credentials, and organization membership.
+      </p>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">DISPLAY NAME</span>
+        <input value={profileDraft.display_name} onChange={e=>setProfileDraft({...profileDraft,display_name:e.target.value})} placeholder="e.g. Jamie Rivera"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">TITLE / ROLE</span>
+        <input value={profileDraft.title} onChange={e=>setProfileDraft({...profileDraft,title:e.target.value})} placeholder="e.g. Case Manager, Outreach Worker"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">CREDENTIALS / CERTIFICATIONS</span>
+        <input value={profileDraft.credentials} onChange={e=>setProfileDraft({...profileDraft,credentials:e.target.value})} placeholder="e.g. LCSW, CHW, HMIS Certified"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">SERVICE TYPES</span>
+        <input value={profileDraft.service_types} onChange={e=>setProfileDraft({...profileDraft,service_types:e.target.value})} placeholder="e.g. Housing navigation, Benefits enrollment"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">BIO</span>
+        <textarea value={profileDraft.bio} onChange={e=>setProfileDraft({...profileDraft,bio:e.target.value})} placeholder="Brief description of your role and how you help clients..." style={{minHeight:70}}/>
+      </div>
+      {orgRoom ? <div style={{background:'var(--blue-dim)',border:'1px solid rgba(91,156,245,.2)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+          <I n="shieldCheck" s={16} c="var(--blue)"/>
+          <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>Organization Verified</span>
+          <span className="tag tag-green" style={{fontSize:8}}>VERIFIED</span>
+        </div>
+        <div style={{fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+          <strong>{orgMeta.name}</strong> · {ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type}<br/>
+          Role: <strong>{ORG_ROLE_LABELS[orgRole]||orgRole}</strong>
+          {orgMeta.service_area && <><br/>Service Area: {orgMeta.service_area}</>}
+        </div>
+        <p style={{fontSize:10,color:'var(--tx-2)',marginTop:6}}>Your organization membership is verified through the Matrix room roster and will be visible to clients on all bridges.</p>
+      </div> : <div style={{background:'var(--gold-dim)',border:'1px solid var(--gold-mid)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <I n="alert" s={14} c="var(--gold)"/>
+          <span style={{fontSize:11.5,color:'var(--gold)',fontWeight:600}}>No organization affiliation</span>
+        </div>
+        <p style={{fontSize:10.5,color:'var(--tx-2)',marginTop:4}}>Clients will see you as an independent provider. Create or join an organization to display a verified affiliation badge on your profile.</p>
+      </div>}
+      <button onClick={handleSaveProfile} className="b-pri" style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="check" s={16}/> Save Profile & Broadcast
+      </button>
+    </Modal>
+
     {/* CREATE CLIENT RECORD MODAL */}
     <Modal open={createClientModal} onClose={()=>setCreateClientModal(false)} title="New Client Record" w={520}>
       <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>
@@ -5248,10 +6082,97 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
       </>}
     </Modal>
-
     {/* IMPORT DATA MODAL */}
     <ImportDataModal open={importModal} onClose={()=>setImportModal(false)}
       showToast={showToast} metricsRoom={metricsRoom} onComplete={handleImportComplete}/>
+
+    {/* COMPOSE ORG MESSAGE CHANNEL MODAL */}
+    <Modal open={composeOrgModal} onClose={()=>setComposeOrgModal(false)} title="New Org Messaging Channel" w={520}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>
+        Create an encrypted messaging channel with another organization. Messages you send will be governed by your opacity setting (<strong style={{color:orgOpacity==='opaque'?'var(--red)':orgOpacity==='translucent'?'var(--gold)':'var(--green)'}}>{OPACITY_LABELS[orgOpacity]}</strong>).
+      </p>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">PEER ORGANIZATION ROOM ID</span>
+        <input value={composePeerOrgId} onChange={e=>setComposePeerOrgId(e.target.value)} placeholder="!orgroom:matrix.org"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>The Matrix room ID of the organization you want to message.</span>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">ORGANIZATION NAME (OPTIONAL)</span>
+        <input value={composePeerOrgName} onChange={e=>setComposePeerOrgName(e.target.value)} placeholder="e.g. Metro Housing Authority"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>A display name for the other org. Helps identify the channel.</span>
+      </div>
+      {/* Opacity preview */}
+      <div style={{background:'var(--bg-3)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:14}}>
+        <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>OPACITY PREVIEW — THEY WILL SEE:</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>{OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+          <span style={{fontSize:12,color:'var(--tx-1)'}}>
+            {orgOpacity==='transparent'?`${providerProfile.display_name||'Staff Name'} from ${orgMeta.name||'Your Org'}`
+            :orgOpacity==='translucent'?orgMeta.name||'Your Org'
+            :'An organization'}
+          </span>
+        </div>
+      </div>
+      <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+        Both organizations maintain independent opacity settings. You control what they see about you; they control what you see about them.
+      </div>
+      <button onClick={handleCreateOrgChannel} className="b-pri" disabled={!composePeerOrgId.trim()} style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="msg" s={16}/> Create Channel
+      </button>
+    </Modal>
+
+    {/* MESSAGE ACCESS CONFIGURATION MODAL */}
+    <Modal open={msgAccessModal} onClose={()=>setMsgAccessModal(false)} title="Configure Message Access" w={560}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+        Control which staff roles in your organization can read and respond to inter-org messages. Only roles listed under "Respond" can send messages on behalf of your organization.
+      </p>
+      <div style={{marginBottom:16}}>
+        <span className="section-label">CAN READ ORG MESSAGES</span>
+        <p style={{fontSize:10.5,color:'var(--tx-3)',marginBottom:8}}>Select roles that can view messages sent to your organization.</p>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {ORG_ROLES.map(role=><div key={role} onClick={()=>{
+            setMsgAccessDraft(prev=>({...prev,read:prev.read.includes(role)?prev.read.filter(r=>r!==role):[...prev.read,role]}));
+          }} style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',
+            border:`1px solid ${msgAccessDraft.read?.includes(role)?'var(--blue)':'var(--border-1)'}`,
+            background:msgAccessDraft.read?.includes(role)?'var(--blue-dim)':'var(--bg-3)',transition:'all .15s'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:14,height:14,borderRadius:3,border:`2px solid ${msgAccessDraft.read?.includes(role)?'var(--blue)':'var(--tx-3)'}`,
+                background:msgAccessDraft.read?.includes(role)?'var(--blue)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:9,fontWeight:800}}>
+                {msgAccessDraft.read?.includes(role)?'✓':''}
+              </span>
+              <span style={{fontSize:12.5,fontWeight:msgAccessDraft.read?.includes(role)?600:400}}>{ORG_ROLE_LABELS[role]}</span>
+            </div>
+            <span className="tag tag-blue" style={{fontSize:8}}>READ</span>
+          </div>)}
+        </div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <span className="section-label">CAN RESPOND TO ORG MESSAGES</span>
+        <p style={{fontSize:10.5,color:'var(--tx-3)',marginBottom:8}}>Select roles that can send messages on behalf of your organization. These roles can also read.</p>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {ORG_ROLES.map(role=><div key={role} onClick={()=>{
+            setMsgAccessDraft(prev=>({...prev,respond:prev.respond.includes(role)?prev.respond.filter(r=>r!==role):[...prev.respond,role]}));
+          }} style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',
+            border:`1px solid ${msgAccessDraft.respond?.includes(role)?'var(--gold)':'var(--border-1)'}`,
+            background:msgAccessDraft.respond?.includes(role)?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:14,height:14,borderRadius:3,border:`2px solid ${msgAccessDraft.respond?.includes(role)?'var(--gold)':'var(--tx-3)'}`,
+                background:msgAccessDraft.respond?.includes(role)?'var(--gold)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--bg-0)',fontSize:9,fontWeight:800}}>
+                {msgAccessDraft.respond?.includes(role)?'✓':''}
+              </span>
+              <span style={{fontSize:12.5,fontWeight:msgAccessDraft.respond?.includes(role)?600:400}}>{ORG_ROLE_LABELS[role]}</span>
+            </div>
+            <span className="tag tag-gold" style={{fontSize:8}}>RESPOND</span>
+          </div>)}
+        </div>
+      </div>
+      <div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+        <strong style={{color:'var(--purple)'}}>Opacity + Access = Privacy.</strong> Opacity controls <em>what</em> external orgs see. Access controls <em>who inside your org</em> can participate. Together, they form your org's communication privacy posture.
+      </div>
+      <button onClick={handleSaveMsgAccess} className="b-pri" style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="check" s={16}/> Save Access Settings
+      </button>
+    </Modal>
   </div>;
 };
 
@@ -5264,8 +6185,28 @@ const App = () => {
   const [accountType, setAccountType] = useState(null);
   const [toast, setToast] = useState(null);
   const [webhookData, setWebhookData] = useState(null);
+  const [restoring, setRestoring] = useState(true);
 
   const showToast = (msg, type='info') => setToast({msg, type, k:Date.now()});
+
+  // Attempt to restore previous session from sessionStorage on mount
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const restored = await svc.restoreSession();
+        if (restored) {
+          setSession(restored);
+          const savedType = sessionStorage.getItem('khora_account_type');
+          if (savedType) setAccountType(savedType);
+          // Hydrate webhook data in background
+          try {
+            const tables = await hydrateFromWebhooks(svc._token);
+            setWebhookData(tables);
+          } catch (e) { console.warn('Webhook hydration failed:', e.message); }
+        }
+      } catch {} finally { setRestoring(false); }
+    })();
+  }, []);
 
   const handleLogin = async (s) => {
     setSession(s);
@@ -5278,11 +6219,22 @@ const App = () => {
     }
   };
 
+  const handleSelectAccountType = (t) => {
+    setAccountType(t);
+    try { sessionStorage.setItem('khora_account_type', t); } catch {}
+  };
+
+  if (restoring) return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{textAlign:'center'}}><Spin s={32}/><p style={{color:'var(--tx-2)',fontSize:13,marginTop:16}}>Restoring session…</p></div>
+  </div>;
   if (!welcomed && !session) return <WelcomeScreen onContinue={() => setWelcomed(true)}/>;
   if (!session) return <LoginScreen onLogin={handleLogin}/>;
-  if (!accountType) return <AccountTypeScreen onSelect={t => setAccountType(t)}/>;
+  if (!accountType) return <AccountTypeScreen onSelect={handleSelectAccountType}/>;
 
-  const handleLogout = async () => { await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null); };
+  const handleLogout = async () => {
+    try { sessionStorage.removeItem('khora_session'); sessionStorage.removeItem('khora_account_type'); } catch {}
+    await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null);
+  };
 
   return <>
     {accountType === 'client' ?
@@ -5293,7 +6245,7 @@ const App = () => {
   </>;
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(<ThemeProvider><App/></ThemeProvider>);
 </script>
 </body>
 </html>
