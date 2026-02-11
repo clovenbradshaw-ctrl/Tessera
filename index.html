@@ -644,6 +644,8 @@ const EVT = {
   // Email verification
   ORG_EMAIL_CONFIG: `${NS}.org.email_verification`,
   ORG_VERIFY_CHALLENGE: `${NS}.org.verification_challenge`,
+  // Organization terminology customization
+  ORG_TERMINOLOGY: `${NS}.org.terminology`,
   // Matching / dedup
   MATCH_TOKEN:    `${NS}.match.token`,
   MATCH_HIT:      `${NS}.match.hit`,
@@ -1481,6 +1483,15 @@ const DOMAIN_CONFIG = {
     read: ['admin','case_manager'],
     respond: ['admin'],
   },
+
+  /* ── Org Terminology Defaults ── */
+  // Admins can override these terms at the org level to match their sector vocabulary
+  terminologyDefaults: {
+    client_term: 'Client',
+    client_term_plural: 'Clients',
+    provider_term: 'Provider',
+    provider_term_plural: 'Providers',
+  },
 };
 
 /* ── Derived constants (backward-compatible references) ── */
@@ -1508,6 +1519,7 @@ const OPACITY_LEVELS = DOMAIN_CONFIG.opacityLevels;
 const OPACITY_LABELS = DOMAIN_CONFIG.opacityLabels;
 const OPACITY_DESCRIPTIONS = DOMAIN_CONFIG.opacityDescriptions;
 const MSG_ACCESS_DEFAULTS = DOMAIN_CONFIG.msgAccessDefaults;
+const TERMINOLOGY_DEFAULTS = DOMAIN_CONFIG.terminologyDefaults;
 
 /* ═══════════════════ FRAMEWORK BINDINGS (§C.2) ═══════════════════ */
 // Multi-framework value mappings: same observation value → different classifications
@@ -4819,6 +4831,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [composePeerOrgName, setComposePeerOrgName] = useState('');
   const [msgAccessModal, setMsgAccessModal] = useState(false);
   const [msgAccessDraft, setMsgAccessDraft] = useState({read:[],respond:[]});
+  // ─── Org terminology customization ───
+  const [orgTerminology, setOrgTerminology] = useState({...TERMINOLOGY_DEFAULTS});
+  const [terminologyDraft, setTerminologyDraft] = useState({...TERMINOLOGY_DEFAULTS});
+  const [terminologyModal, setTerminologyModal] = useState(false);
+  // Convenience accessors for the active terminology
+  const T = orgTerminology; // T.client_term, T.client_term_plural, T.provider_term, T.provider_term_plural
   // ─── Inbox chat state ───
   const [inboxConvo, setInboxConvo] = useState(null); // room ID of active inbox conversation
   const [inboxMessages, setInboxMessages] = useState([]);
@@ -4837,7 +4855,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setInitError(null);
     try {
       // Single-pass scan: fetch all Khora state across rooms in one request
-      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER, EVT.PROVIDER_PROFILE, EVT.ORG_OPACITY, EVT.ORG_MSG_ACCESS, EVT.ORG_MSG_CHANNEL]);
+      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER, EVT.PROVIDER_PROFILE, EVT.ORG_OPACITY, EVT.ORG_MSG_ACCESS, EVT.ORG_MSG_CHANNEL, EVT.ORG_TERMINOLOGY]);
       let roster=null, metricsR=null, schema=null, network=null;
       let detectedOrg=null, detectedOrgRole=null;
       const bridgeData = [];
@@ -4922,6 +4940,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         // Load opacity & message access settings
         if (orgState?.[EVT.ORG_OPACITY]) setOrgOpacity(orgState[EVT.ORG_OPACITY].level || 'translucent');
         if (orgState?.[EVT.ORG_MSG_ACCESS]) setOrgMsgAccess(orgState[EVT.ORG_MSG_ACCESS]);
+        // Load org terminology customization
+        if (orgState?.[EVT.ORG_TERMINOLOGY]) {
+          const t = {...TERMINOLOGY_DEFAULTS, ...orgState[EVT.ORG_TERMINOLOGY]};
+          setOrgTerminology(t);
+          setTerminologyDraft(t);
+        }
         // Load detected org messaging channels
         if (detectedOrgChannels.length > 0) setOrgChannels(detectedOrgChannels);
       }
@@ -5482,6 +5506,28 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     } catch(e) { showToast('Failed to update access: '+e.message,'error'); }
   };
 
+  // Save org terminology customization (admin only)
+  const handleSaveTerminology = async () => {
+    if (!orgRoom || orgRole !== 'admin') return;
+    try {
+      const payload = {...terminologyDraft, updated: Date.now(), updated_by: svc.userId};
+      await svc.setState(orgRoom, EVT.ORG_TERMINOLOGY, payload);
+      setOrgTerminology({...TERMINOLOGY_DEFAULTS, ...terminologyDraft});
+      setTerminologyModal(false);
+      await emitOp(orgRoom, 'ALT', {entity:'org_terminology',field:'terms'}, {
+        client_term: terminologyDraft.client_term,
+        provider_term: terminologyDraft.provider_term,
+        changed_by: svc.userId
+      }, orgFrame());
+      showToast('Terminology updated','success');
+    } catch(e) { showToast('Failed to update terminology: '+e.message,'error'); }
+  };
+
+  // Reset terminology to defaults
+  const handleResetTerminology = () => {
+    setTerminologyDraft({...TERMINOLOGY_DEFAULTS});
+  };
+
   // Create org-to-org messaging channel
   const handleCreateOrgChannel = async () => {
     if (!orgRoom || !composePeerOrgId.trim()) return;
@@ -5681,7 +5727,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             </div>
             <div style={{flex:1,minWidth:0}}>
               <span style={{fontSize:13,fontWeight:700,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--tx-0)'}}>
-                {providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || 'Provider'}
+                {providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || T.provider_term}
               </span>
               {providerProfile.title && <span style={{fontSize:10,color:'var(--tx-2)',display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{providerProfile.title}</span>}
             </div>
@@ -5700,7 +5746,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>}
           <div style={{display:'flex',alignItems:'center',gap:4,marginTop:6}}>
             <span style={{fontFamily:'var(--mono)',fontSize:8.5,color:'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{svc.userId}</span>
-            <span className="tag tag-gold" style={{fontSize:8}}>PROVIDER</span>
+            <span className="tag tag-gold" style={{fontSize:8}}>{T.provider_term.toUpperCase()}</span>
           </div>
           {providerProfile.credentials && <div style={{marginTop:4}}>
             <span style={{fontSize:9,color:'var(--tx-2)',fontFamily:'var(--mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block'}}>{providerProfile.credentials}</span>
@@ -5710,7 +5756,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
         {/* Personal nav */}
         {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'inbox',icon:'inbox',label:'Inbox'},
-          {id:'clients',icon:'users',label:'Clients'},
+          {id:'clients',icon:'users',label:T.client_term_plural},
           {id:'metrics',icon:'bar',label:'Metrics'},
           {id:'schema',icon:'grid',label:'Schema'},
           {id:'activity',icon:'zap',label:'Activity Stream'}
@@ -5787,8 +5833,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
 
       {/* DASHBOARD */}
       {view==='dashboard'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
-        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Provider Dashboard</h2>
-        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>You can only see data clients have explicitly shared. Each case is a separate encrypted bridge room.</p>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>{T.provider_term} Dashboard</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>You can only see data {T.client_term_plural.toLowerCase()} have explicitly shared. Each case is a separate encrypted bridge room.</p>
 
         {/* Provider identity card */}
         <div className="card" style={{marginBottom:20,padding:0,overflow:'hidden'}}>
@@ -5799,7 +5845,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
               <I n={orgRoom?'shieldCheck':'user'} s={24}/>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <span style={{fontSize:17,fontWeight:700,display:'block'}}>{providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || 'Provider'}</span>
+              <span style={{fontSize:17,fontWeight:700,display:'block'}}>{providerProfile.display_name || svc.userId?.split(':')[0]?.replace('@','') || T.provider_term}</span>
               {providerProfile.title && <span style={{fontSize:12,color:'var(--tx-2)',display:'block'}}>{providerProfile.title}</span>}
               {providerProfile.credentials && <span style={{fontSize:10.5,color:'var(--tx-2)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>{providerProfile.credentials}</span>}
             </div>
@@ -5825,7 +5871,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>}
           {!providerProfile.display_name && <div style={{padding:'10px 18px',borderTop:'1px solid var(--border-0)',display:'flex',alignItems:'center',gap:8}}>
             <I n="alert" s={13} c="var(--gold)"/>
-            <span style={{fontSize:11,color:'var(--gold)'}}>Set up your profile — clients will see your name, title, and org membership on bridges.</span>
+            <span style={{fontSize:11,color:'var(--gold)'}}>Set up your profile — {T.client_term_plural.toLowerCase()} will see your name, title, and org membership on bridges.</span>
             <button onClick={openProfileModal} className="b-pri b-xs">Set Up</button>
           </div>}
         </div>
@@ -5833,7 +5879,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:24}}>
           {[{l:'Active Cases',v:cases.length,c:'gold',i:'briefcase'},
             {l:orgRoom?'Staff':'Organization',v:orgRoom?`${staff.length} members`:'Not set up',c:orgRoom?'blue':'teal',i:orgRoom?'users':'plus'},
-            {l:'Access Model',v:'Client-granted',c:'teal',i:'shield'},{l:'Metric Events',v:metrics.length,c:'orange',i:'bar'}
+            {l:'Access Model',v:`${T.client_term}-granted`,c:'teal',i:'shield'},{l:'Metric Events',v:metrics.length,c:'orange',i:'bar'}
           ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
               <span style={{fontSize:18,fontWeight:700}}>{s.v}</span>
@@ -5843,7 +5889,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10,marginTop:6}}>
             {cases.map(c=><div key={c.bridgeRoomId} className="card-h" onClick={()=>openCase(c.bridgeRoomId)}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-                <span style={{fontSize:14,fontWeight:600}}>{c.sharedData.full_name||'Anonymous Client'}</span>
+                <span style={{fontSize:14,fontWeight:600}}>{c.sharedData.full_name||`Anonymous ${T.client_term}`}</span>
                 <I n="chevR" s={13} c="var(--tx-3)"/></div>
               {c.sharedData.email&&<span style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--tx-2)',display:'block',marginBottom:6}}>{c.sharedData.email}</span>}
               <div style={{display:'flex',gap:4}}>
@@ -5979,7 +6025,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
                     </div>
                   :[...inboxMessages].reverse().map((msg,i)=>{
                     const isOwn = msg.sender===svc.userId;
-                    const sender = convoType==='channel' ? resolveMessageSender(msg) : {label:isOwn?'You':'Client',isOwn};
+                    const sender = convoType==='channel' ? resolveMessageSender(msg) : {label:isOwn?'You':T.client_term,isOwn};
                     return <div key={msg.id||i} style={{display:'flex',flexDirection:'column',alignItems:sender.isOwn?'flex-end':'flex-start',marginBottom:4}}>
                       <div style={{maxWidth:'75%',padding:'10px 14px',borderRadius:sender.isOwn?'14px 14px 4px 14px':'14px 14px 14px 4px',
                         background:sender.isOwn?'var(--gold-dim)':'var(--bg-3)',border:`1px solid ${sender.isOwn?'rgba(201,163,82,.2)':'var(--border-0)'}`,
@@ -5987,7 +6033,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
                         <p style={{fontSize:12.5,color:'var(--tx-0)',lineHeight:1.5,wordBreak:'break-word'}}>{msg.content?.body}</p>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:4,marginTop:3,padding:'0 6px'}}>
-                        <span style={{fontFamily:'var(--mono)',fontSize:9,color:sender.isOwn?'var(--gold)':'var(--teal)'}}>{sender.isOwn?'You'+(sender.org?` (${sender.org})`:convoType==='case'?' (Provider)':''):sender.label}</span>
+                        <span style={{fontFamily:'var(--mono)',fontSize:9,color:sender.isOwn?'var(--gold)':'var(--teal)'}}>{sender.isOwn?'You'+(sender.org?` (${sender.org})`:convoType==='case'?` (${T.provider_term})`:''):sender.label}</span>
                         <span style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--tx-3)'}}>{msg.ts?new Date(msg.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}</span>
                       </div>
                     </div>;
@@ -6029,16 +6075,16 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       {view==='clients'&&!activeCase&&<div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
           <div>
-            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Clients</h2>
-            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Each client record is a private encrypted room. Invite clients to give them full control.</p>
+            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>{T.client_term_plural}</h2>
+            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Each {T.client_term.toLowerCase()} record is a private encrypted room. Invite {T.client_term_plural.toLowerCase()} to give them full control.</p>
           </div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setImportModal(true)} className="b-gho" style={{display:'flex',alignItems:'center',gap:6}}><I n="upload" s={14}/>Import Data</button>
-            <button onClick={()=>{setCreateClientModal(true);setNewClientName('');setNewClientMatrixId('');setNewClientNotes('')}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>New Client</button>
+            <button onClick={()=>{setCreateClientModal(true);setNewClientName('');setNewClientMatrixId('');setNewClientNotes('')}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>New {T.client_term}</button>
           </div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:20}}>
-          {[{l:'Total Clients',v:clientRecords.length,c:'teal',i:'users'},
+          {[{l:`Total ${T.client_term_plural}`,v:clientRecords.length,c:'teal',i:'users'},
             {l:'Imported',v:clientRecords.filter(r=>r.imported).length,c:'purple',i:'upload'},
             {l:'Invited',v:clientRecords.filter(r=>r.status==='invited').length,c:'gold',i:'send'},
             {l:'Joined',v:clientRecords.filter(r=>r.status==='joined').length,c:'green',i:'check'},
@@ -6052,8 +6098,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         {clientRecords.length===0?
           <div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}>
             <I n="users" s={32}/>
-            <p style={{color:'var(--tx-2)',marginTop:10,fontSize:13}}>No client records yet</p>
-            <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Click "New Client" to create a record, or "Import Data" to upload a CSV/JSON. Each client gets their own encrypted room.</p>
+            <p style={{color:'var(--tx-2)',marginTop:10,fontSize:13}}>No {T.client_term.toLowerCase()} records yet</p>
+            <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Click "New {T.client_term}" to create a record, or "Import Data" to upload a CSV/JSON. Each {T.client_term.toLowerCase()} gets their own encrypted room.</p>
           </div>
         :<div className="card" style={{padding:0,overflow:'hidden'}}>
           {/* Table header */}
@@ -6163,7 +6209,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             }).map((obs,i) => {
               const prompt = [...DEFAULT_PROMPTS,...DEFAULT_PROVIDER_PROMPTS].find(p=>p.id===obs.prompt_id||p.key===obs.prompt_key);
               return <RecordGivenMeant key={obs.id||i} promptKey={prompt.key} value={obs.value}
-                reporter={obs.author ? `Provider: ${obs.author}` : 'Provider observation'}
+                reporter={obs.author ? `${T.provider_term}: ${obs.author}` : `${T.provider_term} observation`}
                 timestamp={obs.ts}/>;
             })}
           </div>
@@ -6171,7 +6217,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         {/* PROVIDER OBSERVATIONS (MEANT frame) */}
         <div className="card" style={{marginBottom:16}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-            <span className="section-label" style={{marginBottom:0}}>PROVIDER OBSERVATIONS (MEANT)</span>
+            <span className="section-label" style={{marginBottom:0}}>{T.provider_term.toUpperCase()} OBSERVATIONS (MEANT)</span>
             <span className="tag tag-gold">EPISTEMIC: MEANT</span>
           </div>
           <p style={{fontSize:11,color:'var(--tx-2)',marginBottom:10}}>Structured assessments and case management observations. Each entry is an EO event in the bridge room with full provenance.</p>
@@ -6217,7 +6263,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             {messages.length===0?<p style={{color:'var(--tx-3)',fontSize:12,padding:'12px 0',textAlign:'center'}}>No messages</p>
             :messages.map((msg,i)=><div key={msg.id||i} style={{padding:'8px 0',borderBottom:'1px solid var(--border-0)'}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-                <span style={{fontFamily:'var(--mono)',fontSize:10,color:msg.sender===svc.userId?'var(--gold)':'var(--teal)'}}>{msg.sender===svc.userId?'You (Provider)':'Client'}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:10,color:msg.sender===svc.userId?'var(--gold)':'var(--teal)'}}>{msg.sender===svc.userId?`You (${T.provider_term})`:T.client_term}</span>
                 <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--tx-3)'}}>{msg.ts?new Date(msg.ts).toLocaleString():''}</span></div>
               <p style={{fontSize:12.5,color:'var(--tx-1)'}}>{msg.content?.body}</p>
             </div>)}
@@ -6312,6 +6358,37 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             ].map((s,i)=><div key={i}><span className="section-label">{s.l.toUpperCase()}</span>
               <span style={{fontSize:13,fontWeight:500,display:'block'}}>{s.v}</span></div>)}
           </div>
+        </div>
+
+        {/* TERMINOLOGY CUSTOMIZATION */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <I n="settings" s={16} c="var(--gold)"/>
+              <span className="section-label" style={{marginBottom:0}}>TERMINOLOGY</span>
+              {(T.client_term!=='Client'||T.provider_term!=='Provider')&&<span className="tag tag-gold" style={{fontSize:8}}>CUSTOMIZED</span>}
+            </div>
+            <button onClick={()=>{setTerminologyDraft({...orgTerminology});setTerminologyModal(true)}} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="settings" s={11}/>Customize</button>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:14,lineHeight:1.6}}>
+            Customize what your organization calls its service recipients and service providers. These terms appear throughout the interface for all staff in your organization.
+          </p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div style={{padding:'12px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>SERVICE RECIPIENT</span>
+              <span style={{fontSize:15,fontWeight:700,display:'block'}}>{T.client_term}</span>
+              <span style={{fontSize:11,color:'var(--tx-2)'}}>Plural: {T.client_term_plural}</span>
+            </div>
+            <div style={{padding:'12px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>SERVICE PROVIDER</span>
+              <span style={{fontSize:15,fontWeight:700,display:'block'}}>{T.provider_term}</span>
+              <span style={{fontSize:11,color:'var(--tx-2)'}}>Plural: {T.provider_term_plural}</span>
+            </div>
+          </div>
+          {(T.client_term!=='Client'||T.provider_term!=='Provider')&&<div style={{marginTop:10,padding:'8px 12px',background:'var(--gold-dim)',borderRadius:'var(--r)',fontSize:11,color:'var(--gold)',display:'flex',alignItems:'center',gap:6}}>
+            <I n="alert" s={12} c="var(--gold)"/>
+            Custom terminology active — staff will see "{T.client_term}" and "{T.provider_term}" instead of the defaults.
+          </div>}
         </div>
 
         {/* OPACITY SETTINGS */}
@@ -6952,14 +7029,14 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <div style={{background:'var(--gold-dim)',borderRadius:'var(--r)',padding:'8px 12px',marginBottom:14,fontSize:11,color:'var(--gold)'}}>
           This observation is recorded as a MEANT event — a professional assessment with full EO provenance chain.
         </div>
-        <button onClick={handleProviderObservation} className="b-pri" disabled={!provObsValue} style={{width:'100%'}}>Record Provider Observation</button>
+        <button onClick={handleProviderObservation} className="b-pri" disabled={!provObsValue} style={{width:'100%'}}>Record {T.provider_term} Observation</button>
       </>}
     </Modal>
 
     {/* PROVIDER PROFILE MODAL */}
-    <Modal open={profileModal} onClose={()=>setProfileModal(false)} title="Provider Profile" w={520}>
+    <Modal open={profileModal} onClose={()=>setProfileModal(false)} title={`${T.provider_term} Profile`} w={520}>
       <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
-        Your profile is stored in your roster room and broadcast to all bridge rooms. Clients see your name, title, credentials, and organization membership.
+        Your profile is stored in your roster room and broadcast to all bridge rooms. {T.client_term_plural} see your name, title, credentials, and organization membership.
       </p>
       <div style={{marginBottom:14}}>
         <span className="section-label">DISPLAY NAME</span>
@@ -7125,29 +7202,97 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </button>
     </Modal>
 
+    {/* TERMINOLOGY CUSTOMIZATION MODAL */}
+    <Modal open={terminologyModal} onClose={()=>setTerminologyModal(false)} title="Customize Terminology" w={520}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+        Customize the terms your organization uses for service recipients and service providers. These labels will appear throughout the interface for all staff at your organization.
+      </p>
+      <div style={{marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+          <I n="shield" s={14} c="var(--teal)"/>
+          <span style={{fontSize:13,fontWeight:700}}>Service Recipient Term</span>
+          <span style={{fontSize:10,color:'var(--tx-3)'}}>(default: Client)</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div>
+            <span className="section-label">SINGULAR</span>
+            <input value={terminologyDraft.client_term} onChange={e=>setTerminologyDraft({...terminologyDraft,client_term:e.target.value})} placeholder="e.g. Patient, Participant, Member"/>
+          </div>
+          <div>
+            <span className="section-label">PLURAL</span>
+            <input value={terminologyDraft.client_term_plural} onChange={e=>setTerminologyDraft({...terminologyDraft,client_term_plural:e.target.value})} placeholder="e.g. Patients, Participants, Members"/>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:8}}>
+          {['Client','Patient','Participant','Member','Resident','Student','Guest'].map(t=>
+            <span key={t} onClick={()=>setTerminologyDraft({...terminologyDraft,client_term:t,client_term_plural:t+'s'})}
+              className={`tag ${terminologyDraft.client_term===t?'tag-teal':'tag-blue'}`}
+              style={{fontSize:9,cursor:'pointer',transition:'all .15s'}}>{t}</span>)}
+        </div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+          <I n="briefcase" s={14} c="var(--gold)"/>
+          <span style={{fontSize:13,fontWeight:700}}>Service Provider Term</span>
+          <span style={{fontSize:10,color:'var(--tx-3)'}}>(default: Provider)</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div>
+            <span className="section-label">SINGULAR</span>
+            <input value={terminologyDraft.provider_term} onChange={e=>setTerminologyDraft({...terminologyDraft,provider_term:e.target.value})} placeholder="e.g. Counselor, Therapist, Advocate"/>
+          </div>
+          <div>
+            <span className="section-label">PLURAL</span>
+            <input value={terminologyDraft.provider_term_plural} onChange={e=>setTerminologyDraft({...terminologyDraft,provider_term_plural:e.target.value})} placeholder="e.g. Counselors, Therapists, Advocates"/>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:8}}>
+          {['Provider','Counselor','Therapist','Advocate','Case Worker','Coordinator','Staff'].map(t=>
+            <span key={t} onClick={()=>setTerminologyDraft({...terminologyDraft,provider_term:t,provider_term_plural:t+(t.endsWith('f')?'s':t.endsWith('or')?'s':'s')})}
+              className={`tag ${terminologyDraft.provider_term===t?'tag-gold':'tag-blue'}`}
+              style={{fontSize:9,cursor:'pointer',transition:'all .15s'}}>{t}</span>)}
+        </div>
+      </div>
+      <div style={{background:'var(--bg-3)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:16}}>
+        <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:8}}>PREVIEW</span>
+        <div style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.8}}>
+          <span>"{terminologyDraft.provider_term||'Provider'} Dashboard" &middot; "My {terminologyDraft.client_term_plural||'Clients'}" &middot; "New {terminologyDraft.client_term||'Client'} Record"</span><br/>
+          <span>"Anonymous {terminologyDraft.client_term||'Client'}" &middot; "{terminologyDraft.provider_term||'Provider'} Observation" &middot; "{terminologyDraft.provider_term||'Provider'} Profile"</span>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={handleResetTerminology} className="b-gho" style={{flex:1,padding:10}}>Reset to Defaults</button>
+        <button onClick={handleSaveTerminology} className="b-pri"
+          disabled={!terminologyDraft.client_term?.trim()||!terminologyDraft.client_term_plural?.trim()||!terminologyDraft.provider_term?.trim()||!terminologyDraft.provider_term_plural?.trim()}
+          style={{flex:1,padding:10,fontSize:14}}>
+          <I n="shieldCheck" s={14}/> Save Terminology
+        </button>
+      </div>
+    </Modal>
+
     {/* CREATE CLIENT RECORD MODAL */}
-    <Modal open={createClientModal} onClose={()=>setCreateClientModal(false)} title="New Client Record" w={520}>
+    <Modal open={createClientModal} onClose={()=>setCreateClientModal(false)} title={`New ${T.client_term} Record`} w={520}>
       <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>
-        Create a client record. This creates a private encrypted Matrix room. If you provide a Matrix ID, the client will be invited and given superadmin control (power level 100) — they can remove anyone from the room.
+        Create a {T.client_term.toLowerCase()} record. This creates a private encrypted Matrix room. If you provide a Matrix ID, the {T.client_term.toLowerCase()} will be invited and given superadmin control (power level 100) — they can remove anyone from the room.
       </p>
       <div style={{marginBottom:14}}>
-        <span className="section-label">CLIENT NAME *</span>
+        <span className="section-label">{T.client_term.toUpperCase()} NAME *</span>
         <input value={newClientName} onChange={e=>setNewClientName(e.target.value)} placeholder="e.g. John Doe"/>
       </div>
       <div style={{marginBottom:14}}>
-        <span className="section-label">CLIENT MATRIX ID (OPTIONAL)</span>
-        <input value={newClientMatrixId} onChange={e=>setNewClientMatrixId(e.target.value)} placeholder="@client:matrix.org"/>
-        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>If provided, the client will be invited immediately. You can also invite them later.</span>
+        <span className="section-label">{T.client_term.toUpperCase()} MATRIX ID (OPTIONAL)</span>
+        <input value={newClientMatrixId} onChange={e=>setNewClientMatrixId(e.target.value)} placeholder="@user:matrix.org"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>If provided, the {T.client_term.toLowerCase()} will be invited immediately. You can also invite them later.</span>
       </div>
       <div style={{marginBottom:14}}>
         <span className="section-label">NOTES (OPTIONAL)</span>
-        <textarea value={newClientNotes} onChange={e=>setNewClientNotes(e.target.value)} placeholder="Any notes about this client..." style={{minHeight:50}}/>
+        <textarea value={newClientNotes} onChange={e=>setNewClientNotes(e.target.value)} placeholder={`Any notes about this ${T.client_term.toLowerCase()}...`} style={{minHeight:50}}/>
       </div>
       <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
-        <strong style={{color:'var(--teal)'}}>Data sovereignty:</strong> The client will receive power level 100 (superadmin). They can kick any member — including you — from their room at any time.
+        <strong style={{color:'var(--teal)'}}>Data sovereignty:</strong> The {T.client_term.toLowerCase()} will receive power level 100 (superadmin). They can kick any member — including you — from their room at any time.
       </div>
       <button onClick={handleCreateClientRecord} className="b-pri" disabled={!newClientName.trim()} style={{width:'100%',padding:12,fontSize:14}}>
-        <I n="plus" s={16}/> Create Client Record
+        <I n="plus" s={16}/> Create {T.client_term} Record
       </button>
     </Modal>
 
@@ -7155,15 +7300,15 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     <Modal open={!!clientInviteModal} onClose={()=>{setClientInviteModal(null);setCopiedField(null)}} title={`Invite: ${clientInviteModal?.client_name||''}`} w={600}>
       {clientInviteModal&&<>
         <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
-          Generate an invite link and setup instructions to share with this client. When they join, they'll have full control of their room.
+          Generate an invite link and setup instructions to share with this {T.client_term.toLowerCase()}. When they join, they'll have full control of their room.
         </p>
 
         {/* Matrix ID input */}
         <div style={{marginBottom:16}}>
-          <span className="section-label">CLIENT MATRIX ID</span>
+          <span className="section-label">{T.client_term.toUpperCase()} MATRIX ID</span>
           <div style={{display:'flex',gap:6}}>
             <input value={clientInviteMatrixId} onChange={e=>setClientInviteMatrixId(e.target.value)}
-              placeholder="@client:matrix.org" style={{flex:1}}/>
+              placeholder="@user:matrix.org" style={{flex:1}}/>
             <button onClick={handleClientInvite} className="b-pri" disabled={!clientInviteMatrixId.trim()}
               style={{whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
               <I n="send" s={12}/>Send Invite
