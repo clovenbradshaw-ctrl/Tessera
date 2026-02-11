@@ -706,7 +706,6 @@ class KhoraService {
     } catch (e) {
       console.warn('Session restore failed:', e.message);
       sessionStorage.removeItem('khora_session');
-      sessionStorage.removeItem('khora_account_type');
       this.client = null; this._token = null; this._userId = null;
       LocalVaultCrypto.clear();
       return null;
@@ -3369,9 +3368,9 @@ const WelcomeScreen = ({onContinue}) => (
           <div style={{display:'flex',gap:14}}>
             <div style={{width:24,height:24,borderRadius:'50%',background:'var(--teal-dim)',color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,fontFamily:'var(--mono)',flexShrink:0,marginTop:1}}>3</div>
             <div>
-              <div style={{fontSize:13.5,fontWeight:600,color:'var(--tx-0)',marginBottom:4}}>Choose your role</div>
+              <div style={{fontSize:13.5,fontWeight:600,color:'var(--tx-0)',marginBottom:4}}>Roles are detected automatically</div>
               <div style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>
-                Select <strong style={{color:'var(--teal)'}}>Client</strong> to own your data vault, or <strong style={{color:'var(--gold)'}}>Provider</strong> to manage cases. Clients control exactly which fields providers can see.
+                Khora infers your client, provider, org admin, and network roles from room membership. If you hold multiple roles, you can switch contexts without signing out.
               </div>
             </div>
           </div>
@@ -3464,28 +3463,6 @@ const LoginScreen = ({onLogin}) => {
     </div>
   </div>;
 };
-
-/* ═══════════════════ ACCOUNT TYPE SELECTOR ═══════════════════ */
-const AccountTypeScreen = ({onSelect}) => (
-  <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
-    <div style={{position:'absolute',top:16,right:16}}><ThemeToggle/></div>
-    <div className="anim-up" style={{textAlign:'center',maxWidth:700,padding:20}}>
-      <h2 style={{fontFamily:'var(--serif)',fontSize:28,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Choose your role</h2>
-      <p style={{color:'var(--tx-1)',fontSize:14,marginBottom:36}}>This determines your data access model and room topology</p>
-      <div style={{display:'flex',gap:20,justifyContent:'center',flexWrap:'wrap'}}>
-        {[
-          {type:'client',icon:'shield',title:'Client',desc:'Own your data vault. Record observations. Share specific fields with chosen providers. Revoke access at any time.',color:'teal',tag:'DATA OWNER'},
-          {type:'provider',icon:'briefcase',title:'Provider',desc:'Work independently or create an organization. View only what clients share. Add case notes and assessments. Create or join orgs and networks.',color:'gold',tag:'PROVIDER'},
-        ].map(o=><div key={o.type} className="card-h" onClick={()=>onSelect(o.type)} style={{width:280,textAlign:'left',padding:28}}>
-          <div style={{width:48,height:48,borderRadius:'var(--r-lg)',background:`var(--${o.color}-dim)`,display:'flex',alignItems:'center',justifyContent:'center',color:`var(--${o.color})`,marginBottom:16}}><I n={o.icon} s={24}/></div>
-          <h3 style={{fontSize:18,fontWeight:700,marginBottom:8}}>{o.title}</h3>
-          <p style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6}}>{o.desc}</p>
-          <div style={{marginTop:16}}><span className={`tag tag-${o.color}`}>{o.tag}</span></div>
-        </div>)}
-      </div>
-    </div>
-  </div>
-);
 
 /* ═══════════════════ CLIENT APP ═══════════════════ */
 const ClientApp = ({session, onLogout, showToast}) => {
@@ -6634,12 +6611,47 @@ const ProviderApp = ({session, onLogout, showToast}) => {
 const App = () => {
   const [welcomed, setWelcomed] = useState(false);
   const [session, setSession] = useState(null);
-  const [accountType, setAccountType] = useState(null);
+  const [availableContexts, setAvailableContexts] = useState([]);
+  const [activeContext, setActiveContext] = useState(null);
   const [toast, setToast] = useState(null);
   const [webhookData, setWebhookData] = useState(null);
   const [restoring, setRestoring] = useState(true);
 
   const showToast = (msg, type='info') => setToast({msg, type, k:Date.now()});
+
+  const detectContexts = React.useCallback(async () => {
+    try {
+      const scanned = await svc.scanRooms();
+      let hasClient = false;
+      let hasProvider = false;
+      for (const state of Object.values(scanned || {})) {
+        const accountType = state?.[EVT.IDENTITY]?.account_type;
+        if (accountType === 'client' || accountType === 'client_record') hasClient = true;
+        if (accountType === 'provider' || accountType === 'organization' || accountType === 'schema' || accountType === 'metrics' || accountType === 'network') hasProvider = true;
+      }
+
+      const contexts = [];
+      if (hasProvider) contexts.push('provider');
+      if (hasClient) contexts.push('client');
+      if (contexts.length === 0) contexts.push('provider');
+      setAvailableContexts(contexts);
+
+      let preferred = null;
+      try { preferred = sessionStorage.getItem('khora_active_context'); } catch {}
+      const next = (preferred && contexts.includes(preferred)) ? preferred : contexts[0];
+      setActiveContext(next);
+    } catch (e) {
+      console.warn('Context detection failed, defaulting to provider:', e.message);
+      setAvailableContexts(['provider']);
+      setActiveContext('provider');
+    }
+  }, []);
+
+  const switchContext = (context) => {
+    if (!availableContexts.includes(context)) return;
+    setActiveContext(context);
+    try { sessionStorage.setItem('khora_active_context', context); } catch {}
+  };
 
   // Attempt to restore previous session from sessionStorage on mount
   React.useEffect(() => {
@@ -6648,17 +6660,16 @@ const App = () => {
         const restored = await svc.restoreSession();
         if (restored) {
           setSession(restored);
-          const savedType = sessionStorage.getItem('khora_account_type');
-          if (savedType) setAccountType(savedType);
           // Hydrate webhook data in background
           try {
             const tables = await hydrateFromWebhooks(svc._token);
             setWebhookData(tables);
           } catch (e) { console.warn('Webhook hydration failed:', e.message); }
+          await detectContexts();
         }
       } catch {} finally { setRestoring(false); }
     })();
-  }, []);
+  }, [detectContexts]);
 
   const handleLogin = async (s) => {
     setSession(s);
@@ -6669,11 +6680,7 @@ const App = () => {
     } catch (e) {
       console.warn('Webhook hydration failed (CORS or network):', e.message);
     }
-  };
-
-  const handleSelectAccountType = (t) => {
-    setAccountType(t);
-    try { sessionStorage.setItem('khora_account_type', t); } catch {}
+    await detectContexts();
   };
 
   if (restoring) return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -6681,18 +6688,27 @@ const App = () => {
   </div>;
   if (!welcomed && !session) return <WelcomeScreen onContinue={() => setWelcomed(true)}/>;
   if (!session) return <LoginScreen onLogin={handleLogin}/>;
-  if (!accountType) return <AccountTypeScreen onSelect={handleSelectAccountType}/>;
+  if (!activeContext) return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{textAlign:'center'}}><Spin s={28}/><p style={{color:'var(--tx-2)',fontSize:13,marginTop:16}}>Detecting role context…</p></div>
+  </div>;
 
   const handleLogout = async () => {
-    try { sessionStorage.removeItem('khora_session'); sessionStorage.removeItem('khora_account_type'); } catch {}
-    await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null);
+    try { sessionStorage.removeItem('khora_session'); sessionStorage.removeItem('khora_active_context'); } catch {}
+    await svc.logout(); setSession(null); setAvailableContexts([]); setActiveContext(null); setWebhookData(null);
   };
 
   return <>
-    {accountType === 'client' ?
+    {activeContext === 'client' ?
       <ClientApp session={session} onLogout={handleLogout} showToast={showToast} webhookData={webhookData}/> :
       <ProviderApp session={session} onLogout={handleLogout} showToast={showToast} webhookData={webhookData}/>
     }
+    {availableContexts.length > 1 && <div style={{position:'fixed',top:14,right:64,zIndex:30,display:'flex',gap:6,padding:'6px',border:'1px solid var(--border-0)',background:'var(--bg-2)',borderRadius:'999px',backdropFilter:'blur(4px)'}}>
+      {[{id:'provider',label:'Provider',icon:'briefcase'},{id:'client',label:'Client',icon:'shield'}]
+        .filter(opt => availableContexts.includes(opt.id))
+        .map(opt => <button key={opt.id} onClick={()=>switchContext(opt.id)} className={activeContext===opt.id?'b-pri b-xs':'b-gho b-xs'} style={{display:'inline-flex',alignItems:'center',gap:4,borderRadius:'999px'}}>
+          <I n={opt.icon} s={11}/>{opt.label}
+        </button>)}
+    </div>}
     {toast && <Toast key={toast.k} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
   </>;
 };
