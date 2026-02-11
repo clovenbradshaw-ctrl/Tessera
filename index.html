@@ -478,6 +478,11 @@ const EVT = {
   ORG_ROSTER:     `${NS}.org.roster`,
   ORG_METADATA:   `${NS}.org.metadata`,
   ORG_INVITE:     `${NS}.org.invite`,
+  ORG_OPACITY:    `${NS}.org.opacity`,
+  ORG_MSG_ACCESS: `${NS}.org.msg_access`,
+  // Inter-org messaging
+  ORG_MSG_CHANNEL:`${NS}.org.msg.channel`,
+  ORG_MSG_ENVELOPE:`${NS}.org.msg.envelope`,
   // Schema
   SCHEMA_PROMPT:  `${NS}.schema.prompt`,
   SCHEMA_DEF:     `${NS}.schema.definition`,
@@ -1183,6 +1188,27 @@ const DOMAIN_CONFIG = {
   orgTypes: ['direct_service','administrative','clinical','legal','coordinating_body','advocacy','other'],
   orgTypeLabels: {direct_service:'Direct Service',administrative:'Administrative',clinical:'Clinical',
     legal:'Legal',coordinating_body:'Coordinating Body',advocacy:'Advocacy',other:'Other'},
+
+  /* ── Org Opacity Levels ── */
+  // Controls how much of the org's internal structure is visible to external orgs during messaging
+  opacityLevels: ['transparent','translucent','opaque'],
+  opacityLabels: {
+    transparent: 'Transparent',     // sender name & org visible
+    translucent: 'Translucent',     // org name visible, individual sender hidden
+    opaque:      'Opaque',          // only "an organization" — no name, no members
+  },
+  opacityDescriptions: {
+    transparent: 'External orgs see which staff member sent each message and your org name.',
+    translucent: 'External orgs see your org name but individual sender identities are hidden.',
+    opaque:      'External orgs see only that a response came from an organization. Org name and all member identities are hidden.',
+  },
+
+  /* ── Org Message Access Roles ── */
+  // Which org roles can access inter-org messages by default
+  msgAccessDefaults: {
+    read: ['admin','case_manager'],
+    respond: ['admin'],
+  },
 };
 
 /* ── Derived constants (backward-compatible references) ── */
@@ -1206,6 +1232,10 @@ const ORG_ROLES = DOMAIN_CONFIG.orgRoles;
 const ORG_ROLE_LABELS = DOMAIN_CONFIG.orgRoleLabels;
 const ORG_TYPES = DOMAIN_CONFIG.orgTypes;
 const ORG_TYPE_LABELS = DOMAIN_CONFIG.orgTypeLabels;
+const OPACITY_LEVELS = DOMAIN_CONFIG.opacityLevels;
+const OPACITY_LABELS = DOMAIN_CONFIG.opacityLabels;
+const OPACITY_DESCRIPTIONS = DOMAIN_CONFIG.opacityDescriptions;
+const MSG_ACCESS_DEFAULTS = DOMAIN_CONFIG.msgAccessDefaults;
 
 /* ═══════════════════ FRAMEWORK BINDINGS (§C.2) ═══════════════════ */
 // Multi-framework value mappings: same observation value → different classifications
@@ -3502,7 +3532,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [metrics, setMetrics] = useState([]);
   const [networkMembers, setNetworkMembers] = useState([]);
   const [activeCase, setActiveCase] = useState(null);
-  const [view, setView] = useState('dashboard'); // dashboard|case|metrics|schema|network|activity|staff|org-settings
+  const [view, setView] = useState('dashboard'); // dashboard|case|metrics|schema|network|activity|staff|org-settings|org-inbox
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
@@ -3543,6 +3573,18 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [providerProfile, setProviderProfile] = useState({});
   const [profileModal, setProfileModal] = useState(false);
   const [profileDraft, setProfileDraft] = useState({display_name:'',title:'',credentials:'',bio:'',service_types:''});
+  // ─── Inter-org messaging & opacity ───
+  const [orgOpacity, setOrgOpacity] = useState('translucent'); // transparent|translucent|opaque
+  const [orgMsgAccess, setOrgMsgAccess] = useState({read:['admin','case_manager'],respond:['admin']});
+  const [orgChannels, setOrgChannels] = useState([]); // [{roomId, peerOrg:{name,roomId}, lastMessage, unread}]
+  const [activeChannel, setActiveChannel] = useState(null);
+  const [channelMessages, setChannelMessages] = useState([]);
+  const [orgMsgText, setOrgMsgText] = useState('');
+  const [composeOrgModal, setComposeOrgModal] = useState(false);
+  const [composePeerOrgId, setComposePeerOrgId] = useState('');
+  const [composePeerOrgName, setComposePeerOrgName] = useState('');
+  const [msgAccessModal, setMsgAccessModal] = useState(false);
+  const [msgAccessDraft, setMsgAccessDraft] = useState({read:[],respond:[]});
 
   useEffect(() => { initProvider(); }, []);
 
@@ -3556,11 +3598,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setInitError(null);
     try {
       // Single-pass scan: fetch all Khora state across rooms in one request
-      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER, EVT.PROVIDER_PROFILE]);
+      const scanned = await svc.scanRooms([EVT.ORG_METADATA, EVT.ORG_ROSTER, EVT.PROVIDER_PROFILE, EVT.ORG_OPACITY, EVT.ORG_MSG_ACCESS, EVT.ORG_MSG_CHANNEL]);
       let roster=null, metricsR=null, schema=null, network=null;
       let detectedOrg=null, detectedOrgRole=null;
       const bridgeData = [];
       const detectedClientRecords = [];
+      const detectedOrgChannels = [];
       for (const [rid, state] of Object.entries(scanned)) {
         const id = state[EVT.IDENTITY];
         if (id?.account_type==='provider'&&id.owner===svc.userId) roster=rid;
@@ -3580,6 +3623,11 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             const entry = orgRoster?.staff?.find(s=>s.userId===svc.userId);
             if (entry) { detectedOrg=rid; detectedOrgRole=entry.role; }
           }
+        }
+        // Detect inter-org messaging channels
+        const chanMeta = state[EVT.ORG_MSG_CHANNEL];
+        if (chanMeta && chanMeta.type === 'org_msg_channel') {
+          detectedOrgChannels.push({roomId: rid, ...chanMeta});
         }
         const meta = state[EVT.BRIDGE_META];
         if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
@@ -3624,6 +3672,11 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         const orgState = scanned[detectedOrg];
         if (orgState?.[EVT.ORG_METADATA]) setOrgMeta(orgState[EVT.ORG_METADATA]);
         if (orgState?.[EVT.ORG_ROSTER]?.staff) setStaff(orgState[EVT.ORG_ROSTER].staff);
+        // Load opacity & message access settings
+        if (orgState?.[EVT.ORG_OPACITY]) setOrgOpacity(orgState[EVT.ORG_OPACITY].level || 'translucent');
+        if (orgState?.[EVT.ORG_MSG_ACCESS]) setOrgMsgAccess(orgState[EVT.ORG_MSG_ACCESS]);
+        // Load detected org messaging channels
+        if (detectedOrgChannels.length > 0) setOrgChannels(detectedOrgChannels);
       }
       // Load client records detected during scan
       if (detectedClientRecords.length > 0) {
@@ -3898,6 +3951,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           {userId:svc.userId,role:'admin',joined:Date.now()}
         ]}},
         {type:EVT.ROSTER_ASSIGN,state_key:'',content:{}},
+        {type:EVT.ORG_OPACITY,state_key:'',content:{level:'translucent',updated:Date.now(),updated_by:svc.userId}},
+        {type:EVT.ORG_MSG_ACCESS,state_key:'',content:{read:['admin','case_manager'],respond:['admin'],updated:Date.now()}},
       ]);
       await emitOp(org, 'DES', {entity:'organization',designation:setupData.name},
         {type:setupData.type,service_area:setupData.service_area}, orgFrame(org));
@@ -4011,6 +4066,136 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     setProfileModal(true);
   };
 
+  // ─── Inter-org messaging ───
+
+  // Check if current user has permission for an org messaging action
+  const hasOrgMsgPermission = useCallback((action) => {
+    // action: 'read' or 'respond'
+    if (!orgRole) return false;
+    const allowed = orgMsgAccess[action] || [];
+    return allowed.includes(orgRole);
+  }, [orgRole, orgMsgAccess]);
+
+  // Save opacity setting (admin only)
+  const handleSaveOpacity = async (level) => {
+    if (!orgRoom || orgRole !== 'admin') return;
+    try {
+      await svc.setState(orgRoom, EVT.ORG_OPACITY, {level, updated: Date.now(), updated_by: svc.userId});
+      setOrgOpacity(level);
+      await emitOp(orgRoom, 'ALT', {entity:'org_opacity',field:'level'}, {from:orgOpacity,to:level,changed_by:svc.userId}, orgFrame());
+      showToast(`Opacity set to ${OPACITY_LABELS[level]}`,'success');
+    } catch(e) { showToast('Failed to update opacity: '+e.message,'error'); }
+  };
+
+  // Save message access settings (admin only)
+  const handleSaveMsgAccess = async () => {
+    if (!orgRoom || orgRole !== 'admin') return;
+    try {
+      await svc.setState(orgRoom, EVT.ORG_MSG_ACCESS, {...msgAccessDraft, updated: Date.now()});
+      setOrgMsgAccess(msgAccessDraft);
+      await emitOp(orgRoom, 'ALT', {entity:'org_msg_access',field:'roles'}, {read:msgAccessDraft.read,respond:msgAccessDraft.respond}, orgFrame());
+      setMsgAccessModal(false);
+      showToast('Message access roles updated','success');
+    } catch(e) { showToast('Failed to update access: '+e.message,'error'); }
+  };
+
+  // Create org-to-org messaging channel
+  const handleCreateOrgChannel = async () => {
+    if (!orgRoom || !composePeerOrgId.trim()) return;
+    // Check for existing channel
+    const existing = orgChannels.find(c => c.orgs?.includes(composePeerOrgId.trim()));
+    if (existing) {
+      setActiveChannel(existing.roomId);
+      setView('org-inbox');
+      setComposeOrgModal(false);
+      showToast('Channel already exists — opened','info');
+      return;
+    }
+    try {
+      const peerOrgId = composePeerOrgId.trim();
+      const channelRoom = await svc.createRoom(
+        `[Khora Org Msg] ${orgMeta.name||'Org'} ↔ ${composePeerOrgName||peerOrgId.slice(0,12)}`,
+        'Inter-org messaging channel',
+        [
+          {type:EVT.IDENTITY,state_key:'',content:{account_type:'org_msg_channel',created:Date.now()}},
+          {type:EVT.ORG_MSG_CHANNEL,state_key:'',content:{
+            type:'org_msg_channel',
+            orgs:[orgRoom, peerOrgId],
+            org_names:{[orgRoom]:orgMeta.name||'',[peerOrgId]:composePeerOrgName||''},
+            created:Date.now(), created_by:svc.userId,
+          }},
+        ]
+      );
+      // Invite the peer org room members (the channel inherits access from org rooms)
+      try { await svc.invite(channelRoom, peerOrgId); } catch(e) { console.warn('Peer invite:', e.message); }
+      await emitOp(channelRoom, 'INS', {entity:'org_msg_channel',field:'channel'},
+        {from_org:orgRoom,to_org:peerOrgId}, orgFrame());
+      const newChannel = {roomId:channelRoom,orgs:[orgRoom,peerOrgId],
+        org_names:{[orgRoom]:orgMeta.name||'',[peerOrgId]:composePeerOrgName||''},type:'org_msg_channel',created:Date.now()};
+      setOrgChannels(prev=>[...prev,newChannel]);
+      setActiveChannel(channelRoom);
+      setView('org-inbox');
+      setComposeOrgModal(false); setComposePeerOrgId(''); setComposePeerOrgName('');
+      showToast('Messaging channel created','success');
+    } catch(e) { showToast('Failed to create channel: '+e.message,'error'); }
+  };
+
+  // Load messages for an org channel
+  const loadChannelMessages = async (channelRoomId) => {
+    if (!channelRoomId) return;
+    const msgs = await svc.getMessages(channelRoomId);
+    setChannelMessages(msgs);
+  };
+
+  // Send a message in an org channel — applies opacity envelope
+  const handleSendOrgMsg = async () => {
+    if (!orgMsgText.trim() || !activeChannel) return;
+    if (!hasOrgMsgPermission('respond')) { showToast('You do not have permission to send org messages','warn'); return; }
+    try {
+      // Build opacity envelope: what the receiving org sees depends on our opacity setting
+      const envelope = {
+        [`${NS}.type`]: 'org_message',
+        [`${NS}.envelope`]: {
+          opacity: orgOpacity,
+          org_room_id: orgOpacity === 'opaque' ? undefined : orgRoom,
+          org_name: orgOpacity === 'opaque' ? undefined : (orgMeta.name || undefined),
+          sender_id: orgOpacity === 'transparent' ? svc.userId : undefined,
+          sender_name: orgOpacity === 'transparent' ? (providerProfile.display_name || undefined) : undefined,
+          ts: Date.now(),
+        },
+      };
+      await svc.sendMessage(activeChannel, orgMsgText, envelope);
+      await emitOp(activeChannel, 'INS', {type:'org_message',field:'message'},
+        {opacity:orgOpacity,body_length:orgMsgText.length}, orgFrame());
+      setOrgMsgText('');
+      setTimeout(()=>loadChannelMessages(activeChannel),500);
+    } catch(e) { showToast('Send failed: '+e.message,'error'); }
+  };
+
+  // Open a channel
+  const openChannel = (channelRoomId) => {
+    setActiveChannel(channelRoomId);
+    setView('org-inbox');
+    loadChannelMessages(channelRoomId);
+  };
+
+  // Resolve display info for a message based on opacity
+  const resolveMessageSender = useCallback((msg) => {
+    const env = msg.content?.[`${NS}.envelope`];
+    if (!env) return {label: msg.sender === svc.userId ? 'You' : msg.sender, isOwn: msg.sender === svc.userId};
+    const isOwn = msg.sender === svc.userId || env.org_room_id === orgRoom;
+    switch (env.opacity) {
+      case 'transparent':
+        return {label: env.sender_name || env.sender_id || 'Unknown', org: env.org_name, isOwn};
+      case 'translucent':
+        return {label: env.org_name || 'Organization', org: env.org_name, isOwn};
+      case 'opaque':
+        return {label: 'An organization', org: null, isOwn};
+      default:
+        return {label: msg.sender, isOwn};
+    }
+  }, [orgRoom]);
+
   // Determine network role based on org membership
   const networkRole = useMemo(() => {
     if (!networkRoom || !orgRoom) return null;
@@ -4120,9 +4305,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>
           {[
             {id:'org-settings',icon:'settings',label:'Org Settings',reqRole:'admin'},
+            {id:'org-inbox',icon:'msg',label:`Inbox${orgChannels.length?` (${orgChannels.length})`:''}`},
             {id:'staff',icon:'users',label:'Staff'},
             {id:'network',icon:'globe',label:'Network'},
-          ].filter(item=>!item.reqRole||orgRole===item.reqRole).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
+          ].filter(item=>!item.reqRole||orgRole===item.reqRole).filter(item=>item.id!=='org-inbox'||hasOrgMsgPermission('read')).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
             style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
               background:view===item.id&&!activeCase?'var(--bg-4)':'transparent',
               borderLeft:view===item.id&&!activeCase?'2px solid var(--blue)':'2px solid transparent',
@@ -4457,7 +4643,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       {/* ORG SETTINGS VIEW (admin only) */}
       {view==='org-settings'&&orgRoom&&orgRole==='admin'&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Organization Settings</h2>
-        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Manage your organization metadata and configuration.</p>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Manage your organization metadata, privacy, and inter-org messaging configuration.</p>
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">ORGANIZATION DETAILS</span>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:8}}>
@@ -4468,10 +4654,120 @@ const ProviderApp = ({session, onLogout, showToast}) => {
               <span style={{fontSize:13,fontWeight:500,display:'block'}}>{s.v}</span></div>)}
           </div>
         </div>
+
+        {/* OPACITY SETTINGS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <I n="eyeOff" s={16} c="var(--purple)"/>
+            <span className="section-label" style={{marginBottom:0}}>ORGANIZATION OPACITY</span>
+            <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>{OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:14,lineHeight:1.6}}>
+            Controls how much of your organization's identity is revealed when communicating with other organizations. This affects all outgoing inter-org messages.
+          </p>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {OPACITY_LEVELS.map(level => <div key={level} onClick={()=>handleSaveOpacity(level)}
+              style={{padding:'14px 16px',borderRadius:'var(--r-lg)',cursor:'pointer',
+                border:`2px solid ${orgOpacity===level?'var(--gold)':'var(--border-1)'}`,
+                background:orgOpacity===level?'var(--gold-dim)':'var(--bg-3)',transition:'all .18s'}}
+              onMouseEnter={e=>{if(orgOpacity!==level)e.currentTarget.style.borderColor='var(--border-2)'}}
+              onMouseLeave={e=>{if(orgOpacity!==level)e.currentTarget.style.borderColor='var(--border-1)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <span style={{width:10,height:10,borderRadius:'50%',border:`2px solid ${orgOpacity===level?'var(--gold)':'var(--tx-3)'}`,
+                  background:orgOpacity===level?'var(--gold)':'transparent',flexShrink:0}}/>
+                <span style={{fontSize:14,fontWeight:700,color:orgOpacity===level?'var(--gold)':'var(--tx-0)'}}>{OPACITY_LABELS[level]}</span>
+                {level==='opaque'&&<span className="tag tag-red" style={{fontSize:8}}>MAX PRIVACY</span>}
+                {level==='translucent'&&<span className="tag tag-gold" style={{fontSize:8}}>RECOMMENDED</span>}
+                {level==='transparent'&&<span className="tag tag-green" style={{fontSize:8}}>OPEN</span>}
+              </div>
+              <p style={{fontSize:11.5,color:'var(--tx-2)',lineHeight:1.5,marginLeft:18}}>{OPACITY_DESCRIPTIONS[level]}</p>
+              {/* Preview of what external org sees */}
+              <div style={{marginTop:8,marginLeft:18,padding:'8px 12px',background:'var(--bg-1)',borderRadius:'var(--r)',border:'1px solid var(--border-0)'}}>
+                <span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:4}}>EXTERNAL ORG SEES:</span>
+                <span style={{fontSize:11,color:'var(--tx-1)'}}>
+                  {level==='transparent'?`"${providerProfile.display_name||'Jamie R.'} from ${orgMeta.name||'Your Org'}"`
+                  :level==='translucent'?`"${orgMeta.name||'Your Org'}"`
+                  :'"An organization"'}
+                </span>
+              </div>
+            </div>)}
+          </div>
+        </div>
+
+        {/* MESSAGE ACCESS CONTROLS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <I n="lock" s={16} c="var(--blue)"/>
+              <span className="section-label" style={{marginBottom:0}}>INTER-ORG MESSAGE ACCESS</span>
+            </div>
+            <button onClick={()=>{setMsgAccessDraft({...orgMsgAccess});setMsgAccessModal(true)}} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="settings" s={11}/>Configure</button>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:12,lineHeight:1.6}}>
+            Control which staff roles can read and respond to messages sent to your organization from other organizations.
+          </p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>CAN READ</span>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {orgMsgAccess.read?.map(r=><span key={r} className="tag tag-blue" style={{fontSize:9}}>{ORG_ROLE_LABELS[r]||r}</span>)}
+                {(!orgMsgAccess.read||orgMsgAccess.read.length===0)&&<span style={{fontSize:10,color:'var(--tx-3)',fontStyle:'italic'}}>No roles assigned</span>}
+              </div>
+            </div>
+            <div style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+              <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>CAN RESPOND</span>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {orgMsgAccess.respond?.map(r=><span key={r} className="tag tag-gold" style={{fontSize:9}}>{ORG_ROLE_LABELS[r]||r}</span>)}
+                {(!orgMsgAccess.respond||orgMsgAccess.respond.length===0)&&<span style={{fontSize:10,color:'var(--tx-3)',fontStyle:'italic'}}>No roles assigned</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ORG MESSAGING CHANNELS */}
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <I n="msg" s={16} c="var(--teal)"/>
+              <span className="section-label" style={{marginBottom:0}}>MESSAGING CHANNELS ({orgChannels.length})</span>
+            </div>
+            <button onClick={()=>setComposeOrgModal(true)} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>New Channel</button>
+          </div>
+          <p style={{fontSize:11.5,color:'var(--tx-2)',marginBottom:10,lineHeight:1.6}}>
+            Secure encrypted channels for org-to-org communication. Messages are governed by your opacity setting.
+          </p>
+          {orgChannels.length===0?<div style={{textAlign:'center',padding:'20px 0'}}>
+            <I n="msg" s={24}/>
+            <p style={{color:'var(--tx-3)',fontSize:11,marginTop:6}}>No messaging channels yet. Create one to start communicating with another organization.</p>
+          </div>
+          :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {orgChannels.map(ch=>{
+              const peerOrgId = ch.orgs?.find(o=>o!==orgRoom);
+              const peerName = ch.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+              return <div key={ch.roomId} onClick={()=>openChannel(ch.roomId)}
+                className="card-h" style={{padding:'10px 14px'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)'}}><I n="msg" s={14}/></div>
+                    <div>
+                      <span style={{fontSize:12.5,fontWeight:600,display:'block'}}>{peerName}</span>
+                      <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{ch.roomId?.slice(0,20)}…</span>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:8}}>{OPACITY_LABELS[orgOpacity]}</span>
+                    <I n="chevR" s={13} c="var(--tx-3)"/>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </div>}
+        </div>
+
         <div className="card">
           <span className="section-label">ORG ROOM ID</span>
           <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--tx-1)',background:'var(--bg-3)',padding:'8px 12px',borderRadius:'var(--r)',wordBreak:'break-all',marginTop:4}}>{orgRoom}</div>
-          <p style={{fontSize:11,color:'var(--tx-2)',marginTop:8}}>Share this room ID with providers who want to join your organization.</p>
+          <p style={{fontSize:11,color:'var(--tx-2)',marginTop:8}}>Share this room ID with providers who want to join your organization, or with other orgs to open a messaging channel.</p>
         </div>
       </div>}
 
@@ -4622,6 +4918,131 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             <strong style={{color:'var(--green)'}}>Polycentric governance:</strong> Shared prompts propagate Network → Org → Provider → Client. Observations vary locally; interpretations feeding into shared metrics use network-level definitions for consistency.
           </div>
         </div>}
+      </div>}
+
+      {/* ORG INBOX — Inter-org messaging view */}
+      {view==='org-inbox'&&orgRoom&&<div className="anim-up" style={{maxWidth:860,margin:'0 auto'}}>
+        {!activeChannel ? <>
+          {/* Channel list */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
+            <div>
+              <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Organization Inbox</h2>
+              <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>
+                Encrypted org-to-org messaging. Your opacity is set to <strong style={{color:orgOpacity==='opaque'?'var(--red)':orgOpacity==='translucent'?'var(--gold)':'var(--green)'}}>{OPACITY_LABELS[orgOpacity]}</strong>.
+                {orgRole==='admin'&&<span style={{color:'var(--tx-3)'}}> — change in Org Settings</span>}
+              </p>
+            </div>
+            <button onClick={()=>setComposeOrgModal(true)} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>New Channel</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:20}}>
+            {[{l:'Channels',v:orgChannels.length,c:'teal',i:'msg'},
+              {l:'Opacity',v:OPACITY_LABELS[orgOpacity],c:orgOpacity==='opaque'?'red':orgOpacity==='translucent'?'gold':'green',i:'eyeOff'},
+              {l:'Your Role',v:ORG_ROLE_LABELS[orgRole]||orgRole,c:'blue',i:'user'},
+            ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
+                <span style={{fontSize:16,fontWeight:700}}>{s.v}</span>
+                <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
+          </div>
+          {orgChannels.length===0?
+            <div className="card" style={{textAlign:'center',padding:'40px 20px',borderStyle:'dashed'}}>
+              <I n="msg" s={32}/>
+              <p style={{color:'var(--tx-2)',marginTop:10,fontSize:13}}>No messaging channels</p>
+              <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Create a channel to start communicating with another organization.</p>
+              <button onClick={()=>setComposeOrgModal(true)} className="b-pri" style={{marginTop:14}}><I n="plus" s={14}/>New Channel</button>
+            </div>
+          :<div className="card" style={{padding:0,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',background:'var(--bg-3)',borderBottom:'1px solid var(--border-1)',display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:0}}>
+              {['ORGANIZATION','OPACITY','ACTIONS'].map(h=>
+                <span key={h} style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.07em',fontWeight:600}}>{h}</span>)}
+            </div>
+            {orgChannels.map((ch,i)=>{
+              const peerOrgId = ch.orgs?.find(o=>o!==orgRoom);
+              const peerName = ch.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+              return <div key={ch.roomId} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:0,padding:'12px 16px',
+                borderBottom:i<orgChannels.length-1?'1px solid var(--border-0)':'none',alignItems:'center',transition:'background .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:28,height:28,borderRadius:'50%',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)'}}><I n="msg" s={14}/></div>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:600,display:'block'}}>{peerName}</span>
+                    <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{ch.roomId?.slice(0,20)}…</span>
+                  </div>
+                </div>
+                <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9,justifySelf:'start'}}>{OPACITY_LABELS[orgOpacity]}</span>
+                <button onClick={()=>openChannel(ch.roomId)} className="b-gho b-sm" style={{justifySelf:'start',display:'flex',alignItems:'center',gap:4}}>
+                  <I n="msg" s={12}/>Open
+                </button>
+              </div>;
+            })}
+          </div>}
+          <div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:20,display:'flex',gap:10,alignItems:'flex-start'}}>
+            <I n="eyeOff" s={16} c="var(--purple)"/>
+            <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>
+              <strong style={{color:'var(--purple)'}}>Opacity governs outgoing messages.</strong> When your org responds, the receiving org will see your identity according to your opacity setting ({OPACITY_LABELS[orgOpacity]}). Incoming messages are displayed according to the <em>sending</em> org's opacity setting — you cannot force another org to reveal more than they choose to.
+            </span>
+          </div>
+        </>
+        : <>
+          {/* Active channel — message thread */}
+          <button onClick={()=>{setActiveChannel(null);setChannelMessages([])}} className="b-gho b-sm" style={{marginBottom:14,display:'flex',alignItems:'center',gap:4}}><I n="back" s={13}/>All Channels</button>
+          {(() => {
+            const ch = orgChannels.find(c=>c.roomId===activeChannel);
+            const peerOrgId = ch?.orgs?.find(o=>o!==orgRoom);
+            const peerName = ch?.org_names?.[peerOrgId]||peerOrgId?.slice(0,20)||'Unknown Org';
+            return <>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                <div>
+                  <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>{peerName}</h2>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+                    <span className="tag tag-teal"><I n="lock" s={9}/>E2EE</span>
+                    <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>OUTGOING: {OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>org-to-org channel</span>
+                  </div>
+                </div>
+                <button onClick={()=>loadChannelMessages(activeChannel)} className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="refresh-cw" s={11}/>Refresh</button>
+              </div>
+              <div className="card" style={{marginBottom:16}}>
+                <span className="section-label">MESSAGES</span>
+                <div style={{maxHeight:400,overflow:'auto',marginBottom:12}}>
+                  {channelMessages.length===0?
+                    <p style={{color:'var(--tx-3)',fontSize:12,padding:'20px 0',textAlign:'center'}}>No messages yet. Start the conversation.</p>
+                  :channelMessages.map((msg,i)=>{
+                    const sender = resolveMessageSender(msg);
+                    return <div key={msg.id||i} style={{padding:'10px 0',borderBottom:'1px solid var(--border-0)'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{fontFamily:'var(--mono)',fontSize:10.5,fontWeight:600,
+                            color:sender.isOwn?'var(--gold)':'var(--teal)'}}>
+                            {sender.isOwn?'You'+(sender.org?` (${sender.org})`:''):sender.label}
+                          </span>
+                          {msg.content?.[`${NS}.envelope`]&&<span className={`tag ${
+                            msg.content[`${NS}.envelope`].opacity==='opaque'?'tag-red':
+                            msg.content[`${NS}.envelope`].opacity==='translucent'?'tag-gold':'tag-green'
+                          }`} style={{fontSize:7.5}}>
+                            {msg.content[`${NS}.envelope`].opacity?.toUpperCase()}
+                          </span>}
+                        </div>
+                        <span style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--tx-3)'}}>{msg.ts?new Date(msg.ts).toLocaleString():''}</span>
+                      </div>
+                      <p style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.5}}>{msg.content?.body}</p>
+                    </div>;
+                  })}
+                </div>
+                {hasOrgMsgPermission('respond')?<div style={{display:'flex',gap:6}}>
+                  <input value={orgMsgText} onChange={e=>setOrgMsgText(e.target.value)}
+                    placeholder={`Message as ${orgOpacity==='transparent'?(providerProfile.display_name||'you'):orgOpacity==='translucent'?(orgMeta.name||'your org'):'anonymous org'}... (E2EE)`}
+                    onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey)handleSendOrgMsg()}} style={{flex:1}}/>
+                  <button onClick={handleSendOrgMsg} className="b-pri" style={{display:'flex',alignItems:'center',gap:4}}><I n="send" s={13}/>Send</button>
+                </div>
+                :<div style={{padding:'10px 14px',background:'var(--gold-dim)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:8}}>
+                  <I n="lock" s={13} c="var(--gold)"/>
+                  <span style={{fontSize:11.5,color:'var(--gold)'}}>Your role ({ORG_ROLE_LABELS[orgRole]||orgRole}) does not have permission to respond to org messages. Contact your admin.</span>
+                </div>}
+              </div>
+            </>;
+          })()}
+        </>}
       </div>}
 
       {/* ACTIVITY */}
@@ -4884,6 +5305,93 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>
         </div>
       </>}
+    </Modal>
+    {/* COMPOSE ORG MESSAGE CHANNEL MODAL */}
+    <Modal open={composeOrgModal} onClose={()=>setComposeOrgModal(false)} title="New Org Messaging Channel" w={520}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>
+        Create an encrypted messaging channel with another organization. Messages you send will be governed by your opacity setting (<strong style={{color:orgOpacity==='opaque'?'var(--red)':orgOpacity==='translucent'?'var(--gold)':'var(--green)'}}>{OPACITY_LABELS[orgOpacity]}</strong>).
+      </p>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">PEER ORGANIZATION ROOM ID</span>
+        <input value={composePeerOrgId} onChange={e=>setComposePeerOrgId(e.target.value)} placeholder="!orgroom:matrix.org"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>The Matrix room ID of the organization you want to message.</span>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">ORGANIZATION NAME (OPTIONAL)</span>
+        <input value={composePeerOrgName} onChange={e=>setComposePeerOrgName(e.target.value)} placeholder="e.g. Metro Housing Authority"/>
+        <span style={{fontSize:10,color:'var(--tx-3)',display:'block',marginTop:4}}>A display name for the other org. Helps identify the channel.</span>
+      </div>
+      {/* Opacity preview */}
+      <div style={{background:'var(--bg-3)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:14}}>
+        <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',display:'block',marginBottom:6}}>OPACITY PREVIEW — THEY WILL SEE:</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span className={`tag ${orgOpacity==='opaque'?'tag-red':orgOpacity==='translucent'?'tag-gold':'tag-green'}`} style={{fontSize:9}}>{OPACITY_LABELS[orgOpacity]?.toUpperCase()}</span>
+          <span style={{fontSize:12,color:'var(--tx-1)'}}>
+            {orgOpacity==='transparent'?`${providerProfile.display_name||'Staff Name'} from ${orgMeta.name||'Your Org'}`
+            :orgOpacity==='translucent'?orgMeta.name||'Your Org'
+            :'An organization'}
+          </span>
+        </div>
+      </div>
+      <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+        Both organizations maintain independent opacity settings. You control what they see about you; they control what you see about them.
+      </div>
+      <button onClick={handleCreateOrgChannel} className="b-pri" disabled={!composePeerOrgId.trim()} style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="msg" s={16}/> Create Channel
+      </button>
+    </Modal>
+
+    {/* MESSAGE ACCESS CONFIGURATION MODAL */}
+    <Modal open={msgAccessModal} onClose={()=>setMsgAccessModal(false)} title="Configure Message Access" w={560}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+        Control which staff roles in your organization can read and respond to inter-org messages. Only roles listed under "Respond" can send messages on behalf of your organization.
+      </p>
+      <div style={{marginBottom:16}}>
+        <span className="section-label">CAN READ ORG MESSAGES</span>
+        <p style={{fontSize:10.5,color:'var(--tx-3)',marginBottom:8}}>Select roles that can view messages sent to your organization.</p>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {ORG_ROLES.map(role=><div key={role} onClick={()=>{
+            setMsgAccessDraft(prev=>({...prev,read:prev.read.includes(role)?prev.read.filter(r=>r!==role):[...prev.read,role]}));
+          }} style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',
+            border:`1px solid ${msgAccessDraft.read?.includes(role)?'var(--blue)':'var(--border-1)'}`,
+            background:msgAccessDraft.read?.includes(role)?'var(--blue-dim)':'var(--bg-3)',transition:'all .15s'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:14,height:14,borderRadius:3,border:`2px solid ${msgAccessDraft.read?.includes(role)?'var(--blue)':'var(--tx-3)'}`,
+                background:msgAccessDraft.read?.includes(role)?'var(--blue)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:9,fontWeight:800}}>
+                {msgAccessDraft.read?.includes(role)?'✓':''}
+              </span>
+              <span style={{fontSize:12.5,fontWeight:msgAccessDraft.read?.includes(role)?600:400}}>{ORG_ROLE_LABELS[role]}</span>
+            </div>
+            <span className="tag tag-blue" style={{fontSize:8}}>READ</span>
+          </div>)}
+        </div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <span className="section-label">CAN RESPOND TO ORG MESSAGES</span>
+        <p style={{fontSize:10.5,color:'var(--tx-3)',marginBottom:8}}>Select roles that can send messages on behalf of your organization. These roles can also read.</p>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {ORG_ROLES.map(role=><div key={role} onClick={()=>{
+            setMsgAccessDraft(prev=>({...prev,respond:prev.respond.includes(role)?prev.respond.filter(r=>r!==role):[...prev.respond,role]}));
+          }} style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',
+            border:`1px solid ${msgAccessDraft.respond?.includes(role)?'var(--gold)':'var(--border-1)'}`,
+            background:msgAccessDraft.respond?.includes(role)?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:14,height:14,borderRadius:3,border:`2px solid ${msgAccessDraft.respond?.includes(role)?'var(--gold)':'var(--tx-3)'}`,
+                background:msgAccessDraft.respond?.includes(role)?'var(--gold)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--bg-0)',fontSize:9,fontWeight:800}}>
+                {msgAccessDraft.respond?.includes(role)?'✓':''}
+              </span>
+              <span style={{fontSize:12.5,fontWeight:msgAccessDraft.respond?.includes(role)?600:400}}>{ORG_ROLE_LABELS[role]}</span>
+            </div>
+            <span className="tag tag-gold" style={{fontSize:8}}>RESPOND</span>
+          </div>)}
+        </div>
+      </div>
+      <div style={{background:'var(--purple-dim)',border:'1px solid rgba(167,139,250,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+        <strong style={{color:'var(--purple)'}}>Opacity + Access = Privacy.</strong> Opacity controls <em>what</em> external orgs see. Access controls <em>who inside your org</em> can participate. Together, they form your org's communication privacy posture.
+      </div>
+      <button onClick={handleSaveMsgAccess} className="b-pri" style={{width:'100%',padding:12,fontSize:14}}>
+        <I n="check" s={16}/> Save Access Settings
+      </button>
     </Modal>
   </div>;
 };
