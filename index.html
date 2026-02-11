@@ -550,6 +550,8 @@ class KhoraService {
         });
       });
       this._userId = res.user_id; this._token = res.access_token;
+      // Persist session to sessionStorage so it survives page refresh
+      try { sessionStorage.setItem('khora_session', JSON.stringify({ homeserver: baseUrl, accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id })); } catch {}
       // Cache encrypted session metadata in the encrypted vault
       try { await KhoraEncryptedCache.put('session', 'current', { userId: res.user_id, homeserver: baseUrl, deviceId: res.device_id, ts: Date.now() }); } catch {}
       return { userId: res.user_id };
@@ -557,6 +559,39 @@ class KhoraService {
       const resp = await this._api('POST', '/login', { type: 'm.login.password', user, password: pass }, true);
       this._token = resp.access_token; this._userId = resp.user_id;
       return { userId: resp.user_id };
+    }
+  }
+
+  async restoreSession() {
+    try {
+      const raw = sessionStorage.getItem('khora_session');
+      if (!raw) return null;
+      const { homeserver, accessToken, userId, deviceId } = JSON.parse(raw);
+      if (!homeserver || !accessToken || !userId || !deviceId) return null;
+      this._baseUrl = homeserver;
+      await LocalVaultCrypto.deriveKey(userId, accessToken, deviceId);
+      if (typeof matrixcs !== 'undefined') {
+        this.client = matrixcs.createClient({ baseUrl: homeserver, accessToken, userId, deviceId });
+        try { await this.client.initCrypto(); } catch (e) { console.warn('Crypto:', e.message); }
+        await this.client.startClient({ initialSyncLimit: 30 });
+        await new Promise((resolve, reject) => {
+          if (this.client.isInitialSyncComplete()) return resolve();
+          const timeout = setTimeout(() => reject(new Error('Sync timed out')), 60000);
+          this.client.on('sync', (state, prev, data) => {
+            if (state === 'PREPARED') { clearTimeout(timeout); resolve(); }
+            else if (state === 'ERROR') { clearTimeout(timeout); reject(new Error(data?.error?.message || 'Sync failed')); }
+          });
+        });
+      }
+      this._userId = userId; this._token = accessToken;
+      return { userId };
+    } catch (e) {
+      console.warn('Session restore failed:', e.message);
+      sessionStorage.removeItem('khora_session');
+      sessionStorage.removeItem('khora_account_type');
+      this.client = null; this._token = null; this._userId = null;
+      LocalVaultCrypto.clear();
+      return null;
     }
   }
 
@@ -4897,8 +4932,28 @@ const App = () => {
   const [accountType, setAccountType] = useState(null);
   const [toast, setToast] = useState(null);
   const [webhookData, setWebhookData] = useState(null);
+  const [restoring, setRestoring] = useState(true);
 
   const showToast = (msg, type='info') => setToast({msg, type, k:Date.now()});
+
+  // Attempt to restore previous session from sessionStorage on mount
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const restored = await svc.restoreSession();
+        if (restored) {
+          setSession(restored);
+          const savedType = sessionStorage.getItem('khora_account_type');
+          if (savedType) setAccountType(savedType);
+          // Hydrate webhook data in background
+          try {
+            const tables = await hydrateFromWebhooks(svc._token);
+            setWebhookData(tables);
+          } catch (e) { console.warn('Webhook hydration failed:', e.message); }
+        }
+      } catch {} finally { setRestoring(false); }
+    })();
+  }, []);
 
   const handleLogin = async (s) => {
     setSession(s);
@@ -4911,11 +4966,22 @@ const App = () => {
     }
   };
 
+  const handleSelectAccountType = (t) => {
+    setAccountType(t);
+    try { sessionStorage.setItem('khora_account_type', t); } catch {}
+  };
+
+  if (restoring) return <div className="grid-bg" style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{textAlign:'center'}}><Spin s={32}/><p style={{color:'var(--tx-2)',fontSize:13,marginTop:16}}>Restoring session…</p></div>
+  </div>;
   if (!welcomed && !session) return <WelcomeScreen onContinue={() => setWelcomed(true)}/>;
   if (!session) return <LoginScreen onLogin={handleLogin}/>;
-  if (!accountType) return <AccountTypeScreen onSelect={t => setAccountType(t)}/>;
+  if (!accountType) return <AccountTypeScreen onSelect={handleSelectAccountType}/>;
 
-  const handleLogout = async () => { await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null); };
+  const handleLogout = async () => {
+    try { sessionStorage.removeItem('khora_session'); sessionStorage.removeItem('khora_account_type'); } catch {}
+    await svc.logout(); setSession(null); setAccountType(null); setWebhookData(null);
+  };
 
   return <>
     {accountType === 'client' ?
