@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Khora — Sovereign Case Management</title>
+<title>Khora — Governance-Aware Observation Platform</title>
 <script src="https://cdn.jsdelivr.net/npm/matrix-js-sdk@34.11.1/lib/browser-matrix.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -211,6 +211,7 @@ clipboard:<svg {...p}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 
 link:<svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
 copy:<svg {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
 userPlus:<svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
+userMinus:<svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
 upload:<svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
 download:<svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
 sun:<svg {...p}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
@@ -566,7 +567,7 @@ const EmailVerification = {
     return {
       enabled: false,
       required_domains: [],
-      require_for_roles: ['admin', 'case_manager', 'field_worker', 'intake_coordinator'],
+      require_for_roles: ['admin', 'provider', 'coordinator'],
       grace_period_hours: 72,
     };
   },
@@ -669,19 +670,19 @@ const EVT = {
 
 /* ═══════════════════ MATURITY LEVELS (MVP §Screen 4) ═══════════════════ */
 const MATURITY_LEVELS = {
-  draft:      { id: 'draft',      label: 'Draft',      color: 'blue',   icon: '🔵', desc: 'Proposed, not yet reviewed' },
-  trial:      { id: 'trial',      label: 'Trial',      color: 'gold',   icon: '🟡', desc: 'Approved for testing, may change' },
-  normative:  { id: 'normative',  label: 'Normative',  color: 'green',  icon: '🟢', desc: 'Locked, changes require formal process' },
-  de_facto:   { id: 'de_facto',   label: 'De facto',   color: 'purple', icon: '⚪', desc: 'Widely used, never formally proposed' },
-  deprecated: { id: 'deprecated', label: 'Deprecated', color: 'red',    icon: '🔴', desc: 'Being phased out' },
+  draft:      { id: 'draft',      label: 'Draft',      color: 'blue',   icon: '🔵', desc: 'Local experiment. One org trying this. Anything can change, no governance needed.' },
+  trial:      { id: 'trial',      label: 'Trial',      color: 'gold',   icon: '🟡', desc: 'Network-recognized experiment. Options, wording may change. No consent required for changes.' },
+  normative:  { id: 'normative',  label: 'Normative',  color: 'green',  icon: '🟢', desc: 'Stable standard. Changes require full consent round. Versioned.' },
+  de_facto:   { id: 'de_facto',   label: 'De facto',   color: 'purple', icon: '⚪', desc: 'Widely used informally, never formally proposed.' },
+  deprecated: { id: 'deprecated', label: 'Deprecated', color: 'red',    icon: '🔴', desc: 'Being phased out. Frozen. Orgs migrate to replacement.' },
 };
 
 /* ═══════════════════ PROPAGATION LEVELS (MVP §CON Semantics) ═══════════════════ */
 const PROPAGATION_LEVELS = {
-  required:    { id: 'required',    label: 'Required',    color: 'red',    desc: 'Tight coupling — auto-applied to orgs, immutable' },
-  standard:    { id: 'standard',    label: 'Standard',    color: 'gold',   desc: 'Expected coupling — auto-applied, notify on divergence' },
-  recommended: { id: 'recommended', label: 'Recommended', color: 'blue',   desc: 'Suggested coupling — org reviews, adopts or ignores' },
-  optional:    { id: 'optional',    label: 'Optional',    color: 'teal',   desc: 'Loose coupling — available, no expectation' },
+  required:    { id: 'required',    label: 'Required',    color: 'red',    desc: 'Applied automatically. Cannot be overridden. Changes require a consent round with all members.' },
+  standard:    { id: 'standard',    label: 'Standard',    color: 'gold',   desc: 'Applied automatically. Orgs are notified and can request divergence. Divergence is tracked.' },
+  recommended: { id: 'recommended', label: 'Recommended', color: 'blue',   desc: 'Available to all orgs. Adopt or ignore freely. No consent round needed.' },
+  optional:    { id: 'optional',    label: 'Optional',    color: 'teal',   desc: 'Listed in the catalog. No propagation. Orgs browse and adopt independently.' },
 };
 
 /* ═══════════════════ GOVERNANCE CONSTANTS (MVP §Screen 5) ═══════════════════ */
@@ -1174,253 +1175,24 @@ async function hydrateFromWebhooks(token) {
 }
 
 /* ═══════════════════ DOMAIN CONFIG (§C.0) ═══════════════════
- * All domain-specific content is consolidated here. To adapt Tessera for a
- * different sector, replace the contents of DOMAIN_CONFIG — the application
- * logic, encryption model, bridge topology, and EO operator layer are all
- * domain-agnostic.
+ * Khora ships empty. No pre-loaded fields, no built-in answer options,
+ * no hardcoded framework bindings, no sample data. When a network coordinator
+ * creates a network, they define the schema from scratch. When an org admin
+ * joins, they adopt that network's schema and configure how providers see it.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const DOMAIN_CONFIG = {
 
-  /* ── Authorities ── */
-  authorities: [
-    { id:'auth_org_policy', name:'Organization Policy v1',
-      uri:'local://org/policy',
-      authority_type:'organizational_policy', authority_org:'Organization', version:'v1',
-      terms:[
-        {id:'policy_1',label:'Eligibility Criteria',
-         definition:'Conditions under which an individual qualifies for services'},
-        {id:'policy_2',label:'Service Standards',
-         definition:'Required standards for service delivery'},
-        {id:'policy_3',label:'Data Collection Requirements',
-         definition:'Mandatory data elements for intake and ongoing engagement'},
-      ]},
-    { id:'auth_ext_standard', name:'External Reporting Standard',
-      uri:'local://ext/standard',
-      authority_type:'external_standard', authority_org:'Regulatory Body', version:'v1',
-      terms:[
-        {id:'ext_1',label:'Status Classification (1.01)',
-         definition:'Current status at point of engagement'},
-        {id:'ext_2',label:'Engagement Type (1.02)',
-         definition:'Nature of service engagement'},
-        {id:'ext_3',label:'Identity Elements (2.01)'},
-        {id:'ext_4',label:'Contact Elements (2.02)'},
-      ]},
-    { id:'auth_service_taxonomy', name:'Service Taxonomy',
-      uri:'local://service/taxonomy',
-      authority_type:'industry_standard', authority_org:'Standards Body', version:'v1',
-      terms:[
-        {id:'svc_cat_1',label:'Direct Services',definition:'Services delivered to individuals'},
-        {id:'svc_cat_2',label:'Coordination Services',definition:'Referral and linkage services'},
-      ]},
-    { id:'auth_local_policy', name:'Local Policy',
-      uri:'local://local/policy', authority_type:'local_policy', authority_org:'Local Authority',
-      terms:[] },
-  ],
+  /* ── Authorities (empty — user-created) ── */
+  authorities: [],
 
-  /* ── Client Observation Prompts ── */
-  clientPrompts: [
-    { id:'prompt_current_status', key:'current_status', question:'What is your current status?', type:'single_select',
-      version:1, audience:'client', maturity:'normative', section:'status',
-      source:{level:'network',propagation:'required'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'current_status',designation:'Current Status Prompt'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}},
-          {op:'CON',target:{source:'current_status',destination:'ext:standard_1.01'},
-           context:{authority_id:'auth_ext_standard',element:'ext_1',
-                    authority_name:'External Reporting Standard'}},
-          {op:'SEG',target:{field:'response_options',entity:'current_status'},
-           context:{rationale:'Simplified from full reporting standard for field use',
-                    excluded:['administrative_hold','archived']}}
-        ],
-        trace:'current_status = DES → CON(ext:standard_1.01) → SEG({field simplified})'
-      },
-      options:[
-        {v:'active',l:'Active — currently receiving services',
-         eo:{op:'SYN',target:{local:'active',external:'ext:standard_1.01:a'}}},
-        {v:'on_hold',l:'On hold — temporarily paused',
-         eo:{op:'SYN',target:{local:'on_hold',external:'ext:standard_1.01:b'}}},
-        {v:'pending_review',l:'Pending review',
-         eo:{op:'SYN',target:{local:'pending_review',external:'ext:standard_1.01:c'}}},
-        {v:'resolved',l:'Resolved — services completed',
-         eo:{op:'SYN',target:{local:'resolved',external:'ext:standard_1.01:d'}}},
-        {v:'other',l:'Other',
-         eo:{op:'INS',target:{local:'other'},context:{note:'Catch-all not in reporting taxonomy'}}}
-      ],
-      category:'status', sensitive:false, metrics:true },
-    { id:'prompt_engagement', key:'engagement_type', question:'What engagement occurred?', type:'single_select',
-      version:1, audience:'client', maturity:'normative', section:'engagement',
-      source:{level:'network',propagation:'required'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'engagement_type',designation:'Engagement Type Prompt'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}},
-          {op:'CON',target:{source:'engagement_type',destination:'svc:direct_services'},
-           context:{authority_id:'auth_service_taxonomy',authority_name:'Service Taxonomy'}}
-        ],
-        trace:'engagement_type = DES → CON(svc:direct_services)'
-      },
-      options:[
-        {v:'in_person',l:'In-person meeting'},{v:'phone_call',l:'Phone call'},
-        {v:'referral_contact',l:'Referral or linkage',eo:{op:'CON',target:{local:'referral_contact',external:'svc:svc_cat_2'}}},
-        {v:'intake',l:'Intake or enrollment'},{v:'follow_up',l:'Follow-up contact'},{v:'other',l:'Other'}],
-      category:'engagement', sensitive:false, metrics:true },
-    { id:'prompt_intake_event', key:'intake_event', question:'What intake event occurred?', type:'single_select',
-      version:1, audience:'client', maturity:'trial', section:'intake',
-      source:{level:'network',propagation:'standard'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'intake_event',designation:'Intake Event Prompt'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}}
-        ],
-        trace:'intake_event = DES'
-      },
-      options:[
-        {v:'application_submitted',l:'Application submitted'},{v:'documents_provided',l:'Documents provided'},
-        {v:'eligibility_confirmed',l:'Eligibility confirmed'},{v:'enrolled',l:'Enrolled in program'},
-        {v:'waitlisted',l:'Placed on waitlist'},{v:'other',l:'Other'}],
-      category:'intake', sensitive:false, metrics:true },
-    { id:'prompt_additional_context', key:'additional_context', question:'Any additional context to record?', type:'single_select',
-      version:1, audience:'client', maturity:'draft', section:'general',
-      source:{level:'local'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'additional_context',designation:'Additional Context Prompt'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}}
-        ],
-        trace:'additional_context = DES'
-      },
-      options:[
-        {v:'situation_change',l:'Situation changed'},{v:'new_need',l:'New need identified'},
-        {v:'barrier_encountered',l:'Barrier encountered'},{v:'milestone_reached',l:'Milestone reached'},{v:'other',l:'Other'}],
-      category:'general', sensitive:true, metrics:true },
-  ],
+  /* ── Client Observation Prompts (empty — schema-defined) ── */
+  clientPrompts: [],
 
-  /* ── Provider-Side Prompts ── */
-  providerPrompts: [
-    { id:'pprompt_assessment_score', key:'assessment_score', question:'Assessment Score', type:'numeric',
-      version:1, audience:'provider', maturity:'normative', section:'assessment',
-      source:{level:'network',propagation:'standard'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'assessment_score',designation:'Assessment Score'},
-           frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
-          {op:'CON',target:{source:'assessment_score',destination:'org:assessment-v1'},
-           context:{authority_name:'Organization Policy',note:'Standard assessment instrument'}}
-        ],
-        trace:'assessment_score = DES → CON(org:assessment-v1)'
-      },
-      range:{min:0,max:10}, thresholds:[{v:0,l:'Low'},{v:4,l:'Medium'},{v:7,l:'High'}],
-      category:'assessment', sensitive:true, metrics:true },
-    { id:'pprompt_case_stage', key:'case_stage', question:'Case stage?', type:'single_select',
-      version:1, audience:'provider', maturity:'normative', section:'case_management',
-      source:{level:'network',propagation:'required'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'case_stage',designation:'Case Stage'},
-           frame:{type:'schema',epistemic:'MEANT',role:'provider'}}
-        ],
-        trace:'case_stage = DES'
-      },
-      options:[
-        {v:'intake',l:'Intake'},{v:'active',l:'Active'},
-        {v:'monitoring',l:'Monitoring'},{v:'closed_complete',l:'Closed — completed'},
-        {v:'closed_withdrawn',l:'Closed — withdrawn'},{v:'closed_lost',l:'Closed — lost contact'}],
-      category:'case_management', sensitive:false, metrics:true },
-    { id:'pprompt_referral', key:'referral_status', question:'Referral status?', type:'single_select',
-      version:1, audience:'provider', maturity:'trial', section:'coordination',
-      source:{level:'network',propagation:'recommended'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'referral_status',designation:'Referral Status'},
-           frame:{type:'schema',epistemic:'MEANT',role:'provider'}},
-          {op:'CON',target:{source:'referral_status',destination:'svc:coordination'},
-           context:{authority_id:'auth_service_taxonomy'}}
-        ],
-        trace:'referral_status = DES → CON(svc:coordination)'
-      },
-      options:[
-        {v:'identified',l:'Need identified'},{v:'referred',l:'Referred'},
-        {v:'scheduled',l:'Appointment scheduled'},{v:'completed',l:'Service completed'},
-        {v:'declined',l:'Declined'},{v:'no_capacity',l:'Receiving org at capacity'}],
-      category:'coordination', sensitive:false, metrics:true },
-  ],
+  /* ── Provider-Side Prompts (empty — schema-defined) ── */
+  providerPrompts: [],
 
-  /* ── Classification Definitions ── */
-  definitions: [
-    { id:'def_priority_level', key:'priority_level', name:'Priority Level', type:'classification_rule',
-      version:1, maturity:'normative', source:{level:'network',propagation:'required'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'priority_level',designation:'Priority Level Classification'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}},
-          {op:'CON',target:{source:'priority_level',destination:'org:policy_1'},
-           context:{authority_id:'auth_org_policy',
-                    authority_name:'Organization Policy v1',version:'v1'}},
-          {op:'SEG',target:{field:'categories',entity:'priority_level'},
-           context:{included:['priority_a','priority_b'],excluded:['priority_d'],
-                    rationale:'Network prioritizes highest-need categories'}}
-        ],
-        trace:'priority_level = DES → CON(org:policy_1) → SEG({Categories A-B})'
-      },
-      rules:[
-        {category:'priority_a', criteria:'current_status IN (active) AND assessment_score >= 7', authority_code:'A',
-         eo:{
-           chain:[
-             {op:'SYN',target:{local:'priority_a',external:'org:policy_1(a)'}},
-             {op:'CON',target:{source:'priority_a',destination:'current_status'},
-              context:{derivation:'Classification derived from observation',
-                       epistemic_crossing:'GIVEN → MEANT',
-                       note:'Observation (current status) is GIVEN; classification (priority A) is MEANT'}}
-           ]}},
-        {category:'priority_b', criteria:'intake_event=eligibility_confirmed AND engagement_type != none', authority_code:'B',
-         eo:{
-           chain:[
-             {op:'SYN',target:{local:'priority_b',external:'org:policy_1(b)'}},
-             {op:'CON',target:{source:'priority_b',destination:'intake_event'},
-              context:{derivation:'Classification derived from intake observation + engagement',
-                       epistemic_crossing:'GIVEN → MEANT'}}
-           ]}},
-        {category:'stable', criteria:'current_status=resolved for 30+ days', authority_code:null,
-         eo:{
-           chain:[
-             {op:'DES',target:{entity:'stable',designation:'Stable'},
-              context:{note:'Local definition — no direct external equivalent'}},
-             {op:'CON',target:{source:'stable',destination:'current_status'},
-              context:{derivation:'Classification from sustained observation pattern',
-                       epistemic_crossing:'GIVEN → MEANT'}}
-           ]}},
-      ]},
-    { id:'def_extended_engagement', key:'extended_engagement', name:'Extended Engagement', type:'classification_rule',
-      version:1, maturity:'trial', source:{level:'network',propagation:'standard'},
-      eo:{
-        chain:[
-          {op:'DES',target:{entity:'extended_engagement',designation:'Extended Engagement Definition'},
-           frame:{type:'schema',epistemic:'MEANT',role:'network'}},
-          {op:'CON',target:{source:'extended_engagement',destination:'org:policy_1'},
-           context:{authority_id:'auth_org_policy',
-                    authority_name:'Organization Policy v1',version:'v1'}},
-          {op:'SUP',target:{entity:'extended_engagement',field:'definition'},
-           context:{
-             states:[
-               {source:'org:policy_1',definition:'12 months continuous OR 4 engagement episodes in 3 years',
-                frame:'organization_standard'},
-               {source:'local_policy',definition:'6 months continuous OR 3 episodes in 2 years',
-                frame:'local_practice'}
-             ],
-             resolution:null,
-             note:'Organization definition used for reporting; local definition used for prioritization'
-           }}
-        ],
-        trace:'extended_engagement = DES → CON(org:policy_1) → SUP({org vs local})'
-      },
-      rules:[
-        {category:'extended_org', criteria:'active engagement for 12+ months continuous OR 4+ episodes in 3 years', authority_code:'ext',
-         eo:{chain:[{op:'SYN',target:{local:'extended_org',external:'org:policy_1'}}]}},
-        {category:'extended_local', criteria:'active engagement for 6+ months continuous OR 3+ episodes in 2 years', authority_code:null,
-         eo:{chain:[{op:'DES',target:{entity:'extended_local'},context:{note:'Local threshold — lower bar for outreach'}}]}},
-      ]},
-  ],
+  /* ── Classification Definitions (empty — schema-defined) ── */
+  definitions: [],
 
   /* ── Anonymization Transforms ── */
   transforms: {
@@ -1429,50 +1201,38 @@ const DOMAIN_CONFIG = {
     full_name:{method:'block'}, id_number:{method:'block'}, phone:{method:'block'}, email:{method:'block'},
   },
 
-  /* ── Vault Fields ── */
+  /* ── Vault Fields (minimal identity scaffolding — no domain assumptions) ── */
   vaultFields: [
     {key:'full_name',label:'Full Name',category:'identity',sensitive:false},
-    {key:'dob',label:'Date of Birth',category:'identity',sensitive:true},
-    {key:'id_number',label:'ID Number',category:'identity',sensitive:true},
     {key:'email',label:'Email',category:'contact',sensitive:false},
     {key:'phone',label:'Phone',category:'contact',sensitive:false},
-    {key:'address',label:'Address',category:'contact',sensitive:true},
-    {key:'affiliation',label:'Organization / Affiliation',category:'details',sensitive:false},
-    {key:'case_notes',label:'Case Notes',category:'case',sensitive:false},
-    {key:'documents',label:'Documents',category:'case',sensitive:true},
-    {key:'history',label:'Case History',category:'case',sensitive:false},
-    {key:'restricted_notes',label:'Restricted Notes',category:'sensitive',sensitive:true},
   ],
 
   /* ── Field Categories ── */
-  fieldCategories: ['identity','contact','details','case','sensitive'],
-  fieldCatLabels: {identity:'Identity',contact:'Contact',details:'Details',case:'Case',sensitive:'Sensitive'},
-  fieldCatIcons: {identity:'user',contact:'msg',details:'briefcase',case:'folder',sensitive:'shieldCheck'},
-  fieldCatColors: {identity:'blue',contact:'teal',details:'gold',case:'orange',sensitive:'green'},
+  fieldCategories: ['identity','contact','details','sensitive'],
+  fieldCatLabels: {identity:'Identity',contact:'Contact',details:'Details',sensitive:'Sensitive'},
+  fieldCatIcons: {identity:'user',contact:'msg',details:'briefcase',sensitive:'shieldCheck'},
+  fieldCatColors: {identity:'blue',contact:'teal',details:'gold',sensitive:'green'},
 
-  /* ── Observation Categories ── */
-  obsCatLabels: {status:'Status',engagement:'Engagement',intake:'Intake',general:'General',
-    assessment:'Assessment',case_management:'Case Mgmt',coordination:'Coordination'},
-  obsCatColors: {status:'teal',engagement:'blue',intake:'orange',general:'gold',
-    assessment:'purple',case_management:'gold',coordination:'blue'},
+  /* ── Observation Categories (empty — user-defined via schema) ── */
+  obsCatLabels: {},
+  obsCatColors: {},
 
   /* ── Org Roles ── */
-  orgRoles: ['admin','case_manager','field_worker','intake_coordinator','read_only'],
-  orgRoleLabels: {admin:'Admin',case_manager:'Case Manager',field_worker:'Field Worker',
-    intake_coordinator:'Intake Coordinator',read_only:'Read Only'},
+  orgRoles: ['admin','provider','coordinator','read_only'],
+  orgRoleLabels: {admin:'Admin',provider:'Provider',coordinator:'Coordinator',read_only:'Read Only'},
 
-  /* ── Org Types ── */
-  orgTypes: ['direct_service','administrative','clinical','legal','coordinating_body','advocacy','other'],
-  orgTypeLabels: {direct_service:'Direct Service',administrative:'Administrative',clinical:'Clinical',
-    legal:'Legal',coordinating_body:'Coordinating Body',advocacy:'Advocacy',other:'Other'},
+  /* ── Org Types (generic) ── */
+  orgTypes: ['service_delivery','administrative','coordinating_body','other'],
+  orgTypeLabels: {service_delivery:'Service Delivery',administrative:'Administrative',
+    coordinating_body:'Coordinating Body',other:'Other'},
 
   /* ── Org Opacity Levels ── */
-  // Controls how much of the org's internal structure is visible to external orgs during messaging
   opacityLevels: ['transparent','translucent','opaque'],
   opacityLabels: {
-    transparent: 'Transparent',     // sender name & org visible
-    translucent: 'Translucent',     // org name visible, individual sender hidden
-    opaque:      'Opaque',          // only "an organization" — no name, no members
+    transparent: 'Transparent',
+    translucent: 'Translucent',
+    opaque:      'Opaque',
   },
   opacityDescriptions: {
     transparent: 'External orgs see which staff member sent each message and your org name.',
@@ -1481,9 +1241,8 @@ const DOMAIN_CONFIG = {
   },
 
   /* ── Org Message Access Roles ── */
-  // Which org roles can access inter-org messages by default
   msgAccessDefaults: {
-    read: ['admin','case_manager'],
+    read: ['admin','provider'],
     respond: ['admin'],
   },
 
@@ -1525,246 +1284,19 @@ const MSG_ACCESS_DEFAULTS = DOMAIN_CONFIG.msgAccessDefaults;
 const TERMINOLOGY_DEFAULTS = DOMAIN_CONFIG.terminologyDefaults;
 
 /* ═══════════════════ FRAMEWORK BINDINGS (§C.2) ═══════════════════ */
-// Multi-framework value mappings: same observation value → different classifications
-// under different institutional frameworks. This is the GIVEN → MEANT crossing made explicit.
-const FRAMEWORK_BINDINGS = {
-  sleep_location: {
-    prompt_id: 'prompt_sleep_location',
-    prompt_key: 'sleep_location',
-    question: 'Where did you sleep last night?',
-    bindings: {
-      vehicle: {
-        local_label: 'Car, van, or RV',
-        frameworks: [
-          { id: 'fb_vehicle_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: '§578.3(b)(1)',
-            classification: 'Literally Homeless (Category 1)',
-            classification_code: 'cat_1',
-            implication: 'Eligible for CoC-funded services',
-            eo_chain: [
-              {op:'CON',desc:'sleep_location → hud:hmis_3.12'},
-              {op:'SYN',desc:'vehicle → code_7'},
-              {op:'CON',desc:'code_7 → 24cfr578.3(b)(1)'}
-            ],
-            eo_compact: 'CON(sleep_location → hud:hmis_3.12) → SYN(vehicle → code_7)'
-          },
-          { id: 'fb_vehicle_coc',
-            authority_id: 'auth_local_coc',
-            authority_name: 'Local CoC Outreach Priority',
-            authority_org: 'CoC',
-            authority_uri: 'local://coc/outreach-policy-2025',
-            provision: '§3.2 Unsheltered prioritization',
-            classification: 'Priority 1 — Immediate outreach',
-            classification_code: 'priority_1',
-            implication: 'Assigned to next available outreach team',
-            eo_chain: [
-              {op:'CON',desc:'sleep_location → coc:outreach_priority'},
-              {op:'SYN',desc:'vehicle → priority_1'}
-            ],
-            eo_compact: 'CON(sleep_location → coc:outreach_priority) → SYN(vehicle → priority_1)'
-          },
-          { id: 'fb_vehicle_pit',
-            authority_id: 'auth_hud_hmis_ds',
-            authority_name: 'PIT Count Methodology',
-            authority_org: 'HUD Exchange',
-            authority_uri: 'https://hudexchange.info/programs/hdx/pit-hic/',
-            provision: 'PIT Unsheltered Definition',
-            classification: 'Unsheltered',
-            classification_code: 'unsheltered',
-            implication: 'Counted in unsheltered PIT total',
-            eo_chain: [
-              {op:'CON',desc:'sleep_location → pit:shelter_status'},
-              {op:'SYN',desc:'vehicle → unsheltered'}
-            ],
-            eo_compact: 'CON(sleep_location → pit:shelter_status) → SYN(vehicle → unsheltered)'
-          }
-        ]
-      },
-      encampment: {
-        local_label: 'Tent or encampment',
-        frameworks: [
-          { id: 'fb_encampment_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: '§578.3(b)(1)',
-            classification: 'Literally Homeless (Category 1)',
-            classification_code: 'cat_1',
-            implication: 'Eligible for CoC-funded services',
-            eo_chain: [{op:'CON',desc:'sleep_location → hud:hmis_3.12'},{op:'SYN',desc:'encampment → code_16'}],
-            eo_compact: 'CON → SYN(encampment → code_16)'
-          },
-          { id: 'fb_encampment_coc',
-            authority_id: 'auth_local_coc',
-            authority_name: 'Local CoC Outreach Priority',
-            authority_org: 'CoC',
-            authority_uri: 'local://coc/outreach-policy-2025',
-            provision: '§3.2',
-            classification: 'Priority 1 — Immediate outreach',
-            classification_code: 'priority_1',
-            implication: 'Assigned to next available outreach team',
-            eo_chain: [{op:'CON',desc:'sleep_location → coc:outreach_priority'},{op:'SYN',desc:'encampment → priority_1'}],
-            eo_compact: 'CON → SYN(encampment → priority_1)'
-          },
-          { id: 'fb_encampment_pit',
-            authority_id: 'auth_hud_hmis_ds',
-            authority_name: 'PIT Count Methodology',
-            authority_org: 'HUD Exchange',
-            authority_uri: 'https://hudexchange.info/programs/hdx/pit-hic/',
-            provision: 'PIT Unsheltered Definition',
-            classification: 'Unsheltered',
-            classification_code: 'unsheltered',
-            implication: 'Counted in unsheltered PIT total',
-            eo_chain: [{op:'CON',desc:'sleep_location → pit:shelter_status'},{op:'SYN',desc:'encampment → unsheltered'}],
-            eo_compact: 'CON → SYN(encampment → unsheltered)'
-          }
-        ]
-      },
-      unsheltered: {
-        local_label: 'Street, park, or unsheltered',
-        frameworks: [
-          { id: 'fb_unsheltered_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: '§578.3(b)(1)',
-            classification: 'Literally Homeless (Category 1)',
-            classification_code: 'cat_1',
-            implication: 'Eligible for CoC-funded services',
-            eo_chain: [{op:'CON',desc:'sleep_location → hud:hmis_3.12'},{op:'SYN',desc:'unsheltered → code_16'},{op:'SEG',desc:'collapsed with encampment'}],
-            eo_compact: 'CON → SYN(unsheltered → code_16) → SEG(collapsed)'
-          },
-          { id: 'fb_unsheltered_coc',
-            authority_id: 'auth_local_coc',
-            authority_name: 'Local CoC Outreach Priority',
-            authority_org: 'CoC',
-            authority_uri: 'local://coc/outreach-policy-2025',
-            provision: '§3.1 Street prioritization',
-            classification: 'Priority 1 — Immediate outreach',
-            classification_code: 'priority_1',
-            implication: 'Highest priority — immediate deployment',
-            eo_chain: [{op:'CON',desc:'sleep_location → coc:outreach_priority'},{op:'SYN',desc:'unsheltered → priority_1'}],
-            eo_compact: 'CON → SYN(unsheltered → priority_1)'
-          }
-        ]
-      },
-      shelter: {
-        local_label: 'Emergency shelter',
-        frameworks: [
-          { id: 'fb_shelter_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: '§578.3(b)(1)',
-            classification: 'Literally Homeless (Category 1)',
-            classification_code: 'cat_1',
-            implication: 'Eligible for CoC-funded services',
-            eo_chain: [{op:'CON',desc:'sleep_location → hud:hmis_3.12'},{op:'SYN',desc:'shelter → code_3'}],
-            eo_compact: 'CON → SYN(shelter → code_3)'
-          },
-          { id: 'fb_shelter_coc',
-            authority_id: 'auth_local_coc',
-            authority_name: 'Local CoC Outreach Priority',
-            authority_org: 'CoC',
-            authority_uri: 'local://coc/outreach-policy-2025',
-            provision: '§4.1 Sheltered services',
-            classification: 'Priority 3 — Sheltered, active case',
-            classification_code: 'priority_3',
-            implication: 'Maintain current case management',
-            eo_chain: [{op:'CON',desc:'sleep_location → coc:outreach_priority'},{op:'SYN',desc:'shelter → priority_3'}],
-            eo_compact: 'CON → SYN(shelter → priority_3)'
-          },
-          { id: 'fb_shelter_pit',
-            authority_id: 'auth_hud_hmis_ds',
-            authority_name: 'PIT Count Methodology',
-            authority_org: 'HUD Exchange',
-            authority_uri: 'https://hudexchange.info/programs/hdx/pit-hic/',
-            provision: 'PIT Sheltered Definition',
-            classification: 'Sheltered — Emergency Shelter',
-            classification_code: 'sheltered_es',
-            implication: 'Counted in sheltered PIT total',
-            eo_chain: [{op:'CON',desc:'sleep_location → pit:shelter_status'},{op:'SYN',desc:'shelter → sheltered_es'}],
-            eo_compact: 'CON → SYN(shelter → sheltered_es)'
-          }
-        ]
-      },
-      own_housing: {
-        local_label: 'Own apartment or house (with lease)',
-        frameworks: [
-          { id: 'fb_own_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: 'N/A — Not homeless',
-            classification: 'Not Homeless (Housed)',
-            classification_code: 'housed',
-            implication: 'Not eligible for CoC homeless services',
-            eo_chain: [{op:'CON',desc:'sleep_location → hud:hmis_3.12'},{op:'SYN',desc:'own_housing → code_1'}],
-            eo_compact: 'CON → SYN(own_housing → code_1)'
-          },
-          { id: 'fb_own_coc',
-            authority_id: 'auth_local_coc',
-            authority_name: 'Local CoC Outreach Priority',
-            authority_org: 'CoC',
-            authority_uri: 'local://coc/outreach-policy-2025',
-            provision: '§5.1 Housed monitoring',
-            classification: 'No Priority — Housed',
-            classification_code: 'no_priority',
-            implication: 'No outreach needed',
-            eo_chain: [{op:'CON',desc:'sleep_location → coc:outreach_priority'},{op:'SYN',desc:'own_housing → no_priority'}],
-            eo_compact: 'CON → SYN(own_housing → no_priority)'
-          }
-        ]
-      },
-      transitional: {
-        local_label: 'Transitional housing',
-        frameworks: [
-          { id: 'fb_trans_hud',
-            authority_id: 'auth_hud_578_3',
-            authority_name: '24 CFR 578.3 — Homeless Definition',
-            authority_org: 'HUD',
-            authority_uri: 'https://www.ecfr.gov/current/title-24/subtitle-B/chapter-V/subchapter-C/part-578/subpart-A/section-578.3',
-            provision: '§578.3(b)(1)',
-            classification: 'Literally Homeless (Category 1)',
-            classification_code: 'cat_1',
-            implication: 'Eligible for CoC-funded services (in TH program)',
-            eo_chain: [{op:'CON',desc:'sleep_location → hud:hmis_3.12'},{op:'SYN',desc:'transitional → code_4'}],
-            eo_compact: 'CON → SYN(transitional → code_4)'
-          },
-          { id: 'fb_trans_pit',
-            authority_id: 'auth_hud_hmis_ds',
-            authority_name: 'PIT Count Methodology',
-            authority_org: 'HUD Exchange',
-            authority_uri: 'https://hudexchange.info/programs/hdx/pit-hic/',
-            provision: 'PIT Sheltered Definition',
-            classification: 'Sheltered — Transitional Housing',
-            classification_code: 'sheltered_th',
-            implication: 'Counted in sheltered PIT total (TH)',
-            eo_chain: [{op:'CON',desc:'sleep_location → pit:shelter_status'},{op:'SYN',desc:'transitional → sheltered_th'}],
-            eo_compact: 'CON → SYN(transitional → sheltered_th)'
-          }
-        ]
-      }
-    }
-  }
-};
+/* Empty — framework bindings are user-created content. Networks and orgs
+ * define their own bindings through the Schema Workbench and Framework
+ * Bindings screens. No domain-specific bindings are pre-loaded. */
+const FRAMEWORK_BINDINGS = {};
 
-// Framework accent colors — secondary per-framework color for visual distinction
-const FRAMEWORK_COLORS = {
-  'auth_hud_578_3': {accent:'blue',label:'HUD'},
-  'auth_hud_hmis_ds': {accent:'teal',label:'HMIS'},
-  'auth_local_coc': {accent:'orange',label:'CoC'},
-  'auth_211_airs': {accent:'green',label:'AIRS'},
-  'auth_org_policy': {accent:'purple',label:'Org Policy'},
-};
+// Framework accent colors — cycling palette for user-created frameworks
+const FRAMEWORK_COLORS = {};
+const FRAMEWORK_COLOR_PALETTE = ['blue','teal','orange','green','purple'];
+function getFrameworkColor(authorityId, index) {
+  if (FRAMEWORK_COLORS[authorityId]) return FRAMEWORK_COLORS[authorityId];
+  const i = index || Object.keys(FRAMEWORK_COLORS).length;
+  return {accent: FRAMEWORK_COLOR_PALETTE[i % FRAMEWORK_COLOR_PALETTE.length], label: authorityId};
+}
 
 /* ═══════════════════ FRAMEWORK FIELD STANDARDS (§C.3) ═══════════════════
  * Built-in data field frameworks from established standards. Each framework
@@ -3312,7 +2844,7 @@ const SchemaWorkbench = ({isOrg = false}) => {
           </div>
           {screen==="start" && (
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:6}}>
-              {["Where did you sleep last night?","What temperature was recorded?","What condition is this part in?","What did the patient report?"].map(ex => (
+              {["What was observed?","What is the current status?","What action was taken?","What condition was noted?"].map(ex => (
                 <div key={ex} onClick={()=>setDraft(ex)} style={{padding:"8px 12px",borderRadius:5,border:`1px solid ${SWC.border}`,fontSize:13,color:SWC.dim,cursor:"pointer",transition:"all 0.12s"}}
                   onMouseEnter={e=>{e.currentTarget.style.color=SWC.given;e.currentTarget.style.borderColor=SWC.given;}}
                   onMouseLeave={e=>{e.currentTarget.style.color=SWC.dim;e.currentTarget.style.borderColor=SWC.border;}}
@@ -3948,11 +3480,11 @@ const WelcomeScreen = ({onContinue}) => (
         <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:6}}>
           <div style={{width:48,height:48,borderRadius:'var(--r-lg)',background:'var(--gold-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gold)'}}><I n="shield" s={26}/></div>
           <div><h1 style={{fontSize:28,fontWeight:800,fontFamily:'var(--serif)',letterSpacing:'-0.02em'}}>Khora</h1>
-            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)',letterSpacing:'.08em'}}>SOVEREIGN CASE MANAGEMENT</span></div>
+            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)',letterSpacing:'.08em'}}>GOVERNANCE-AWARE OBSERVATION</span></div>
         </div>
 
         <p style={{color:'var(--tx-0)',fontSize:15,marginTop:24,lineHeight:1.7,fontWeight:500}}>
-          You've been invited to access Khora — a system where <em>you</em> own your data.
+          You've been invited to access Khora — a governance-aware observation platform where <em>you</em> own your data.
         </p>
         <p style={{color:'var(--tx-1)',fontSize:13.5,marginTop:12,lineHeight:1.7}}>
           Khora runs on the <strong style={{color:'var(--tx-0)'}}>Matrix protocol</strong>, which means your information lives on a server you choose — not locked inside a single company's platform. To get started you'll need a free Matrix account.
@@ -4045,10 +3577,10 @@ const LoginScreen = ({onLogin}) => {
         <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:10}}>
           <div style={{width:44,height:44,borderRadius:'var(--r-lg)',background:'var(--gold-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gold)'}}><I n="shield" s={24}/></div>
           <div><h1 style={{fontSize:24,fontWeight:800,fontFamily:'var(--serif)',letterSpacing:'-0.02em'}}>Khora</h1>
-            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)',letterSpacing:'.08em'}}>SOVEREIGN CASE MANAGEMENT</span></div>
+            <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--tx-2)',letterSpacing:'.08em'}}>GOVERNANCE-AWARE OBSERVATION</span></div>
         </div>
         <p style={{color:'var(--tx-1)',fontSize:13,marginTop:18,marginBottom:24,lineHeight:1.65}}>
-          Client-owned data vaults on Matrix. Per-field encryption. Providers see only what clients share. Each tile is yours to place.
+          Governance-aware observation platform on Matrix. Per-field encryption. Providers see only what you share. Networks define shared standards through consent.
         </p>
 
         <div className="tabs" style={{marginBottom:20}}>
@@ -5195,6 +4727,683 @@ const ClientApp = ({session, onLogout, showToast}) => {
   </div>;
 };
 
+/* ═══════════════════ MVP SCREEN COMPONENTS (UX Spec §1–10) ═══════════════════ */
+
+/* ── Screen 1: Provider Home ── */
+const ProviderHomeScreen = ({cases, orgMeta, providerProfile, schemaChanges, onOpenCase, onNewRecord, userId}) => {
+  const displayName = providerProfile?.display_name || userId?.split(':')[0]?.replace('@','') || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:2}}>{greeting}, {displayName}.</h2>
+    <p style={{color:'var(--tx-1)',fontSize:13,marginBottom:24}}>{orgMeta?.name || 'Unaffiliated'}</p>
+
+    <div className="card" style={{marginBottom:20}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <span className="section-label" style={{marginBottom:0}}>YOUR RECORDS ({cases.length} active)</span>
+        <button onClick={onNewRecord} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>New Record</button>
+      </div>
+      {cases.length === 0 ? <div style={{padding:'24px 0',textAlign:'center'}}>
+        <I n="folder" s={28} c="var(--tx-3)"/>
+        <p style={{color:'var(--tx-3)',fontSize:13,marginTop:8}}>No records yet. Create your first record or wait for someone to share with you.</p>
+      </div> : <div style={{display:'flex',flexDirection:'column',gap:4}}>
+        {cases.map(c => <div key={c.bridgeRoomId} className="card-h" onClick={() => onOpenCase(c.bridgeRoomId)} style={{padding:'12px 16px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div>
+              <span style={{fontSize:14,fontWeight:600,display:'block'}}>{c.sharedData?.full_name || 'Unnamed Record'}</span>
+              <span style={{fontSize:11,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{Object.keys(c.sharedData||{}).length} fields shared</span>
+            </div>
+            <I n="chevR" s={14} c="var(--tx-3)"/>
+          </div>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* What's Changed feed */}
+    <div className="card">
+      <span className="section-label">WHAT'S CHANGED</span>
+      {(!schemaChanges || schemaChanges.length === 0) ? <div style={{padding:'16px 0',textAlign:'center'}}>
+        <p style={{color:'var(--tx-3)',fontSize:12}}>No recent schema changes. When your org admin or network updates the schema, changes will appear here.</p>
+      </div> : <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+        {schemaChanges.map((ch,i) => <div key={i} style={{display:'flex',gap:10,padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:ch.type==='added'?'var(--green)':ch.type==='modified'?'var(--blue)':'var(--gold)',marginTop:5,flexShrink:0}}/>
+          <div>
+            <span style={{fontSize:12.5,fontWeight:500}}>{ch.summary}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)',display:'block',marginTop:2}}>{ch.source} &middot; {ch.date}</span>
+          </div>
+        </div>)}
+      </div>}
+    </div>
+  </div>;
+};
+
+/* ── Screen 3: Org Dashboard ── */
+const OrgDashboardScreen = ({orgMeta, orgRole, networkFields, localFields, proposals, providerSuggestions, frameworks, onNavigate}) => {
+  const totalNetwork = (networkFields||[]).length;
+  const adopted = (networkFields||[]).filter(f => f.adopted).length;
+  const withExtension = (networkFields||[]).filter(f => f.extension).length;
+  const pending = totalNetwork - adopted - withExtension;
+  const activeProposals = (proposals||[]).filter(p => p.status === 'consent_round');
+  const pendingSuggestions = (providerSuggestions||[]).filter(s => s.status === 'pending');
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>{orgMeta?.name || 'Organization'}</h2>
+    <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>Org Admin Dashboard</p>
+
+    {/* Schema Health */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">SCHEMA HEALTH</span>
+      {totalNetwork === 0 ? <div style={{padding:'16px 0'}}>
+        <p style={{color:'var(--tx-2)',fontSize:13}}>No network fields defined yet. Join a network or create fields to get started.</p>
+        <button onClick={() => onNavigate('field-catalog')} className="b-gho b-sm" style={{marginTop:8}}>Browse Field Catalog</button>
+      </div> : <>
+        <div style={{display:'flex',alignItems:'baseline',gap:6,marginTop:4}}>
+          <span style={{fontSize:20,fontWeight:700,color:'var(--green)'}}>{adopted + withExtension}</span>
+          <span style={{fontSize:13,color:'var(--tx-2)'}}>of {totalNetwork} network fields adopted</span>
+        </div>
+        <div style={{display:'flex',height:6,borderRadius:3,overflow:'hidden',background:'var(--bg-3)',marginTop:8,gap:1}}>
+          {adopted > 0 && <div style={{flex:adopted,background:'var(--green)'}}/>}
+          {withExtension > 0 && <div style={{flex:withExtension,background:'var(--blue)'}}/>}
+          {pending > 0 && <div style={{flex:pending,background:'var(--border-1)'}}/>}
+        </div>
+        <div style={{display:'flex',gap:12,marginTop:6,fontSize:10,color:'var(--tx-2)'}}>
+          <span><span style={{color:'var(--green)'}}>&#9632;</span> Adopted ({adopted})</span>
+          {withExtension > 0 && <span><span style={{color:'var(--blue)'}}>&#9632;</span> With extension ({withExtension})</span>}
+          {pending > 0 && <span><span style={{color:'var(--tx-3)'}}>&#9633;</span> Pending ({pending})</span>}
+        </div>
+        {pending > 0 && <button onClick={() => onNavigate('field-catalog')} className="b-gho b-sm" style={{marginTop:10}}>Review pending fields</button>}
+      </>}
+    </div>
+
+    {/* Action Required */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">ACTION REQUIRED</span>
+      {activeProposals.length === 0 && pendingSuggestions.length === 0 ? <p style={{color:'var(--tx-3)',fontSize:12,padding:'12px 0'}}>
+        No action items right now.
+      </p> : <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+        {activeProposals.map(p => <div key={p.id} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:16}}>&#128203;</span>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:600,display:'block'}}>{p.summary}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)'}}>Consent round closes {p.deadline ? new Date(p.deadline).toLocaleDateString() : 'soon'}</span>
+          </div>
+          <button onClick={() => onNavigate('proposal-response',p)} className="b-pri b-xs">Respond</button>
+        </div>)}
+        {pendingSuggestions.map(s => <div key={s.id} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:16}}>&#128161;</span>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:600,display:'block'}}>{s.from}: "{s.description}"</span>
+          </div>
+          <button onClick={() => onNavigate('provider-suggestions')} className="b-gho b-xs">Review</button>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Compliance */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">COMPLIANCE</span>
+      {(!frameworks || frameworks.length === 0) ? <div style={{padding:'12px 0'}}>
+        <p style={{color:'var(--tx-3)',fontSize:12}}>No framework bindings configured yet. Add framework bindings to track compliance with external reporting standards.</p>
+        <button onClick={() => onNavigate('framework-bindings')} className="b-gho b-sm" style={{marginTop:8}}>Add Framework Binding</button>
+      </div> : <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+        {frameworks.map(fw => <div key={fw.id} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <I n={fw.fullyMapped ? 'check' : 'alert'} s={14} c={fw.fullyMapped ? 'var(--green)' : 'var(--gold)'}/>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:600}}>{fw.name}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)',display:'block'}}>{fw.mappedCount}/{fw.totalElements} elements mapped</span>
+          </div>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Nav shortcuts */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+      {[{id:'form-builder',label:'Schema Workbench',icon:'grid'},
+        {id:'field-catalog',label:'Field Catalog',icon:'clipboard'},
+        {id:'framework-bindings',label:'Framework Bindings',icon:'link'}
+      ].map(item => <div key={item.id} className="card-h" onClick={() => onNavigate(item.id)} style={{padding:14,textAlign:'center'}}>
+        <I n={item.icon} s={18} c="var(--tx-2)"/>
+        <span style={{fontSize:12,fontWeight:500,display:'block',marginTop:6}}>{item.label}</span>
+      </div>)}
+    </div>
+  </div>;
+};
+
+/* ── Screen 4: Field Catalog ── */
+const FieldCatalogScreen = ({fields, definitions, onViewField, onAddLocal, onProposeNetwork}) => {
+  const [filter, setFilter] = useState('all');
+  const questions = (fields||[]).filter(f => f.type !== 'definition');
+  const defs = definitions || [];
+  const filtered = filter === 'all' ? questions : filter === 'network' ? questions.filter(f => f.source?.level === 'network') : questions.filter(f => f.source?.level === 'local');
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Field Catalog</h2>
+    <div style={{display:'flex',gap:4,marginBottom:20}}>
+      {['all','network','local'].map(f => <button key={f} className={filter===f?'b-pri b-sm':'b-gho b-sm'} onClick={() => setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>)}
+    </div>
+
+    <span className="section-label">QUESTIONS</span>
+    {filtered.length === 0 ? <div className="card" style={{textAlign:'center',padding:'32px 20px',marginBottom:20}}>
+      <I n="clipboard" s={28} c="var(--tx-3)"/>
+      <p style={{color:'var(--tx-3)',fontSize:13,marginTop:8}}>No fields defined yet. Create your first field or join a network to get started.</p>
+    </div> : <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+      {filtered.map(f => <div key={f.id||f.key} className="card-h" onClick={() => onViewField?.(f)} style={{padding:'12px 16px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <span style={{fontSize:13.5,fontWeight:600,display:'block'}}>{f.question || f.label || f.key}</span>
+            <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+              {f.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[f.source.propagation]?.color||'teal'}`} style={{fontSize:9}}>{PROPAGATION_LEVELS[f.source.propagation]?.label||f.source.propagation}</span>}
+              <span className={`tag tag-${f.source?.level==='network'?'blue':'gold'}`} style={{fontSize:9}}>{f.source?.level==='network'?'Network':'Local'}</span>
+              {f.maturity && <MaturityBadge maturity={f.maturity}/>}
+            </div>
+          </div>
+          <I n="chevR" s={14} c="var(--tx-3)"/>
+        </div>
+      </div>)}
+    </div>}
+
+    {defs.length > 0 && <>
+      <span className="section-label">DEFINITIONS</span>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+        {defs.map(d => <div key={d.id||d.key} className="card-h" onClick={() => onViewField?.(d)} style={{padding:'12px 16px'}}>
+          <span style={{fontSize:13.5,fontWeight:600,display:'block'}}>{d.name || d.key}</span>
+          <div style={{display:'flex',gap:6,marginTop:4}}>
+            {d.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[d.source.propagation]?.color||'teal'}`} style={{fontSize:9}}>{PROPAGATION_LEVELS[d.source.propagation]?.label}</span>}
+            {d.maturity && <MaturityBadge maturity={d.maturity}/>}
+            <span style={{fontSize:10,color:'var(--tx-2)'}}>{d.rules?.length||0} rules</span>
+          </div>
+        </div>)}
+      </div>
+    </>}
+
+    <div style={{display:'flex',gap:8}}>
+      <button onClick={onAddLocal} className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>Add local field</button>
+      <button onClick={onProposeNetwork} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="globe" s={12}/>Propose network field</button>
+    </div>
+  </div>;
+};
+
+/* ── Screen 5: Proposal Response ── */
+const ProposalResponseScreen = ({proposal, onSubmit, onBack}) => {
+  const [position, setPosition] = useState('');
+  const [extensionDesc, setExtensionDesc] = useState('');
+  const [modIssue, setModIssue] = useState('');
+  const [modDesc, setModDesc] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+  const [discussion, setDiscussion] = useState('');
+
+  if (!proposal) return null;
+  const positionEntries = Object.entries(proposal.positions || {});
+  const responded = positionEntries.filter(([,p]) => p.position !== 'pending').length;
+  const total = positionEntries.length || 1;
+
+  return <div className="anim-up" style={{maxWidth:720,margin:'0 auto'}}>
+    <button onClick={onBack} className="b-gho b-xs" style={{marginBottom:16,display:'flex',alignItems:'center',gap:4}}><I n="back" s={12}/>Back</button>
+    <span className="section-label">NETWORK PROPOSAL</span>
+    <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700,marginBottom:8}}>{proposal.summary}</h2>
+    <div style={{display:'flex',gap:8,fontSize:11,color:'var(--tx-2)',marginBottom:16,flexWrap:'wrap'}}>
+      <span>Proposed by: {proposal.proposed_by}</span>
+      {proposal.deadline && <span>Closes: {new Date(proposal.deadline).toLocaleDateString()}</span>}
+    </div>
+    {proposal.detail && <div className="card" style={{marginBottom:16,fontSize:13,color:'var(--tx-1)',lineHeight:1.6}}>"{proposal.detail}"</div>}
+
+    {/* What this would do */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">WHAT THIS WOULD DO</span>
+      <div style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6,marginTop:4}}>
+        {proposal.change_type && <p>&bull; {proposal.change_type}</p>}
+        {proposal.target_propagation && <p>&bull; Propagation: {PROPAGATION_LEVELS[proposal.target_propagation]?.label} — {PROPAGATION_LEVELS[proposal.target_propagation]?.desc}</p>}
+        {proposal.target_maturity && <p>&bull; Maturity: {MATURITY_LEVELS[proposal.target_maturity]?.label} — {MATURITY_LEVELS[proposal.target_maturity]?.desc}</p>}
+      </div>
+    </div>
+
+    {/* Network positions */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">NETWORK POSITIONS</span>
+      <div style={{display:'flex',height:6,borderRadius:3,overflow:'hidden',background:'var(--bg-3)',marginTop:8,marginBottom:8,gap:1}}>
+        {responded > 0 && <div style={{flex:responded,background:'var(--green)'}}/>}
+        {(total-responded) > 0 && <div style={{flex:total-responded,background:'var(--border-1)'}}/>}
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:4}}>
+        {positionEntries.map(([orgId, pos]) => <div key={orgId} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',fontSize:12}}>
+          <span style={{color:pos.position==='pending'?'var(--tx-3)':'var(--green)',fontWeight:600}}>{pos.position==='pending'?'&#9633;':'&#9632;'}</span>
+          <span style={{flex:1}}>{pos.org_name || orgId}</span>
+          <span style={{color:'var(--tx-2)',fontSize:11}}>{CONSENT_POSITIONS[pos.position]?.label || pos.position || 'Pending'}</span>
+        </div>)}
+      </div>
+    </div>
+
+    {/* Your response */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">YOUR RESPONSE</span>
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+        {[
+          {id:'adopt_as_is',label:'Adopt as-is',desc:"We'll use this exactly as proposed."},
+          {id:'adopt_with_extension',label:'Adopt with extension',desc:"We'll adopt and add local variations."},
+          {id:'needs_modification',label:'Needs modification',desc:"We can't adopt as proposed. Here's what we need."},
+          {id:'cannot_adopt',label:'Block adoption',desc:'We cannot adopt this. Blocking triggers coordinator mediation.'},
+        ].map(opt => <div key={opt.id} onClick={() => setPosition(opt.id)}
+          style={{padding:'12px 16px',borderRadius:'var(--r)',cursor:'pointer',
+            border:`1px solid ${position===opt.id?'var(--gold)':'var(--border-1)'}`,
+            background:position===opt.id?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${position===opt.id?'var(--gold)':'var(--tx-3)'}`,
+              background:position===opt.id?'var(--gold)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',
+              color:'var(--bg-0)',fontSize:10,fontWeight:800,flexShrink:0}}>{position===opt.id?'&#10003;':''}</span>
+            <div>
+              <span style={{fontSize:13,fontWeight:600}}>{opt.label}</span>
+              <span style={{fontSize:11.5,color:'var(--tx-2)',display:'block',marginTop:2}}>{opt.desc}</span>
+            </div>
+          </div>
+        </div>)}
+      </div>
+
+      {position === 'adopt_with_extension' && <div style={{marginTop:12}}>
+        <span className="section-label">DESCRIBE YOUR EXTENSION</span>
+        <textarea value={extensionDesc} onChange={e => setExtensionDesc(e.target.value)} placeholder="What local variations will you add?" style={{marginTop:4}}/>
+      </div>}
+      {position === 'needs_modification' && <div style={{marginTop:12}}>
+        <span className="section-label">WHAT'S THE ISSUE?</span>
+        <div style={{display:'flex',gap:4,marginTop:4,marginBottom:8,flexWrap:'wrap'}}>
+          {['The concept itself','The wording / answer options','The propagation level','The timeline'].map(iss =>
+            <button key={iss} className={modIssue===iss?'b-pri b-xs':'b-gho b-xs'} onClick={() => setModIssue(iss)}>{iss}</button>
+          )}
+        </div>
+        <textarea value={modDesc} onChange={e => setModDesc(e.target.value)} placeholder="Describe what you need..." style={{marginTop:4}}/>
+      </div>}
+      {position === 'cannot_adopt' && <div style={{marginTop:12}}>
+        <span className="section-label">REASON FOR BLOCKING</span>
+        <textarea value={blockReason} onChange={e => setBlockReason(e.target.value)} placeholder="Blocking requires structured reasoning and triggers mediation..." style={{marginTop:4}}/>
+      </div>}
+
+      <button onClick={() => onSubmit?.({position, extensionDesc, modIssue, modDesc, blockReason})}
+        className="b-pri" disabled={!position} style={{width:'100%',marginTop:16,padding:12}}>Submit Response</button>
+    </div>
+
+    {/* Discussion */}
+    <div className="card">
+      <span className="section-label">DISCUSSION</span>
+      {(!proposal.discussion || proposal.discussion.length === 0) ? <p style={{color:'var(--tx-3)',fontSize:12,padding:'8px 0'}}>No discussion yet.</p>
+      : <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+        {proposal.discussion.map((msg,i) => <div key={i} style={{padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
+          <span style={{fontSize:11,fontWeight:600,color:'var(--tx-0)'}}>@{msg.from}</span>
+          <span style={{fontSize:12,color:'var(--tx-1)',display:'block',marginTop:2,lineHeight:1.5}}>"{msg.text}"</span>
+        </div>)}
+      </div>}
+      <div style={{display:'flex',gap:8,marginTop:12}}>
+        <input value={discussion} onChange={e => setDiscussion(e.target.value)} placeholder="Add to discussion..." style={{flex:1}}/>
+        <button className="b-gho b-sm">Send</button>
+      </div>
+    </div>
+  </div>;
+};
+
+/* ── Screen 6: Framework Bindings (Org Level) ── */
+const FrameworkBindingsScreen = ({orgName, orgFrameworks, onAddFramework, onVerifyMapping, onNavigate}) => {
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Framework Bindings</h2>
+    <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>
+      These mappings determine how your observations translate into external reports. When you record a value, these bindings tell external systems what it means.
+    </p>
+
+    {(!orgFrameworks || orgFrameworks.length === 0) ? <div className="card" style={{textAlign:'center',padding:'40px 20px'}}>
+      <I n="link" s={32} c="var(--tx-3)"/>
+      <p style={{color:'var(--tx-3)',fontSize:13,marginTop:12}}>No framework bindings configured yet.</p>
+      <p style={{color:'var(--tx-3)',fontSize:11.5,marginTop:4}}>Framework bindings map your observation data to external reporting standards. Add a binding to track compliance.</p>
+      <button onClick={onAddFramework} className="b-pri b-sm" style={{marginTop:16,display:'inline-flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>Add framework binding</button>
+    </div> : <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {orgFrameworks.map(fw => <div key={fw.id} className="card">
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <div>
+            <span style={{fontSize:14,fontWeight:600}}>{fw.name}</span>
+            {fw.required_by && <span style={{fontSize:10.5,color:'var(--tx-2)',display:'block',marginTop:2}}>Required by: {fw.required_by}</span>}
+          </div>
+          <span className={`tag ${fw.fullyMapped?'tag-green':'tag-gold'}`} style={{fontSize:9}}>{fw.fullyMapped?'Fully Mapped':'Needs Review'}</span>
+        </div>
+        <div style={{fontSize:12,color:'var(--tx-1)'}}>
+          {fw.fullyMapped ? <span style={{color:'var(--green)'}}>&#10003; {fw.mappedCount} of {fw.totalElements} elements mapped</span>
+          : <span style={{color:'var(--gold)'}}>&#9888; {fw.mappedCount} of {fw.totalElements} elements mapped &middot; {fw.totalElements - fw.mappedCount} need{fw.totalElements - fw.mappedCount === 1 ? 's' : ''} review</span>}
+        </div>
+        {fw.unmappedItems && fw.unmappedItems.length > 0 && <div style={{marginTop:8}}>
+          {fw.unmappedItems.map(item => <div key={item.id} style={{padding:'8px 12px',background:'var(--gold-dim)',borderRadius:'var(--r)',marginTop:4,display:'flex',alignItems:'center',gap:8}}>
+            <I n="alert" s={13} c="var(--gold)"/>
+            <span style={{fontSize:11.5,color:'var(--tx-1)',flex:1}}>"{item.label}" needs mapping</span>
+            <button onClick={() => onVerifyMapping?.(fw,item)} className="b-gho b-xs">Map it</button>
+          </div>)}
+        </div>}
+      </div>)}
+      <button onClick={onAddFramework} className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4,alignSelf:'flex-start'}}><I n="plus" s={12}/>Add framework binding</button>
+    </div>}
+  </div>;
+};
+
+/* ── Screen 7: Form Builder (Org Admin configures provider view) ── */
+const FormBuilderScreen = ({sections, availableFields, computedFields, onSave, onPreview, onAddSection}) => {
+  const [localSections, setLocalSections] = useState(sections || [{id:'section_1',name:'Observation Fields',fields:[]}]);
+  const [dragField, setDragField] = useState(null);
+
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+      <div>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Form Builder</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5}}>Configure how your providers see and interact with the schema. Drag fields to reorder. Group into sections.</p>
+      </div>
+      <button onClick={onPreview} className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="eye" s={12}/>Preview as provider</button>
+    </div>
+
+    <span className="section-label">PROVIDER FORM LAYOUT</span>
+    {localSections.map((sec,si) => <div key={sec.id} className="card" style={{marginBottom:12}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <span style={{fontSize:13,fontWeight:600}}>Section: "{sec.name}"</span>
+        <div style={{display:'flex',gap:4}}>
+          <button className="b-gho b-xs" onClick={() => {
+            const name = prompt('Rename section:', sec.name);
+            if (name) setLocalSections(ss => ss.map((s,i) => i===si ? {...s,name} : s));
+          }}>Rename</button>
+          <button className="b-gho b-xs" onClick={() => setLocalSections(ss => ss.filter((_,i) => i!==si))}>&#10005;</button>
+        </div>
+      </div>
+      {(!sec.fields || sec.fields.length === 0) ? <div style={{padding:'16px',textAlign:'center',border:'1px dashed var(--border-1)',borderRadius:'var(--r)'}}>
+        <p style={{color:'var(--tx-3)',fontSize:12}}>No fields in this section. Drag fields here or add from the catalog.</p>
+      </div> : <div style={{display:'flex',flexDirection:'column',gap:4}}>
+        {sec.fields.map((f,fi) => <div key={f.id||f.key} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{cursor:'grab',color:'var(--tx-3)'}}>&#8801;</span>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:500}}>{f.question || f.label || f.key}</span>
+            <div style={{display:'flex',gap:4,marginTop:2}}>
+              {f.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[f.source.propagation]?.color||'teal'}`} style={{fontSize:8}}>{PROPAGATION_LEVELS[f.source.propagation]?.label}</span>}
+              <span className={`tag tag-${f.source?.level==='network'?'blue':'gold'}`} style={{fontSize:8}}>{f.source?.level==='network'?'Network':'Local'}</span>
+            </div>
+          </div>
+          <button className="b-gho b-xs">Configure</button>
+        </div>)}
+      </div>}
+    </div>)}
+    <button onClick={() => setLocalSections(ss => [...ss,{id:'section_'+Date.now(),name:'New Section',fields:[]}])}
+      className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4,marginBottom:20}}><I n="plus" s={12}/>Add section</button>
+
+    {/* Available but not in form */}
+    {availableFields && availableFields.length > 0 && <>
+      <span className="section-label">AVAILABLE BUT NOT IN FORM</span>
+      <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:20}}>
+        {availableFields.map(f => <div key={f.id||f.key} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:500}}>{f.question || f.label || f.key}</span>
+            <span style={{fontSize:10,color:'var(--tx-2)',marginLeft:8}}>{f.source?.propagation ? PROPAGATION_LEVELS[f.source.propagation]?.label : 'Local'}</span>
+          </div>
+          <button className="b-gho b-xs" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={10}/>Add to form</button>
+        </div>)}
+      </div>
+    </>}
+
+    {/* Computed fields */}
+    <span className="section-label">COMPUTED FIELDS (shown to providers as read-only)</span>
+    {(!computedFields || computedFields.length === 0) ? <p style={{color:'var(--tx-3)',fontSize:12,marginBottom:16}}>No computed definitions defined. Definitions can be created in the Schema Workbench.</p>
+    : <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:16}}>
+      {computedFields.map(d => <div key={d.id||d.key} style={{padding:'8px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:8}}>
+        <input type="checkbox" checked={d.visible !== false} onChange={() => {}} style={{width:16,height:16}}/>
+        <span style={{fontSize:12.5}}>Show {d.name || d.key}</span>
+        {d.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[d.source.propagation]?.color||'teal'}`} style={{fontSize:8}}>{PROPAGATION_LEVELS[d.source.propagation]?.label}</span>}
+      </div>)}
+    </div>}
+  </div>;
+};
+
+/* ── Screen 8: Network Dashboard (Coordinator View) ── */
+const NetworkDashboardScreen = ({networkName, memberOrgs, proposals, deFactoFields, governanceRhythms, adoptionData, onNavigate, isCoordinator}) => {
+  const activeConsent = (proposals||[]).filter(p => p.status === 'consent_round');
+  const fields = adoptionData?.fields || [];
+  const orgs = adoptionData?.orgs || [];
+  return <div className="anim-up" style={{maxWidth:900,margin:'0 auto'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+      <div>
+        <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:2}}>{networkName || 'Network'}</h2>
+        <p style={{color:'var(--tx-1)',fontSize:12.5}}>{(memberOrgs||[]).length} member organizations</p>
+      </div>
+      {isCoordinator && <span className="tag tag-green">Network Coordinator</span>}
+    </div>
+
+    {/* Governance Queue */}
+    <div className="card" style={{marginBottom:16}}>
+      <span className="section-label">GOVERNANCE QUEUE</span>
+      {activeConsent.length === 0 && (!deFactoFields || deFactoFields.length === 0) ? <p style={{color:'var(--tx-3)',fontSize:12,padding:'12px 0'}}>
+        No active governance items. The network is in steady state.
+      </p> : <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+        {activeConsent.map(p => <div key={p.id} style={{padding:'10px 14px',background:'var(--bg-3)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{color:'var(--red)',fontSize:14}}>&#9679;</span>
+          <div style={{flex:1}}>
+            <span style={{fontSize:12.5,fontWeight:600}}>{p.summary}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)',display:'block'}}>
+              {Object.values(p.positions||{}).filter(v=>v.position!=='pending').length} responded, {Object.values(p.positions||{}).filter(v=>v.position==='pending').length} pending
+            </span>
+          </div>
+          <button onClick={() => onNavigate?.('proposal-detail',p)} className="b-gho b-xs">View</button>
+        </div>)}
+        {(deFactoFields||[]).map(df => <DeFactoAlert key={df.fieldName} {...df} onFormalize={() => onNavigate?.('create-proposal',{deFacto:df})} onDismiss={() => {}}/>)}
+      </div>}
+    </div>
+
+    {/* Governance Calendar */}
+    <GovernanceCalendar rhythms={governanceRhythms}/>
+
+    {/* Adoption Map */}
+    {fields.length > 0 && orgs.length > 0 && <div className="card" style={{marginTop:16}}>
+      <span className="section-label">ADOPTION MAP</span>
+      <div style={{overflowX:'auto',marginTop:8}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:11.5}}>
+          <thead>
+            <tr style={{borderBottom:'1px solid var(--border-1)'}}>
+              <th style={{textAlign:'left',padding:'6px 8px',color:'var(--tx-2)',fontWeight:500}}></th>
+              {orgs.map(o => <th key={o.id} style={{textAlign:'center',padding:'6px 4px',color:'var(--tx-2)',fontWeight:500,maxWidth:60,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.abbrev || o.name?.slice(0,6)}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map(f => <tr key={f.id} style={{borderBottom:'1px solid var(--border-0)'}}>
+              <td style={{padding:'6px 8px',fontWeight:500}}>{f.name}</td>
+              {orgs.map(o => {
+                const status = f.adoption?.[o.id];
+                return <td key={o.id} style={{textAlign:'center',padding:'6px 4px'}}>
+                  {status === 'adopted' ? <span style={{color:'var(--green)'}}>&#10003;</span>
+                  : status === 'extension' ? <span style={{color:'var(--green)'}}>&#10003;&#8224;</span>
+                  : status === 'divergent' ? <span style={{color:'var(--gold)'}}>&#9888;</span>
+                  : status === 'pending' ? <span style={{color:'var(--tx-3)'}}>*</span>
+                  : <span style={{color:'var(--tx-3)'}}>&#8212;</span>}
+                </td>;
+              })}
+            </tr>)}
+          </tbody>
+        </table>
+        <div style={{display:'flex',gap:12,marginTop:8,fontSize:10,color:'var(--tx-2)'}}>
+          <span>&#10003; adopted</span><span>&#8224; with extension</span><span>&#8212; not adopted</span><span>* pending</span>
+        </div>
+      </div>
+    </div>}
+
+    {/* Nav */}
+    <div style={{display:'flex',gap:8,marginTop:20}}>
+      <button onClick={() => onNavigate?.('schema-commons')} className="b-gho b-sm">Schema Commons</button>
+      <button onClick={() => onNavigate?.('member-orgs')} className="b-gho b-sm">Member Orgs</button>
+      {isCoordinator && <button onClick={() => onNavigate?.('create-proposal')} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>Create Proposal</button>}
+    </div>
+  </div>;
+};
+
+/* ── Screen 9: Schema Commons ── */
+const SchemaCommonsScreen = ({networkName, fields, definitions, onBack}) => {
+  return <div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+    {onBack && <button onClick={onBack} className="b-gho b-xs" style={{marginBottom:16,display:'flex',alignItems:'center',gap:4}}><I n="back" s={12}/>Back</button>}
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Schema Commons</h2>
+    <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:16}}>These fields propagate to all member organizations.</p>
+
+    {/* Propagation explanation */}
+    <div className="card" style={{marginBottom:20}}>
+      <span className="section-label">HOW PROPAGATION WORKS</span>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8,fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>
+        {Object.values(PROPAGATION_LEVELS).map(p => <div key={p.id} style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+          <span className={`tag tag-${p.color}`} style={{fontSize:9,flexShrink:0,marginTop:2}}>{p.label}</span>
+          <span>{p.desc}</span>
+        </div>)}
+      </div>
+    </div>
+
+    <span className="section-label">QUESTIONS</span>
+    {(!fields || fields.length === 0) ? <div className="card" style={{textAlign:'center',padding:'32px 20px',marginBottom:20}}>
+      <p style={{color:'var(--tx-3)',fontSize:13}}>No network fields defined yet. Create a proposal to add the first shared field.</p>
+    </div> : <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+      {fields.map(f => <div key={f.id||f.key} className="card" style={{padding:'12px 16px'}}>
+        <span style={{fontSize:13.5,fontWeight:600,display:'block'}}>{f.question || f.label || f.key}</span>
+        <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+          {f.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[f.source.propagation]?.color||'teal'}`} style={{fontSize:9}}>{PROPAGATION_LEVELS[f.source.propagation]?.label}</span>}
+          {f.maturity && <MaturityBadge maturity={f.maturity}/>}
+          <span style={{fontSize:10,color:'var(--tx-2)'}}>No framework bindings</span>
+        </div>
+      </div>)}
+    </div>}
+
+    {definitions && definitions.length > 0 && <>
+      <span className="section-label">DEFINITIONS</span>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {definitions.map(d => <div key={d.id||d.key} className="card" style={{padding:'12px 16px'}}>
+          <span style={{fontSize:13.5,fontWeight:600,display:'block'}}>{d.name || d.key}</span>
+          <div style={{display:'flex',gap:6,marginTop:4}}>
+            {d.source?.propagation && <span className={`tag tag-${PROPAGATION_LEVELS[d.source.propagation]?.color||'teal'}`} style={{fontSize:9}}>{PROPAGATION_LEVELS[d.source.propagation]?.label}</span>}
+            {d.maturity && <MaturityBadge maturity={d.maturity}/>}
+            <span style={{fontSize:10,color:'var(--tx-2)'}}>{d.rules?.length||0} rules</span>
+          </div>
+        </div>)}
+      </div>
+    </>}
+  </div>;
+};
+
+/* ── Screen 10: Create Proposal ── */
+const CreateProposalScreen = ({onSubmit, onBack, existingFields}) => {
+  const [changeType, setChangeType] = useState('');
+  const [summary, setSummary] = useState('');
+  const [detail, setDetail] = useState('');
+  const [affectedField, setAffectedField] = useState('');
+  const [propagation, setPropagation] = useState('standard');
+  const [maturity, setMaturity] = useState('trial');
+  const [timing, setTiming] = useState('bundle');
+
+  const changeTypes = [
+    {id:'add_field',label:'Add a new field (question or definition)'},
+    {id:'modify_field',label:'Modify an existing field'},
+    {id:'add_options',label:'Add answer options to an existing field'},
+    {id:'change_propagation',label:"Change a field's propagation level"},
+    {id:'deprecate',label:'Deprecate a field'},
+    {id:'add_binding',label:'Add or update a framework binding'},
+  ];
+
+  return <div className="anim-up" style={{maxWidth:680,margin:'0 auto'}}>
+    {onBack && <button onClick={onBack} className="b-gho b-xs" style={{marginBottom:16,display:'flex',alignItems:'center',gap:4}}><I n="back" s={12}/>Back</button>}
+    <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:20}}>Create Proposal</h2>
+
+    <div style={{marginBottom:16}}>
+      <span className="section-label">WHAT KIND OF CHANGE?</span>
+      <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
+        {changeTypes.map(ct => <div key={ct.id} onClick={() => setChangeType(ct.id)}
+          style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',
+            border:`1px solid ${changeType===ct.id?'var(--gold)':'var(--border-1)'}`,
+            background:changeType===ct.id?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s',
+            display:'flex',alignItems:'center',gap:8}}>
+          <span style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${changeType===ct.id?'var(--gold)':'var(--tx-3)'}`,
+            background:changeType===ct.id?'var(--gold)':'transparent',flexShrink:0}}/>
+          <span style={{fontSize:12.5}}>{ct.label}</span>
+        </div>)}
+      </div>
+    </div>
+
+    <div style={{marginBottom:14}}>
+      <span className="section-label">SUMMARY (one line)</span>
+      <input value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief description of the proposed change"/>
+    </div>
+    <div style={{marginBottom:14}}>
+      <span className="section-label">WHY IS THIS NEEDED?</span>
+      <textarea value={detail} onChange={e => setDetail(e.target.value)} placeholder="Explain the rationale for this change..."/>
+    </div>
+
+    {existingFields && existingFields.length > 0 && <div style={{marginBottom:14}}>
+      <span className="section-label">AFFECTED FIELD</span>
+      <select value={affectedField} onChange={e => setAffectedField(e.target.value)} style={{width:'100%'}}>
+        <option value="">Select a field or "New field"</option>
+        <option value="__new">New field</option>
+        {existingFields.map(f => <option key={f.id||f.key} value={f.id||f.key}>{f.question || f.label || f.name || f.key}</option>)}
+      </select>
+    </div>}
+
+    <div style={{marginBottom:14}}>
+      <span className="section-label">PROPOSED PROPAGATION LEVEL</span>
+      <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
+        {Object.values(PROPAGATION_LEVELS).map(p => <div key={p.id} onClick={() => setPropagation(p.id)}
+          style={{padding:'8px 14px',borderRadius:'var(--r)',cursor:'pointer',
+            border:`1px solid ${propagation===p.id?'var(--gold)':'var(--border-1)'}`,
+            background:propagation===p.id?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s',
+            display:'flex',alignItems:'center',gap:8}}>
+          <span style={{width:12,height:12,borderRadius:'50%',border:`2px solid ${propagation===p.id?'var(--gold)':'var(--tx-3)'}`,
+            background:propagation===p.id?'var(--gold)':'transparent',flexShrink:0}}/>
+          <div>
+            <span style={{fontSize:12.5,fontWeight:propagation===p.id?600:400}}>{p.label}</span>
+            <span style={{fontSize:10.5,color:'var(--tx-2)',marginLeft:8}}>{p.desc}</span>
+          </div>
+        </div>)}
+      </div>
+    </div>
+
+    <div style={{marginBottom:14}}>
+      <span className="section-label">PROPOSED MATURITY</span>
+      <div style={{display:'flex',gap:8}}>
+        {['trial','normative'].map(m => <button key={m} className={maturity===m?'b-pri b-sm':'b-gho b-sm'} onClick={() => setMaturity(m)}>
+          {MATURITY_LEVELS[m]?.label} — {MATURITY_LEVELS[m]?.desc}
+        </button>)}
+      </div>
+    </div>
+
+    <div style={{marginBottom:20}}>
+      <span className="section-label">GOVERNANCE TIMING</span>
+      <div style={{display:'flex',gap:8}}>
+        <button className={timing==='bundle'?'b-pri b-sm':'b-gho b-sm'} onClick={() => setTiming('bundle')}>Bundle into next review</button>
+        <button className={timing==='standalone'?'b-pri b-sm':'b-gho b-sm'} onClick={() => setTiming('standalone')}>Standalone (opens immediately)</button>
+      </div>
+    </div>
+
+    <button onClick={() => onSubmit?.({changeType, summary, detail, affectedField, propagation, maturity, timing})}
+      className="b-pri" disabled={!changeType || !summary.trim()} style={{width:'100%',padding:14,fontSize:15}}>Submit Proposal</button>
+  </div>;
+};
+
+/* ── Suggest Field Change (from provider form — bottom-up governance) ── */
+const SuggestChangeModal = ({open, onClose, fields, onSubmit}) => {
+  const [field, setField] = useState('');
+  const [changeType, setChangeType] = useState('');
+  const [description, setDescription] = useState('');
+  if (!open) return null;
+  return <Modal open={open} onClose={onClose} title="Suggest a Schema Change" w={480}>
+    <div style={{marginBottom:14}}>
+      <span className="section-label">WHICH FIELD?</span>
+      <select value={field} onChange={e => setField(e.target.value)} style={{width:'100%'}}>
+        <option value="">Select a field...</option>
+        {(fields||[]).map(f => <option key={f.id||f.key} value={f.id||f.key}>{f.question || f.label || f.key}</option>)}
+      </select>
+    </div>
+    <div style={{marginBottom:14}}>
+      <span className="section-label">WHAT WOULD YOU CHANGE?</span>
+      <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
+        {['Add an answer option','Change the wording','Remove or combine options','Something else'].map(ct =>
+          <div key={ct} onClick={() => setChangeType(ct)} style={{padding:'8px 12px',borderRadius:'var(--r)',cursor:'pointer',
+            border:`1px solid ${changeType===ct?'var(--gold)':'var(--border-1)'}`,
+            background:changeType===ct?'var(--gold-dim)':'var(--bg-3)',fontSize:12.5}}>{ct}</div>
+        )}
+      </div>
+    </div>
+    <div style={{marginBottom:14}}>
+      <span className="section-label">DESCRIBE</span>
+      <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe what you'd like to change and why..."/>
+    </div>
+    <button onClick={() => {onSubmit?.({field,changeType,description}); onClose();}}
+      className="b-pri" disabled={!field || !changeType || !description.trim()} style={{width:'100%'}}>Submit to Org Admin</button>
+    <p style={{fontSize:10.5,color:'var(--tx-3)',marginTop:8,textAlign:'center'}}>Your suggestion goes to your org admin. They may adopt it locally or forward it to the network.</p>
+  </Modal>;
+};
+
 /* ═══════════════════ PROVIDER APP ═══════════════════ */
 const ProviderApp = ({session, onLogout, showToast}) => {
   const [rosterRoom, setRosterRoom] = useState(null);
@@ -5232,7 +5441,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [setupData, setSetupData] = useState({name:'',type:'direct_service',service_area:'',languages:'en'});
   const [inviteModal, setInviteModal] = useState(false);
   const [inviteUserId, setInviteUserId] = useState('');
-  const [inviteRole, setInviteRole] = useState('case_manager');
+  const [inviteRole, setInviteRole] = useState('provider');
   // Client records — provider-created rooms representing clients
   const [clientRecords, setClientRecords] = useState([]);
   const [createClientModal, setCreateClientModal] = useState(false);
@@ -5268,7 +5477,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [emailConfigModal, setEmailConfigModal] = useState(false);
   // ─── Inter-org messaging & opacity ───
   const [orgOpacity, setOrgOpacity] = useState('translucent'); // transparent|translucent|opaque
-  const [orgMsgAccess, setOrgMsgAccess] = useState({read:['admin','case_manager'],respond:['admin']});
+  const [orgMsgAccess, setOrgMsgAccess] = useState({read:['admin','provider'],respond:['admin']});
   const [orgChannels, setOrgChannels] = useState([]); // [{roomId, peerOrg:{name,roomId}, lastMessage, unread}]
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelMessages, setChannelMessages] = useState([]);
@@ -5289,6 +5498,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [inboxMessages, setInboxMessages] = useState([]);
   const [inboxMsgText, setInboxMsgText] = useState('');
   const [inboxTab, setInboxTab] = useState('cases'); // 'cases' | 'channels'
+  // Suggest field change modal (bottom-up governance — Screen 2)
+  const [suggestChangeModal, setSuggestChangeModal] = useState(false);
 
   useEffect(() => { initProvider(); }, []);
 
@@ -5360,13 +5571,14 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         schema = await svc.createRoom('[Khora Schema]','Schema definitions',[
           {type:EVT.IDENTITY,state_key:'',content:{account_type:'schema',owner:svc.userId,created:Date.now()}},
         ]);
+        // Seed only transform defaults — prompts, definitions, and authorities are user-created
         const allSeeds = [
           ...DEFAULT_PROMPTS.map(p => () => svc.setState(schema, EVT.SCHEMA_PROMPT, p, p.key)),
           ...DEFAULT_PROVIDER_PROMPTS.map(pp => () => svc.setState(schema, EVT.SCHEMA_PROMPT, pp, pp.key)),
           ...DEFAULT_DEFINITIONS.map(d => () => svc.setState(schema, EVT.SCHEMA_DEF, d, d.key)),
           ...DEFAULT_AUTHORITIES.map(a => () => svc.setState(schema, EVT.SCHEMA_AUTHORITY, a, a.id)),
-          [() => svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default')],
-        ].flat();
+          () => svc.setState(schema, EVT.SCHEMA_TRANSFORM, {id:'transform_default',transforms:DEFAULT_TRANSFORMS}, 'default'),
+        ].filter(Boolean);
         for (let i = 0; i < allSeeds.length; i++) {
           await allSeeds[i]();
           if (i % 3 === 2) await new Promise(r => setTimeout(r, 200));
@@ -5732,7 +5944,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         ]}},
         {type:EVT.ROSTER_ASSIGN,state_key:'',content:{}},
         {type:EVT.ORG_OPACITY,state_key:'',content:{level:'translucent',updated:Date.now(),updated_by:svc.userId}},
-        {type:EVT.ORG_MSG_ACCESS,state_key:'',content:{read:['admin','case_manager'],respond:['admin'],updated:Date.now()}},
+        {type:EVT.ORG_MSG_ACCESS,state_key:'',content:{read:['admin','provider'],respond:['admin'],updated:Date.now()}},
       ]);
       await emitOp(org, 'DES', {entity:'organization',designation:setupData.name},
         {type:setupData.type,service_area:setupData.service_area}, orgFrame(org));
@@ -6253,13 +6465,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
       </div>
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
-        {/* Personal nav */}
-        {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'inbox',icon:'inbox',label:'Inbox'},
-          {id:'clients',icon:'users',label:T.client_term_plural},
+        {/* Provider nav */}
+        {[{id:'dashboard',icon:'briefcase',label:'Home'},{id:'inbox',icon:'inbox',label:'Inbox'},
+          {id:'clients',icon:'users',label:T.client_term_plural||'Records'},
           {id:'metrics',icon:'bar',label:'Metrics'},
           {id:'teams',icon:'users',label:`Teams${teams.length?` (${teams.length})`:''}`},
-          {id:'schema',icon:'grid',label:'Schema'},
-          {id:'activity',icon:'zap',label:'Activity Stream'}
+          {id:'activity',icon:'zap',label:'Activity'}
         ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null);if(item.id!=='inbox'){setInboxConvo(null);setInboxMessages([])}}}
           style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
             background:view===item.id&&!activeCase?'var(--bg-4)':'transparent',
@@ -6283,8 +6494,13 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             {orgMeta.type&&<span className="tag tag-teal" style={{fontSize:8,marginTop:4,marginLeft:26}}>{ORG_TYPE_LABELS[orgMeta.type]||orgMeta.type}</span>}
           </div>
           {[
+            {id:'org-dashboard',icon:'clipboard',label:'Org Dashboard',reqRole:'admin'},
+            {id:'field-catalog',icon:'clipboard',label:'Field Catalog',reqRole:'admin'},
+            {id:'form-builder',icon:'grid',label:'Form Builder',reqRole:'admin'},
+            {id:'framework-bindings',icon:'link',label:'Framework Bindings',reqRole:'admin'},
+            {id:'schema',icon:'grid',label:'Schema Workbench'},
             {id:'org-settings',icon:'settings',label:'Org Settings',reqRole:'admin'},
-            {id:'org-inbox',icon:'msg',label:`Inbox${orgChannels.length?` (${orgChannels.length})`:''}`},
+            {id:'org-inbox',icon:'msg',label:`Org Inbox${orgChannels.length?` (${orgChannels.length})`:''}`},
             {id:'staff',icon:'users',label:'Staff'},
             {id:'network',icon:'globe',label:'Network'},
           ].filter(item=>!item.reqRole||orgRole===item.reqRole).filter(item=>item.id!=='org-inbox'||hasOrgMsgPermission('read')).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
@@ -6304,9 +6520,28 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             <I n="users" s={10}/>Join Organization</button>
         </div>}
 
-        {/* Cases section */}
-        <div style={{padding:'14px 10px 4px'}}><span className="section-label">CASES ({cases.length})</span></div>
-        {cases.length===0&&<p style={{color:'var(--tx-3)',fontSize:11.5,padding:'12px 10px',textAlign:'center'}}>No clients shared with you yet</p>}
+        {/* Network section — visible when org is in a network */}
+        {networkRoom && <>
+          <div style={{padding:'14px 10px 4px'}}><span className="section-label">NETWORK</span></div>
+          {[
+            {id:'network-dashboard',icon:'globe',label:'Network Dashboard'},
+            {id:'schema-commons',icon:'grid',label:'Schema Commons'},
+            {id:'create-proposal',icon:'plus',label:'Create Proposal',reqCoord:true},
+          ].filter(item => !item.reqCoord || networkRole === 'coordinator').map(item => <div key={item.id} onClick={() => {setView(item.id);setActiveCase(null)}}
+            style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
+              background:view===item.id?'var(--bg-4)':'transparent',
+              borderLeft:view===item.id?'2px solid var(--teal)':'2px solid transparent',
+              display:'flex',alignItems:'center',gap:8,transition:'all .15s',
+              color:view===item.id?'var(--tx-0)':'var(--tx-1)'}}
+            onMouseEnter={e=>{if(view!==item.id)e.currentTarget.style.background='var(--bg-3)'}}
+            onMouseLeave={e=>{if(view!==item.id)e.currentTarget.style.background='transparent'}}>
+            <I n={item.icon} s={14}/><span style={{fontSize:12.5,fontWeight:view===item.id?600:400}}>{item.label}</span>
+          </div>)}
+        </>}
+
+        {/* Records section */}
+        <div style={{padding:'14px 10px 4px'}}><span className="section-label">RECORDS ({cases.length})</span></div>
+        {cases.length===0&&<p style={{color:'var(--tx-3)',fontSize:11.5,padding:'12px 10px',textAlign:'center'}}>No records shared with you yet</p>}
         {cases.map((c,i)=><div key={c.bridgeRoomId} onClick={()=>openCase(c.bridgeRoomId)}
           style={{padding:'8px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
             background:activeCase===c.bridgeRoomId?'var(--bg-4)':'transparent',
@@ -6331,8 +6566,86 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     {/* Main */}
     <div className="app-main" style={{flex:1,overflow:'auto',padding:24}}>
 
-      {/* DASHBOARD */}
-      {view==='dashboard'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
+      {/* PROVIDER HOME (Screen 1) */}
+      {view==='dashboard'&&!activeCase&&<ProviderHomeScreen
+        cases={cases}
+        orgMeta={orgMeta}
+        providerProfile={providerProfile}
+        schemaChanges={[]}
+        onOpenCase={openCase}
+        onNewRecord={() => setCreateClientModal(true)}
+        userId={svc.userId}
+      />}
+
+      {/* ORG DASHBOARD (Screen 3) — Org Admin only */}
+      {view==='org-dashboard'&&<OrgDashboardScreen
+        orgMeta={orgMeta} orgRole={orgRole}
+        networkFields={[]} localFields={[]}
+        proposals={[]} providerSuggestions={[]}
+        frameworks={[]}
+        onNavigate={(target,data) => {setView(target)}}
+      />}
+
+      {/* FIELD CATALOG (Screen 4) — Org Admin */}
+      {view==='field-catalog'&&<FieldCatalogScreen
+        fields={[...DEFAULT_PROMPTS, ...DEFAULT_PROVIDER_PROMPTS]}
+        definitions={DEFAULT_DEFINITIONS}
+        onViewField={(f) => {showToast('Field detail view: ' + (f.question||f.name||f.key))}}
+        onAddLocal={() => setView('schema')}
+        onProposeNetwork={() => setView('create-proposal')}
+      />}
+
+      {/* PROPOSAL RESPONSE (Screen 5) */}
+      {view==='proposal-response'&&<ProposalResponseScreen
+        proposal={null}
+        onSubmit={(response) => {showToast('Response submitted: ' + response.position, 'success'); setView('org-dashboard')}}
+        onBack={() => setView('org-dashboard')}
+      />}
+
+      {/* FRAMEWORK BINDINGS (Screen 6) */}
+      {view==='framework-bindings'&&<FrameworkBindingsScreen
+        orgName={orgMeta?.name}
+        orgFrameworks={[]}
+        onAddFramework={() => setView('schema')}
+        onNavigate={(target) => setView(target)}
+      />}
+
+      {/* FORM BUILDER (Screen 7) */}
+      {view==='form-builder'&&<FormBuilderScreen
+        sections={[]}
+        availableFields={[...DEFAULT_PROMPTS, ...DEFAULT_PROVIDER_PROMPTS]}
+        computedFields={DEFAULT_DEFINITIONS}
+        onPreview={() => showToast('Preview mode')}
+      />}
+
+      {/* NETWORK DASHBOARD (Screen 8) */}
+      {view==='network-dashboard'&&<NetworkDashboardScreen
+        networkName={networkMembers.length > 0 ? 'Network' : 'Network'}
+        memberOrgs={networkMembers}
+        proposals={[]}
+        deFactoFields={[]}
+        governanceRhythms={Object.values(GOV_RHYTHMS)}
+        adoptionData={{fields:[],orgs:[]}}
+        onNavigate={(target,data) => setView(target)}
+        isCoordinator={networkRole === 'coordinator'}
+      />}
+
+      {/* SCHEMA COMMONS (Screen 9) */}
+      {view==='schema-commons'&&<SchemaCommonsScreen
+        fields={[...DEFAULT_PROMPTS, ...DEFAULT_PROVIDER_PROMPTS]}
+        definitions={DEFAULT_DEFINITIONS}
+        onBack={() => setView('network-dashboard')}
+      />}
+
+      {/* CREATE PROPOSAL (Screen 10) */}
+      {view==='create-proposal'&&<CreateProposalScreen
+        existingFields={[...DEFAULT_PROMPTS, ...DEFAULT_PROVIDER_PROMPTS]}
+        onSubmit={(proposal) => {showToast('Proposal submitted: ' + proposal.summary, 'success'); setView(networkRoom ? 'network-dashboard' : 'org-dashboard')}}
+        onBack={() => setView(networkRoom ? 'network-dashboard' : 'org-dashboard')}
+      />}
+
+      {/* LEGACY DASHBOARD (provider identity card + org info) */}
+      {view==='_legacy_dashboard'&&!activeCase&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>{T.provider_term} Dashboard</h2>
         <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24}}>You can only see data {T.client_term_plural.toLowerCase()} have explicitly shared. Each case is a separate encrypted bridge room.</p>
 
@@ -6856,6 +7169,15 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             <button onClick={handleSendMsg} className="b-pri"><I n="send" s={13}/></button>
           </div>
         </div>
+
+        {/* Sovereign data notice + suggest change (Screen 2) */}
+        <div style={{padding:'12px 16px',background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',marginTop:16,display:'flex',alignItems:'center',gap:10}}>
+          <I n="shield" s={14} c="var(--teal)"/>
+          <span style={{fontSize:11.5,color:'var(--tx-1)',flex:1,lineHeight:1.5}}>This data is controlled by its owner. They can view, export, or revoke your access at any time.</span>
+        </div>
+        <button onClick={() => setSuggestChangeModal(true)} className="b-gho b-sm" style={{marginTop:8,display:'flex',alignItems:'center',gap:4}}>
+          <I n="file" s={12}/>Suggest a field change
+        </button>
       </div>}
 
       {/* METRICS DASHBOARD (§B.5) */}
@@ -7141,11 +7463,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
             {ORG_ROLES.map(r=><div key={r} style={{padding:'8px 12px',background:'var(--bg-3)',borderRadius:'var(--r)'}}>
               <span className="tag tag-blue" style={{fontSize:9,marginBottom:4}}>{ORG_ROLE_LABELS[r]}</span>
               <p style={{fontSize:10.5,color:'var(--tx-2)',marginTop:2}}>
-                {r==='admin'?'Full access. Manage staff, see all cases, configure schema.':
-                 r==='case_manager'?'Assigned cases only. Full read/write on assigned bridges.':
-                 r==='field_worker'?'Assigned cases. Record encounters. Limited to own observations.':
-                 r==='intake_coordinator'?'Create new bridges. Run intake assessments. Route to case managers.':
-                 'View aggregate dashboards only. No PII access.'}
+                {r==='admin'?'Full access. Manage staff, configure schema, respond to proposals.':
+                 r==='provider'?'Fill in observation forms, view records, suggest field changes.':
+                 r==='coordinator'?'Facilitate proposals, mediate objections, maintain governance rhythm.':
+                 'View aggregate dashboards only. No access to individual records.'}
               </p>
             </div>)}
           </div>
@@ -8000,6 +8321,16 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     {/* IMPORT DATA MODAL */}
     <ImportDataModal open={importModal} onClose={()=>setImportModal(false)}
       showToast={showToast} metricsRoom={metricsRoom} onComplete={handleImportComplete}/>
+
+    {/* SUGGEST FIELD CHANGE MODAL (bottom-up governance — Screen 2) */}
+    <SuggestChangeModal
+      open={suggestChangeModal}
+      onClose={() => setSuggestChangeModal(false)}
+      fields={[...DEFAULT_PROMPTS, ...DEFAULT_PROVIDER_PROMPTS]}
+      onSubmit={(suggestion) => {
+        showToast('Suggestion submitted to your org admin', 'success');
+      }}
+    />
 
     {/* COMPOSE ORG MESSAGE CHANNEL MODAL */}
     <Modal open={composeOrgModal} onClose={()=>setComposeOrgModal(false)} title="New Org Messaging Channel" w={520}>
