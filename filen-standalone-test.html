@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Khora • Filen File Upload Test</title>
+  <title>Khora • Data Import Tool</title>
   <style>
     :root {
       color-scheme: dark;
@@ -230,48 +230,51 @@
     a { color: #8db2ff; }
     code { color: #f9de96; font-size: 0.88em; }
     .hidden { display: none; }
+
+    /* Diag check items */
+    .diag-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.88rem; }
+    .diag-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .diag-icon.pass { background: var(--ok-dim); color: var(--ok); }
+    .diag-icon.fail { background: var(--error-dim); color: var(--error); }
   </style>
 </head>
 <body>
 <main>
-  <h1>Filen File Upload Test</h1>
+  <h1>Khora Data Import Tool</h1>
   <p class="subtitle">
-    Upload CSV or JSON files, map columns, preview data, and store records locally.
-    This standalone test page validates the full file-upload pipeline without the main Khora app.
+    Upload CSV or JSON files, map columns to vault fields, preview data, and store records locally.
+    Standalone tool — no server required.
   </p>
 
-  <!-- ═══════════════════ SECTION 1: SDK CHECK ═══════════════════ -->
+  <!-- SECTION 1: DIAGNOSTICS + STORAGE INFO -->
   <div class="row">
     <section class="card">
-      <h2>1) SDK Diagnostics</h2>
-      <p style="margin-top:6px;">Check whether the Filen browser SDK loads from CDN.</p>
-      <button id="btnCheckSdk" class="primary" style="margin-top:10px;">Run SDK Check</button>
-      <div class="status" id="diagLog">Ready.</div>
+      <h2>1) Browser Capabilities</h2>
+      <p style="margin-top:6px;">Verify this browser supports all required APIs.</p>
+      <button id="btnCheckApis" class="primary" style="margin-top:10px;">Run Diagnostics</button>
+      <div id="diagResults" style="margin-top:12px;"></div>
     </section>
 
     <section class="card">
-      <h2>2) Session (local harness)</h2>
+      <h2>2) Storage Status</h2>
       <p style="margin-top:6px;">
-        Status: <span id="sessionPill" class="pill">not logged in</span>
+        Records: <span id="sessionPill" class="pill">0 stored</span>
       </p>
-      <label>Email</label>
-      <input id="email" type="email" placeholder="you@example.com" />
-      <label>Password</label>
-      <input id="password" type="password" placeholder="password" />
+      <div class="stats" id="storageStats" style="margin-top:10px;"></div>
       <div class="btn-row">
-        <button id="btnLogin" class="primary">Login</button>
-        <button id="btnLogout" class="ghost">Logout</button>
+        <button id="btnExportJSON" class="primary">Export as JSON</button>
+        <button id="btnExportCSV" class="ghost">Export as CSV</button>
       </div>
       <div class="hint" style="margin-top:10px;">
-        Test harness only. Stores a pseudo-session in <code>localStorage</code> — does not call Filen.
+        All data stays in your browser's <code>localStorage</code>. Nothing is sent to any server.
       </div>
     </section>
   </div>
 
-  <!-- ═══════════════════ SECTION 2: FILE UPLOAD ═══════════════════ -->
+  <!-- SECTION 2: FILE UPLOAD -->
   <section class="card" id="uploadSection">
-    <h2>3) Upload File</h2>
-    <p style="margin-top:6px;">Upload a CSV or JSON file. Records will be parsed, mapped, and stored locally.</p>
+    <h2>3) Import File</h2>
+    <p style="margin-top:6px;">Upload a CSV or JSON file. Records will be parsed, mapped to vault fields, and stored locally.</p>
 
     <!-- Step indicators -->
     <div class="steps" style="margin-top:14px;">
@@ -309,7 +312,7 @@
         <button id="btnChangeFile" class="ghost" style="width:auto;padding:6px 14px;font-size:12px;">Change File</button>
       </div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
-        Map each source column to a target field. Unmapped columns are skipped.
+        Map each source column to a target vault field. Unmapped columns are skipped.
       </p>
       <div id="mappingContainer" style="max-height:360px;overflow:auto;"></div>
       <div class="stats" id="mapStats"></div>
@@ -348,7 +351,7 @@
     </div>
   </section>
 
-  <!-- ═══════════════════ SECTION 3: STORED RECORDS ═══════════════════ -->
+  <!-- SECTION 3: STORED RECORDS -->
   <section class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <h2>4) Stored Records</h2>
@@ -358,7 +361,7 @@
       </div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
-      All imported records stored in <code>localStorage["khora-filen-test-records"]</code>.
+      All imported records stored in <code>localStorage</code>.
       <span id="recordCount" class="tag tag-accent" style="margin-left:6px;">0 records</span>
     </p>
     <ul id="recordsList" class="stored-records">
@@ -366,12 +369,26 @@
     </ul>
   </section>
 
-  <!-- ═══════════════════ SECTION 4: MANUAL ADD ═══════════════════ -->
+  <!-- SECTION 4: MANUAL ADD -->
   <section class="card">
     <h2>5) Add Record Manually</h2>
-    <p style="margin-top:6px;">Quickly add a text record without uploading a file.</p>
-    <label>Record text</label>
-    <textarea id="manualRecord" placeholder="Type something..."></textarea>
+    <p style="margin-top:6px;">Quickly add a structured record without uploading a file.</p>
+    <div class="row">
+      <div>
+        <label>Full Name</label>
+        <input id="manualName" type="text" placeholder="Jane Doe" />
+        <label>Email</label>
+        <input id="manualEmail" type="email" placeholder="jane@example.com" />
+        <label>Phone</label>
+        <input id="manualPhone" type="tel" placeholder="555-0100" />
+      </div>
+      <div>
+        <label>Organization</label>
+        <input id="manualOrg" type="text" placeholder="Org name" />
+        <label>Case Notes</label>
+        <textarea id="manualNotes" placeholder="Notes about this record..."></textarea>
+      </div>
+    </div>
     <button id="btnManualAdd" class="primary" style="margin-top:10px;">Add Record</button>
   </section>
 </main>
@@ -380,7 +397,6 @@
 (() => {
   'use strict';
 
-  const LS_SESSION = 'khora-filen-test-session';
   const LS_RECORDS = 'khora-filen-test-records';
 
   const $ = (sel) => document.querySelector(sel);
@@ -388,7 +404,6 @@
   const $id = (id) => document.getElementById(id);
 
   // ═══════════════════ TARGET FIELDS ═══════════════════
-  // These mirror the main Khora vault fields
   const TARGET_FIELDS = [
     { key: 'full_name', label: 'Full Name', sensitive: true },
     { key: 'dob', label: 'Date of Birth', sensitive: true },
@@ -495,8 +510,8 @@
   }
 
   // ═══════════════════ STATE ═══════════════════
-  let fileData = null;     // { headers, records, fileName, fileType }
-  let columnMapping = {};  // { sourceCol: targetFieldKey }
+  let fileData = null;
+  let columnMapping = {};
   let currentStep = 'upload';
 
   // ═══════════════════ LOCALSTORAGE ═══════════════════
@@ -513,11 +528,15 @@
   }
 
   // ═══════════════════ UI HELPERS ═══════════════════
-  const diagLog = $id('diagLog');
-  const logDiag = (line) => {
-    const t = new Date().toISOString();
-    diagLog.textContent = `[${t}] ${line}\n` + diagLog.textContent;
-  };
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function truncate(str, len) {
+    return str.length > len ? str.slice(0, len) + '\u2026' : str;
+  }
 
   function setStep(step) {
     currentStep = step;
@@ -532,12 +551,145 @@
     });
   }
 
-  function setLoggedIn(inSession) {
+  // ═══════════════════ DIAGNOSTICS ═══════════════════
+  function runDiagnostics() {
+    const container = $id('diagResults');
+    container.innerHTML = '';
+
+    const checks = [
+      { name: 'File API', test: () => typeof File !== 'undefined' && typeof FileReader !== 'undefined' },
+      { name: 'Drag & Drop', test: () => 'draggable' in document.createElement('div') },
+      { name: 'localStorage', test: () => { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } },
+      { name: 'TextEncoder', test: () => typeof TextEncoder !== 'undefined' },
+      { name: 'JSON parsing', test: () => typeof JSON.parse === 'function' && typeof JSON.stringify === 'function' },
+      { name: 'Blob / Download', test: () => typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function' },
+    ];
+
+    let allPassed = true;
+    for (const check of checks) {
+      let passed = false;
+      try { passed = check.test(); } catch { passed = false; }
+      if (!passed) allPassed = false;
+
+      const item = document.createElement('div');
+      item.className = 'diag-item';
+      item.innerHTML = `
+        <div class="diag-icon ${passed ? 'pass' : 'fail'}">${passed ? '\u2713' : '\u2717'}</div>
+        <span>${check.name}</span>
+        <span class="tag ${passed ? 'tag-ok' : 'tag-err'}" style="margin-left:auto;">${passed ? 'OK' : 'MISSING'}</span>
+      `;
+      container.appendChild(item);
+    }
+
+    // Summary
+    const summary = document.createElement('div');
+    summary.className = `hint ${allPassed ? 'green' : 'red'}`;
+    summary.style.marginTop = '10px';
+    summary.innerHTML = allPassed
+      ? '<strong>All checks passed.</strong> This browser supports everything needed.'
+      : '<strong>Some checks failed.</strong> The import tool may not work correctly in this browser.';
+    container.appendChild(summary);
+  }
+
+  // ═══════════════════ STORAGE STATUS ═══════════════════
+  function updateStorageStatus() {
+    const records = loadRecords();
     const pill = $id('sessionPill');
-    pill.textContent = inSession ? 'logged in' : 'not logged in';
-    pill.classList.toggle('ok', inSession);
-    $id('btnLogout').disabled = !inSession;
-    $id('btnLogin').disabled = inSession;
+    pill.textContent = `${records.length} stored`;
+    pill.classList.toggle('ok', records.length > 0);
+
+    const batches = new Set(records.filter(r => r.batch).map(r => r.batch));
+    const sources = new Set(records.filter(r => r.source).map(r => r.source));
+    const storageBytes = new Blob([localStorage.getItem(LS_RECORDS) || '']).size;
+    const storageKB = (storageBytes / 1024).toFixed(1);
+
+    $id('storageStats').innerHTML = `
+      <div class="stat">
+        <span class="stat-label">Records</span>
+        <span class="stat-value">${records.length}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Batches</span>
+        <span class="stat-value" style="color:var(--accent);">${batches.size}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Sources</span>
+        <span class="stat-value" style="color:var(--teal);">${sources.size}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Size</span>
+        <span class="stat-value" style="font-size:1rem;color:var(--muted);">${storageKB} KB</span>
+      </div>
+    `;
+
+    // Enable/disable export buttons
+    $id('btnExportJSON').disabled = records.length === 0;
+    $id('btnExportCSV').disabled = records.length === 0;
+  }
+
+  // ═══════════════════ EXPORT ═══════════════════
+  function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportAsJSON() {
+    const records = loadRecords();
+    if (records.length === 0) return;
+    const output = records.map(r => {
+      if (r.fields) return { ...r.fields, _meta: { source: r.source, batch: r.batch, createdAt: r.createdAt } };
+      if (r.text) return { text: r.text, _meta: { source: r.source, createdAt: r.createdAt } };
+      return r;
+    });
+    downloadFile(JSON.stringify(output, null, 2), `khora-export-${Date.now()}.json`, 'application/json');
+  }
+
+  function exportAsCSV() {
+    const records = loadRecords();
+    if (records.length === 0) return;
+
+    // Collect all field keys
+    const allKeys = new Set();
+    for (const r of records) {
+      if (r.fields) Object.keys(r.fields).forEach(k => allKeys.add(k));
+      if (r.text) allKeys.add('text');
+    }
+    allKeys.add('source');
+    allKeys.add('batch');
+    allKeys.add('createdAt');
+
+    const keys = [...allKeys];
+
+    function csvEscape(val) {
+      if (val == null) return '';
+      const s = String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+
+    const lines = [keys.map(csvEscape).join(',')];
+    for (const r of records) {
+      const row = keys.map(k => {
+        if (k === 'source') return csvEscape(r.source || '');
+        if (k === 'batch') return csvEscape(r.batch || '');
+        if (k === 'createdAt') return csvEscape(r.createdAt || '');
+        if (k === 'text') return csvEscape(r.text || '');
+        if (r.fields) return csvEscape(r.fields[k] || '');
+        return '';
+      });
+      lines.push(row.join(','));
+    }
+
+    downloadFile(lines.join('\n'), `khora-export-${Date.now()}.csv`, 'text/csv');
   }
 
   // ═══════════════════ RENDER STORED RECORDS ═══════════════════
@@ -550,6 +702,7 @@
     list.innerHTML = '';
     if (records.length === 0) {
       list.innerHTML = '<li style="color:var(--muted);font-style:italic;">No records yet. Upload a file above.</li>';
+      updateStorageStatus();
       return;
     }
 
@@ -565,16 +718,14 @@
       body.className = 'rec-fields';
 
       if (rec.fields && typeof rec.fields === 'object') {
-        // Structured record from file import
         for (const [k, v] of Object.entries(rec.fields)) {
           const span = document.createElement('span');
           span.className = 'rec-field';
           const tf = TARGET_FIELDS.find(f => f.key === k);
-          span.innerHTML = `<span class="key">${tf ? tf.label : k}:</span> <span class="val">${escapeHtml(truncate(String(v), 50))}</span>`;
+          span.innerHTML = `<span class="key">${escapeHtml(tf ? tf.label : k)}:</span> <span class="val">${escapeHtml(truncate(String(v), 50))}</span>`;
           body.appendChild(span);
         }
       } else if (rec.text) {
-        // Text-only record (manual add)
         const span = document.createElement('span');
         span.className = 'rec-field';
         span.innerHTML = `<span class="val">${escapeHtml(truncate(rec.text, 80))}</span>`;
@@ -587,7 +738,7 @@
       if (rec.createdAt) parts.push(new Date(rec.createdAt).toLocaleString());
       if (rec.source) parts.push(`source: ${rec.source}`);
       if (rec.batch) parts.push(`batch: ${rec.batch}`);
-      meta.textContent = parts.join(' · ');
+      meta.textContent = parts.join(' \u00b7 ');
       body.appendChild(meta);
 
       li.appendChild(idx);
@@ -599,26 +750,26 @@
       const li = document.createElement('li');
       li.style.color = 'var(--muted)';
       li.style.fontStyle = 'italic';
-      li.textContent = `…and ${records.length - 50} more records`;
+      li.textContent = `\u2026and ${records.length - 50} more records`;
       list.appendChild(li);
     }
-  }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  function truncate(str, len) {
-    return str.length > len ? str.slice(0, len) + '…' : str;
+    updateStorageStatus();
   }
 
   // ═══════════════════ HANDLE FILE ═══════════════════
   async function handleFile(file) {
     try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext !== 'csv' && ext !== 'json') {
+        alert('Unsupported file type. Please upload a .csv or .json file.');
+        return;
+      }
+
       const text = await file.text();
-      const isJSON = file.name.endsWith('.json') || file.type === 'application/json';
+      if (!text.trim()) throw new Error('File is empty');
+
+      const isJSON = ext === 'json' || file.type === 'application/json';
       const parsed = isJSON ? parseJSONImport(text) : parseCSV(text);
       if (parsed.records.length === 0) throw new Error('No records found in file');
 
@@ -628,7 +779,6 @@
         fileType: isJSON ? 'JSON' : 'CSV',
       };
 
-      // Auto-map columns
       columnMapping = autoMapColumns(parsed.headers);
       renderMappingStep();
       setStep('map');
@@ -642,7 +792,7 @@
     if (!fileData) return;
 
     $id('mapFileName').textContent = fileData.fileName;
-    $id('mapFileMeta').textContent = `${fileData.fileType} · ${fileData.records.length} records · ${fileData.headers.length} columns`;
+    $id('mapFileMeta').textContent = `${fileData.fileType} \u00b7 ${fileData.records.length} records \u00b7 ${fileData.headers.length} columns`;
 
     const container = $id('mappingContainer');
     container.innerHTML = '';
@@ -651,7 +801,6 @@
       const row = document.createElement('div');
       row.className = 'map-row';
 
-      // Source column info
       const source = document.createElement('div');
       source.className = 'source';
       const sourceName = document.createElement('div');
@@ -659,7 +808,6 @@
       sourceName.textContent = header;
       source.appendChild(sourceName);
 
-      // Show sample value
       const sampleVal = fileData.records.slice(0, 3).map(r => r[header]).filter(Boolean)[0];
       if (sampleVal) {
         const sample = document.createElement('div');
@@ -668,12 +816,10 @@
         source.appendChild(sample);
       }
 
-      // Arrow
       const arrow = document.createElement('div');
       arrow.className = 'arrow';
-      arrow.textContent = '→';
+      arrow.textContent = '\u2192';
 
-      // Target select
       const target = document.createElement('div');
       target.className = 'target';
       const sel = document.createElement('select');
@@ -681,17 +827,16 @@
 
       const skipOpt = document.createElement('option');
       skipOpt.value = '';
-      skipOpt.textContent = '— skip —';
+      skipOpt.textContent = '\u2014 skip \u2014';
       sel.appendChild(skipOpt);
 
       for (const tf of TARGET_FIELDS) {
         const opt = document.createElement('option');
         opt.value = tf.key;
-        opt.textContent = tf.label + (tf.sensitive ? ' 🔒' : '');
+        opt.textContent = tf.label + (tf.sensitive ? ' \ud83d\udd12' : '');
         sel.appendChild(opt);
       }
 
-      // Special first/last name options
       const fnOpt = document.createElement('option');
       fnOpt.value = '_first_name';
       fnOpt.textContent = 'First Name (will combine)';
@@ -701,7 +846,6 @@
       lnOpt.textContent = 'Last Name (will combine)';
       sel.appendChild(lnOpt);
 
-      // Set current mapping
       sel.value = columnMapping[header] || '';
 
       sel.addEventListener('change', () => {
@@ -731,7 +875,6 @@
     const mapped = getMappedFieldCount();
     const total = fileData ? fileData.headers.length : 0;
     const hasFirstLast = Object.values(columnMapping).includes('_first_name') && Object.values(columnMapping).includes('_last_name');
-    const effectiveMapped = mapped + (hasFirstLast ? 1 : 0); // first+last combine into full_name
 
     $id('mapStats').innerHTML = `
       <div class="stat">
@@ -770,7 +913,6 @@
     const lastNameCol = Object.entries(columnMapping).find(([, v]) => v === '_last_name')?.[0];
     const hasNameCombine = firstNameCol && lastNameCol;
 
-    // Build header row
     const thead = $id('previewHead');
     thead.innerHTML = '';
     const headerRow = document.createElement('tr');
@@ -793,7 +935,6 @@
     }
     thead.appendChild(headerRow);
 
-    // Build body rows (max 10)
     const tbody = $id('previewBody');
     tbody.innerHTML = '';
     const previewRows = fileData.records.slice(0, 10);
@@ -812,29 +953,27 @@
         const td = document.createElement('td');
         const first = (row[firstNameCol] || '').trim();
         const last = (row[lastNameCol] || '').trim();
-        td.textContent = [first, last].filter(Boolean).join(' ') || '—';
+        td.textContent = [first, last].filter(Boolean).join(' ') || '\u2014';
         tr.appendChild(td);
       }
 
-      for (const [srcCol, vaultKey] of activeMappings) {
+      for (const [srcCol] of activeMappings) {
         const td = document.createElement('td');
         const val = row[srcCol];
-        td.textContent = val != null ? truncate(String(val), 50) : '—';
+        td.textContent = val != null ? truncate(String(val), 50) : '\u2014';
         tr.appendChild(td);
       }
 
       tbody.appendChild(tr);
     });
 
-    // "and X more" message
     const moreEl = $id('previewMore');
     if (fileData.records.length > 10) {
-      moreEl.textContent = `…and ${fileData.records.length - 10} more records`;
+      moreEl.textContent = `\u2026and ${fileData.records.length - 10} more records`;
     } else {
       moreEl.textContent = '';
     }
 
-    // Stats
     const totalMapped = activeMappings.length + (hasNameCombine ? 1 : 0);
     $id('previewStats').innerHTML = `
       <div class="stat">
@@ -871,7 +1010,6 @@
     for (const row of fileData.records) {
       const fields = {};
 
-      // Map active columns
       for (const [srcCol, vaultKey] of activeMappings) {
         const val = row[srcCol];
         if (val != null && String(val).trim() !== '') {
@@ -879,7 +1017,6 @@
         }
       }
 
-      // Combine first + last name
       if (hasNameCombine) {
         const first = (row[firstNameCol] || '').trim();
         const last = (row[lastNameCol] || '').trim();
@@ -904,8 +1041,7 @@
 
     saveRecords(existingRecords);
 
-    // Show done step
-    $id('doneMessage').textContent = `${imported} records imported from ${fileData.fileName}${skipped > 0 ? ` · ${skipped} skipped (no data)` : ''}`;
+    $id('doneMessage').textContent = `${imported} records imported from ${fileData.fileName}${skipped > 0 ? ` \u00b7 ${skipped} skipped (no data)` : ''}`;
     $id('doneStats').innerHTML = `
       <div class="stat">
         <span class="stat-label">Imported</span>
@@ -935,39 +1071,12 @@
 
   // ═══════════════════ EVENT LISTENERS ═══════════════════
 
-  // SDK Check
-  $id('btnCheckSdk').addEventListener('click', async () => {
-    try {
-      logDiag('Checking SDK import from jsDelivr...');
-      const mod = await import('https://cdn.jsdelivr.net/npm/@filen/sdk@0.3.12/dist/browser/index.js');
-      if (mod && mod.FilenSDK) {
-        logDiag('Success: FilenSDK export is available.');
-      } else {
-        logDiag('SDK loaded, but FilenSDK export was not found.');
-      }
-    } catch (err) {
-      logDiag(`SDK check failed: ${err?.message || String(err)}`);
-      logDiag('Expected in many browsers without bundler/polyfills.');
-    }
-  });
+  // Diagnostics
+  $id('btnCheckApis').addEventListener('click', runDiagnostics);
 
-  // Login
-  $id('btnLogin').addEventListener('click', () => {
-    const email = $id('email').value.trim();
-    const password = $id('password').value;
-    if (!email || !password) {
-      alert('Please enter email and password.');
-      return;
-    }
-    localStorage.setItem(LS_SESSION, JSON.stringify({ email, at: Date.now() }));
-    setLoggedIn(true);
-  });
-
-  // Logout
-  $id('btnLogout').addEventListener('click', () => {
-    localStorage.removeItem(LS_SESSION);
-    setLoggedIn(false);
-  });
+  // Export
+  $id('btnExportJSON').addEventListener('click', exportAsJSON);
+  $id('btnExportCSV').addEventListener('click', exportAsCSV);
 
   // Drop zone
   const dropzone = $id('dropzone');
@@ -1021,21 +1130,47 @@
     }
   });
 
-  // Manual add
+  // Manual add — structured fields
   $id('btnManualAdd').addEventListener('click', () => {
-    const text = $id('manualRecord').value.trim();
-    if (!text) return;
+    const name = $id('manualName').value.trim();
+    const email = $id('manualEmail').value.trim();
+    const phone = $id('manualPhone').value.trim();
+    const org = $id('manualOrg').value.trim();
+    const notes = $id('manualNotes').value.trim();
+
+    const fields = {};
+    if (name) fields.full_name = name;
+    if (email) fields.email = email;
+    if (phone) fields.phone = phone;
+    if (org) fields.affiliation = org;
+    if (notes) fields.case_notes = notes;
+
+    if (Object.keys(fields).length === 0) {
+      alert('Please fill in at least one field.');
+      return;
+    }
+
     const records = loadRecords();
-    records.push({ text, createdAt: new Date().toISOString(), source: 'manual' });
+    records.push({
+      fields,
+      createdAt: new Date().toISOString(),
+      source: 'manual',
+    });
     saveRecords(records);
-    $id('manualRecord').value = '';
+
+    // Clear form
+    $id('manualName').value = '';
+    $id('manualEmail').value = '';
+    $id('manualPhone').value = '';
+    $id('manualOrg').value = '';
+    $id('manualNotes').value = '';
+
     renderStoredRecords();
   });
 
   // ═══════════════════ INIT ═══════════════════
-  const hasSession = Boolean(localStorage.getItem(LS_SESSION));
-  setLoggedIn(hasSession);
   renderStoredRecords();
+  updateStorageStatus();
   setStep('upload');
 })();
 </script>
