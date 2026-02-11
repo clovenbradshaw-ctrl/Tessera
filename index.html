@@ -1766,6 +1766,244 @@ const FRAMEWORK_COLORS = {
   'auth_org_policy': {accent:'purple',label:'Org Policy'},
 };
 
+/* ═══════════════════ FRAMEWORK FIELD STANDARDS (§C.3) ═══════════════════
+ * Built-in data field frameworks from established standards. Each framework
+ * defines a set of vault fields tagged to authoritative URIs. Users toggle
+ * frameworks on/off — enabled framework fields appear in the vault alongside
+ * built-in and custom fields. The URI linkage gives every field an objective,
+ * externally-verifiable semantic meaning (the MEANT side of the GIVEN/MEANT
+ * divide). The observation value is GIVEN; the framework tag is what it MEANS.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+const FRAMEWORK_FIELD_STANDARDS = [
+  // 1. vCard (RFC 6350) — Core identity & contact interchange
+  {
+    id: 'ffs_vcard',
+    name: 'vCard',
+    spec: 'RFC 6350',
+    uri: 'https://datatracker.ietf.org/doc/html/rfc6350',
+    description: 'Contact & identity interchange format',
+    domain: 'Person / Identity',
+    accent: 'blue',
+    fields: [
+      {key:'vcard_nickname', label:'Nickname', category:'identity', sensitive:false, property:'NICKNAME', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.3'},
+      {key:'vcard_prefix', label:'Name Prefix', category:'identity', sensitive:false, property:'N.prefix', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.2'},
+      {key:'vcard_suffix', label:'Name Suffix', category:'identity', sensitive:false, property:'N.suffix', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.2'},
+      {key:'vcard_gender', label:'Gender', category:'identity', sensitive:false, property:'GENDER', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.7'},
+      {key:'vcard_language', label:'Preferred Language', category:'details', sensitive:false, property:'LANG', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.4.4'},
+      {key:'vcard_bday', label:'Birthday', category:'identity', sensitive:true, property:'BDAY', uri:'https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.5'},
+    ]
+  },
+  // 2. Schema.org Person — Structured linked-data person
+  {
+    id: 'ffs_schema_person',
+    name: 'Schema.org Person',
+    spec: 'Schema.org',
+    uri: 'https://schema.org/Person',
+    description: 'Linked-data person identification',
+    domain: 'Person / Identity',
+    accent: 'teal',
+    fields: [
+      {key:'schema_given_name', label:'Given Name', category:'identity', sensitive:false, property:'givenName', uri:'https://schema.org/givenName'},
+      {key:'schema_family_name', label:'Family Name', category:'identity', sensitive:false, property:'familyName', uri:'https://schema.org/familyName'},
+      {key:'schema_additional_name', label:'Middle / Additional Name', category:'identity', sensitive:false, property:'additionalName', uri:'https://schema.org/additionalName'},
+      {key:'schema_nationality', label:'Nationality', category:'details', sensitive:false, property:'nationality', uri:'https://schema.org/nationality'},
+      {key:'schema_job_title', label:'Job Title', category:'details', sensitive:false, property:'jobTitle', uri:'https://schema.org/jobTitle'},
+      {key:'schema_works_for', label:'Works For', category:'details', sensitive:false, property:'worksFor', uri:'https://schema.org/worksFor'},
+    ]
+  },
+  // 3. HL7 FHIR Patient — Healthcare interoperability
+  {
+    id: 'ffs_fhir_patient',
+    name: 'FHIR Patient',
+    spec: 'HL7 FHIR R4',
+    uri: 'https://www.hl7.org/fhir/patient.html',
+    description: 'Healthcare patient resource',
+    domain: 'Healthcare',
+    accent: 'green',
+    fields: [
+      {key:'fhir_marital_status', label:'Marital Status', category:'details', sensitive:false, property:'maritalStatus', uri:'https://www.hl7.org/fhir/patient-definitions.html#Patient.maritalStatus'},
+      {key:'fhir_communication_lang', label:'Communication Language', category:'details', sensitive:false, property:'communication.language', uri:'https://www.hl7.org/fhir/patient-definitions.html#Patient.communication.language'},
+      {key:'fhir_general_practitioner', label:'General Practitioner', category:'case', sensitive:false, property:'generalPractitioner', uri:'https://www.hl7.org/fhir/patient-definitions.html#Patient.generalPractitioner'},
+      {key:'fhir_emergency_contact', label:'Emergency Contact', category:'contact', sensitive:true, property:'contact', uri:'https://www.hl7.org/fhir/patient-definitions.html#Patient.contact'},
+      {key:'fhir_medical_record_num', label:'Medical Record Number', category:'sensitive', sensitive:true, property:'identifier', uri:'https://www.hl7.org/fhir/patient-definitions.html#Patient.identifier'},
+    ]
+  },
+  // 4. NIEM Person — Government demographics
+  {
+    id: 'ffs_niem_person',
+    name: 'NIEM Person',
+    spec: 'NIEM 6.0',
+    uri: 'https://niem.github.io/niem-releases/',
+    description: 'National information exchange demographics',
+    domain: 'Government',
+    accent: 'purple',
+    fields: [
+      {key:'niem_race', label:'Race', category:'identity', sensitive:true, property:'PersonRaceCode', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_ethnicity', label:'Ethnicity', category:'identity', sensitive:true, property:'PersonEthnicityCode', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_sex', label:'Sex', category:'identity', sensitive:false, property:'PersonSexCode', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_height', label:'Height', category:'details', sensitive:false, property:'PersonHeightMeasure', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_weight', label:'Weight', category:'details', sensitive:false, property:'PersonWeightMeasure', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_eye_color', label:'Eye Color', category:'details', sensitive:false, property:'PersonEyeColorCode', uri:'https://niem.github.io/niem-releases/'},
+      {key:'niem_hair_color', label:'Hair Color', category:'details', sensitive:false, property:'PersonHairColorCode', uri:'https://niem.github.io/niem-releases/'},
+    ]
+  },
+  // 5. Schema.org PostalAddress — Structured address
+  {
+    id: 'ffs_postal_address',
+    name: 'PostalAddress',
+    spec: 'Schema.org',
+    uri: 'https://schema.org/PostalAddress',
+    description: 'Structured postal address fields',
+    domain: 'Address / Location',
+    accent: 'orange',
+    fields: [
+      {key:'addr_street', label:'Street Address', category:'contact', sensitive:true, property:'streetAddress', uri:'https://schema.org/streetAddress'},
+      {key:'addr_locality', label:'City / Locality', category:'contact', sensitive:false, property:'addressLocality', uri:'https://schema.org/addressLocality'},
+      {key:'addr_region', label:'State / Region', category:'contact', sensitive:false, property:'addressRegion', uri:'https://schema.org/addressRegion'},
+      {key:'addr_postal_code', label:'Postal Code', category:'contact', sensitive:false, property:'postalCode', uri:'https://schema.org/postalCode'},
+      {key:'addr_country', label:'Country', category:'contact', sensitive:false, property:'addressCountry', uri:'https://schema.org/addressCountry'},
+    ]
+  },
+  // 6. HR Open Standards — Employment & candidate data
+  {
+    id: 'ffs_hr_open',
+    name: 'HR Open',
+    spec: 'HR Open Standards',
+    uri: 'https://hropenstandards.org/',
+    description: 'Employment history & credentials',
+    domain: 'Employment / HR',
+    accent: 'gold',
+    fields: [
+      {key:'hr_employer', label:'Employer Name', category:'details', sensitive:false, property:'EmployerName', uri:'https://hropenstandards.org/'},
+      {key:'hr_title', label:'Employment Title', category:'details', sensitive:false, property:'Title', uri:'https://hropenstandards.org/'},
+      {key:'hr_start_date', label:'Employment Start', category:'details', sensitive:false, property:'StartDate', uri:'https://hropenstandards.org/'},
+      {key:'hr_end_date', label:'Employment End', category:'details', sensitive:false, property:'EndDate', uri:'https://hropenstandards.org/'},
+      {key:'hr_certifications', label:'Certifications', category:'details', sensitive:false, property:'Certifications', uri:'https://hropenstandards.org/'},
+      {key:'hr_degree', label:'Degree', category:'details', sensitive:false, property:'Degree', uri:'https://hropenstandards.org/'},
+    ]
+  },
+  // 7. CEDS — Education data
+  {
+    id: 'ffs_ceds',
+    name: 'CEDS',
+    spec: 'Common Education Data Standards',
+    uri: 'https://ceds.ed.gov/',
+    description: 'Education enrollment & assessment',
+    domain: 'Education',
+    accent: 'blue',
+    fields: [
+      {key:'ceds_school', label:'School Name', category:'details', sensitive:false, property:'SchoolId', uri:'https://ceds.ed.gov/'},
+      {key:'ceds_grade', label:'Grade Level', category:'details', sensitive:false, property:'GradeLevel', uri:'https://ceds.ed.gov/'},
+      {key:'ceds_enrollment_date', label:'Enrollment Date', category:'details', sensitive:false, property:'EntryDate', uri:'https://ceds.ed.gov/'},
+      {key:'ceds_english_learner', label:'English Learner Status', category:'details', sensitive:false, property:'EnglishLearnerStatus', uri:'https://ceds.ed.gov/'},
+      {key:'ceds_disability', label:'Disability Status', category:'sensitive', sensitive:true, property:'DisabilityStatus', uri:'https://ceds.ed.gov/'},
+    ]
+  },
+  // 8. RESO Data Dictionary — Housing & property
+  {
+    id: 'ffs_reso',
+    name: 'RESO',
+    spec: 'RESO Data Dictionary',
+    uri: 'https://www.reso.org/data-dictionary/',
+    description: 'Real estate & housing data',
+    domain: 'Real Estate / Property',
+    accent: 'orange',
+    fields: [
+      {key:'reso_property_type', label:'Property Type', category:'details', sensitive:false, property:'PropertyType', uri:'https://ddwiki.reso.org/'},
+      {key:'reso_bedrooms', label:'Bedrooms', category:'details', sensitive:false, property:'BedroomsTotal', uri:'https://ddwiki.reso.org/'},
+      {key:'reso_rent', label:'Monthly Rent', category:'sensitive', sensitive:true, property:'ListPrice', uri:'https://ddwiki.reso.org/'},
+      {key:'reso_lease_start', label:'Lease Start', category:'details', sensitive:false, property:'ListingContractDate', uri:'https://ddwiki.reso.org/'},
+      {key:'reso_lease_end', label:'Lease End', category:'details', sensitive:false, property:'CloseDate', uri:'https://ddwiki.reso.org/'},
+      {key:'reso_landlord', label:'Landlord / Manager', category:'contact', sensitive:true, property:'ListAgentKey', uri:'https://ddwiki.reso.org/'},
+    ]
+  },
+  // 9. ISO 20022 — Financial data
+  {
+    id: 'ffs_iso20022',
+    name: 'ISO 20022',
+    spec: 'ISO 20022',
+    uri: 'https://www.iso20022.org/',
+    description: 'Financial messaging & account data',
+    domain: 'Finance',
+    accent: 'green',
+    fields: [
+      {key:'fin_income_source', label:'Income Source', category:'sensitive', sensitive:true, property:'Debtor', uri:'https://www.iso20022.org/'},
+      {key:'fin_monthly_income', label:'Monthly Income', category:'sensitive', sensitive:true, property:'InstructedAmount', uri:'https://www.iso20022.org/'},
+      {key:'fin_bank_name', label:'Bank Name', category:'sensitive', sensitive:true, property:'DebtorAgent', uri:'https://www.iso20022.org/'},
+      {key:'fin_benefits', label:'Benefits Received', category:'details', sensitive:false, property:'RemittanceInformation', uri:'https://www.iso20022.org/'},
+    ]
+  },
+  // 10. NIEM Justice — Court & legal records
+  {
+    id: 'ffs_niem_justice',
+    name: 'NIEM Justice',
+    spec: 'NIEM Justice Domain',
+    uri: 'https://release.niem.gov/niem/domains/justice/',
+    description: 'Court cases, charges & sentencing',
+    domain: 'Legal / Court',
+    accent: 'purple',
+    fields: [
+      {key:'justice_case_number', label:'Case Number', category:'case', sensitive:true, property:'CaseNumberText', uri:'https://release.niem.gov/niem/domains/justice/'},
+      {key:'justice_case_status', label:'Court Case Status', category:'case', sensitive:false, property:'CaseStatusText', uri:'https://release.niem.gov/niem/domains/justice/'},
+      {key:'justice_court', label:'Court Name', category:'case', sensitive:false, property:'CourtName', uri:'https://release.niem.gov/niem/domains/justice/'},
+      {key:'justice_charge', label:'Charge Description', category:'sensitive', sensitive:true, property:'ChargeDescriptionText', uri:'https://release.niem.gov/niem/domains/justice/'},
+      {key:'justice_probation_officer', label:'Probation / Parole Officer', category:'case', sensitive:false, property:'SupervisionPerson', uri:'https://release.niem.gov/niem/domains/justice/'},
+    ]
+  },
+  // 11. Dublin Core — Record & document metadata
+  {
+    id: 'ffs_dublin_core',
+    name: 'Dublin Core',
+    spec: 'ISO 15836',
+    uri: 'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/',
+    description: 'Document & record metadata',
+    domain: 'Bibliographic / Metadata',
+    accent: 'gold',
+    fields: [
+      {key:'dc_title', label:'Case Title', category:'case', sensitive:false, property:'title', uri:'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#title'},
+      {key:'dc_description', label:'Case Description', category:'case', sensitive:false, property:'description', uri:'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#description'},
+      {key:'dc_creator', label:'Record Creator', category:'case', sensitive:false, property:'creator', uri:'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#creator'},
+      {key:'dc_date', label:'Date Created', category:'case', sensitive:false, property:'date', uri:'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#date'},
+      {key:'dc_rights', label:'Rights / Consent Scope', category:'case', sensitive:false, property:'rights', uri:'https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#rights'},
+    ]
+  },
+  // 12. GeoJSON (RFC 7946) — Geographic coordinates
+  {
+    id: 'ffs_geojson',
+    name: 'GeoJSON',
+    spec: 'RFC 7946',
+    uri: 'https://datatracker.ietf.org/doc/html/rfc7946',
+    description: 'Geographic coordinates & geometry',
+    domain: 'Geospatial',
+    accent: 'teal',
+    fields: [
+      {key:'geo_latitude', label:'Latitude', category:'contact', sensitive:true, property:'coordinates[1]', uri:'https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.1'},
+      {key:'geo_longitude', label:'Longitude', category:'contact', sensitive:true, property:'coordinates[0]', uri:'https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.1'},
+      {key:'geo_service_area', label:'Service Area', category:'details', sensitive:false, property:'Polygon', uri:'https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.6'},
+    ]
+  },
+];
+
+// Lookup: framework id → framework object (for fast field tagging)
+const FRAMEWORK_BY_ID = {};
+FRAMEWORK_FIELD_STANDARDS.forEach(fw => { FRAMEWORK_BY_ID[fw.id] = fw; });
+
+// Build framework fields for a set of enabled framework ids
+function getFrameworkFields(enabledIds) {
+  const fields = [];
+  const seen = new Set();
+  for (const fwId of enabledIds) {
+    const fw = FRAMEWORK_BY_ID[fwId];
+    if (!fw) continue;
+    for (const f of fw.fields) {
+      if (seen.has(f.key)) continue;
+      seen.add(f.key);
+      fields.push({...f, framework: fw.id, frameworkName: fw.name, frameworkUri: fw.uri});
+    }
+  }
+  return fields;
+}
+
 /* ═══════════════════ ANONYMIZATION (§B.2) ═══════════════════ */
 function anonymizeField(key, value) {
   const t = DEFAULT_TRANSFORMS[key];
@@ -2723,6 +2961,89 @@ const RecordGivenMeant = ({promptKey, value, reporter, timestamp}) => {
   };
 
   return <GivenMeantDivide observation={observation} compact={true}/>;
+};
+
+/* ═══════════════════ FRAMEWORK TOGGLE PANEL ═══════════════════
+ * Lets users toggle data-field frameworks on/off. Each framework
+ * injects a set of vault fields tagged to authoritative URIs,
+ * giving local field values an objective semantic anchor.
+ * ═══════════════════════════════════════════════════════════════ */
+const FrameworkTogglePanel = ({enabledFrameworks, onToggle}) => {
+  const [expandedFw, setExpandedFw] = useState(null);
+
+  const handleToggle = (fwId) => {
+    const next = enabledFrameworks.includes(fwId)
+      ? enabledFrameworks.filter(id => id !== fwId)
+      : [...enabledFrameworks, fwId];
+    onToggle(next);
+  };
+
+  const domainGroups = useMemo(() => {
+    const groups = {};
+    FRAMEWORK_FIELD_STANDARDS.forEach(fw => {
+      if (!groups[fw.domain]) groups[fw.domain] = [];
+      groups[fw.domain].push(fw);
+    });
+    return groups;
+  }, []);
+
+  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+      Toggle frameworks to add their standardized fields to your vault. Each field is tagged to an authoritative URI — turning local data into semantically anchored, interoperable records.
+    </div>
+
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:4}}>
+      <span style={{fontSize:11,color:'var(--tx-2)',alignSelf:'center'}}>Active:</span>
+      <span style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{enabledFrameworks.length}</span>
+      <span style={{fontSize:11,color:'var(--tx-3)'}}>of {FRAMEWORK_FIELD_STANDARDS.length} frameworks</span>
+      <span style={{fontSize:11,color:'var(--tx-3)',marginLeft:4}}>&#183;</span>
+      <span style={{fontSize:11,color:'var(--tx-2)'}}>{getFrameworkFields(enabledFrameworks).length} fields added</span>
+    </div>
+
+    {Object.entries(domainGroups).map(([domain, frameworks]) => <div key={domain}>
+      <span className="section-label" style={{fontSize:10,marginBottom:6,display:'block'}}>{domain.toUpperCase()}</span>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {frameworks.map(fw => {
+          const isEnabled = enabledFrameworks.includes(fw.id);
+          const isExpanded = expandedFw === fw.id;
+          return <div key={fw.id} className="card" style={{padding:0,overflow:'hidden',borderColor:isEnabled?`var(--${fw.accent})`:'var(--border-0)',transition:'border-color .2s'}}>
+            <div style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+              <Toggle on={isEnabled} onChange={() => handleToggle(fw.id)}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                  <span style={{fontSize:13.5,fontWeight:600}}>{fw.name}</span>
+                  <span className={`tag tag-${fw.accent}`} style={{fontSize:8.5}}>{fw.spec}</span>
+                  <span style={{fontSize:10.5,color:'var(--tx-2)'}}>{fw.fields.length} fields</span>
+                </div>
+                <div style={{fontSize:11,color:'var(--tx-2)',marginTop:2}}>{fw.description}</div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <a href={fw.uri} target="_blank" rel="noopener" style={{fontSize:9,fontFamily:'var(--mono)',color:`var(--${fw.accent})`,textDecoration:'none'}} title={fw.uri}>spec</a>
+                <span onClick={() => setExpandedFw(isExpanded ? null : fw.id)} style={{cursor:'pointer',color:'var(--tx-3)',transition:'color .15s'}}
+                  onMouseEnter={e=>e.currentTarget.style.color='var(--tx-0)'} onMouseLeave={e=>e.currentTarget.style.color='var(--tx-3)'}>
+                  <I n={isExpanded ? 'x' : 'chevR'} s={12}/>
+                </span>
+              </div>
+            </div>
+            {isExpanded && <div style={{borderTop:'1px solid var(--border-0)',padding:'10px 16px',background:'var(--bg-1)'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:6}}>
+                {fw.fields.map(f => <div key={f.key} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:'var(--r)',background:'var(--bg-2)',border:'1px solid var(--border-0)',fontSize:11.5}}>
+                  <span style={{flex:1,fontWeight:500}}>{f.label}</span>
+                  {f.sensitive && <span className="tag tag-red" style={{fontSize:7.5,padding:'1px 5px'}}>SENSITIVE</span>}
+                  <a href={f.uri} target="_blank" rel="noopener" style={{color:`var(--${fw.accent})`,textDecoration:'none',fontSize:9,fontFamily:'var(--mono)'}}>
+                    {f.property}
+                  </a>
+                </div>)}
+              </div>
+              <div style={{marginTop:8,fontSize:10,fontFamily:'var(--mono)',color:'var(--tx-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fw.uri}
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+    </div>)}
+  </div>;
 };
 
 /* ═══════════════════ SCHEMA WORKBENCH ═══════════════════ */
@@ -3793,18 +4114,21 @@ const ClientApp = ({session, onLogout, showToast}) => {
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldCategory, setNewFieldCategory] = useState('details');
   const [newFieldSensitive, setNewFieldSensitive] = useState(false);
-  // Teams the individual belongs to
-  const [myTeams, setMyTeams] = useState([]);
+  const [enabledFrameworks, setEnabledFrameworks] = useState([]); // framework ids toggled on
+  const [frameworkModal, setFrameworkModal] = useState(false);
 
   useEffect(() => { initVault(); }, []);
 
-  // Merge built-in fields with client-defined custom fields
-  const allFields = useMemo(() => [...VAULT_FIELDS, ...customFieldDefs], [customFieldDefs]);
+  // Framework-derived fields from enabled standards
+  const frameworkFields = useMemo(() => getFrameworkFields(enabledFrameworks), [enabledFrameworks]);
+
+  // Merge built-in fields + custom fields + framework fields
+  const allFields = useMemo(() => [...VAULT_FIELDS, ...customFieldDefs, ...frameworkFields], [customFieldDefs, frameworkFields]);
   const allCategories = useMemo(() => {
     const cats = [...FIELD_CATEGORIES];
-    for (const f of customFieldDefs) { if (!cats.includes(f.category)) cats.push(f.category); }
+    for (const f of [...customFieldDefs, ...frameworkFields]) { if (!cats.includes(f.category)) cats.push(f.category); }
     return cats;
-  }, [customFieldDefs]);
+  }, [customFieldDefs, frameworkFields]);
 
   const handleAddCustomField = async () => {
     const label = newFieldLabel.trim();
@@ -3883,7 +4207,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
           {type:EVT.VAULT_SNAPSHOT,state_key:'',content:{fields:{},observations:[],
             metrics_consent:{enabled:false,categories:[]},
             matching_consent:{enabled:false,layers:[],network_id:null,last_token_ts:null},
-            custom_field_defs:[]}},
+            custom_field_defs:[],enabled_frameworks:[]}},
           {type:EVT.VAULT_PROVIDERS,state_key:'',content:{providers:[]}},
         ]);
         showToast('Vault created — encrypted room ready','success');
@@ -3921,6 +4245,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setObservations(snap?.observations || []);
     setMetricsConsent(snap?.metrics_consent || {enabled:false,categories:[]});
     setCustomFieldDefs(snap?.custom_field_defs || []);
+    setEnabledFrameworks(snap?.enabled_frameworks || []);
     const idx = await svc.getState(rid, EVT.VAULT_PROVIDERS);
     // Enrich providers with profile data from bridge rooms
     const enrichedProviders = (idx?.providers || []).map(p => {
@@ -3930,10 +4255,10 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setProviders(enrichedProviders);
   };
 
-  const saveSnapshot = async (fields, obs, mc, cfd) => {
-    const snapshot = {fields:fields??vaultData, observations:obs??observations, metrics_consent:mc??metricsConsent, custom_field_defs:cfd??customFieldDefs};
+  const saveSnapshot = async (fields, obs, mc, cfd, ef) => {
+    const snapshot = {fields:fields??vaultData, observations:obs??observations, metrics_consent:mc??metricsConsent, custom_field_defs:cfd??customFieldDefs, enabled_frameworks:ef??enabledFrameworks};
     await svc.setState(vaultRoom, EVT.VAULT_SNAPSHOT, snapshot);
-    setVaultData(snapshot.fields); setObservations(snapshot.observations); setMetricsConsent(snapshot.metrics_consent); setCustomFieldDefs(snapshot.custom_field_defs);
+    setVaultData(snapshot.fields); setObservations(snapshot.observations); setMetricsConsent(snapshot.metrics_consent); setCustomFieldDefs(snapshot.custom_field_defs); setEnabledFrameworks(snapshot.enabled_frameworks);
   };
 
   const saveProviderIndex = async (provs) => {
@@ -4234,6 +4559,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
           <div><h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Your Vault</h2>
             <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>All data encrypted in your private Matrix room. Only you can read this.</p></div>
           <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setFrameworkModal(true)} className="b-gho" style={{display:'flex',alignItems:'center',gap:6}}><I n="grid" s={14}/>{enabledFrameworks.length > 0 && <span className="tag tag-green" style={{fontSize:8,padding:'1px 5px'}}>{enabledFrameworks.length}</span>}Frameworks</button>
             <button onClick={()=>setAddFieldModal(true)} className="b-gho" style={{display:'flex',alignItems:'center',gap:6}}><I n="plus" s={14}/>Add Field</button>
             <button onClick={()=>{setEditData({...vaultData});setEditModal(true)}} className="b-pri" style={{display:'flex',alignItems:'center',gap:6}}><I n="key" s={14}/>Edit Vault</button>
           </div>
@@ -4259,7 +4585,8 @@ const ClientApp = ({session, onLogout, showToast}) => {
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontSize:12.5,fontWeight:500}}>{f.label}</span>
                   {f.sensitive&&<span className="tag tag-red" style={{fontSize:8.5}}>SENSITIVE</span>}
-                  {f.custom&&<span className="tag tag-purple" style={{fontSize:8.5}}>CUSTOM</span>}</div>
+                  {f.custom&&<span className="tag tag-purple" style={{fontSize:8.5}}>CUSTOM</span>}
+                  {f.framework&&<a href={f.uri||f.frameworkUri} target="_blank" rel="noopener" className={`tag tag-${FRAMEWORK_BY_ID[f.framework]?.accent||'blue'}`} style={{fontSize:8.5,textDecoration:'none',cursor:'pointer'}} title={`${f.frameworkName} — ${f.property}`}>{f.frameworkName}</a>}</div>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:11.5,color:vaultData[f.key]?'var(--tx-1)':'var(--tx-3)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     {vaultData[f.key]?(f.sensitive?'••••••••':vaultData[f.key]):'—'}</span>
@@ -4772,7 +5099,8 @@ const ClientApp = ({session, onLogout, showToast}) => {
           <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
             <label style={{fontSize:11.5,color:'var(--tx-1)'}}>{f.label}</label>
             {f.sensitive&&<span className="tag tag-red" style={{fontSize:8}}>SENSITIVE</span>}
-            {f.custom&&<span className="tag tag-purple" style={{fontSize:8}}>CUSTOM</span>}</div>
+            {f.custom&&<span className="tag tag-purple" style={{fontSize:8}}>CUSTOM</span>}
+            {f.framework&&<span className={`tag tag-${FRAMEWORK_BY_ID[f.framework]?.accent||'blue'}`} style={{fontSize:8}}>{f.frameworkName}</span>}</div>
           {['case_notes','history','medical','documents'].includes(f.key)||(f.custom&&f.category==='case')?
             <textarea value={editData[f.key]||''} onChange={e=>setEditData({...editData,[f.key]:e.target.value})} placeholder={`Enter ${f.label.toLowerCase()}...`} style={{minHeight:50}}/>:
             <input value={editData[f.key]||''} onChange={e=>setEditData({...editData,[f.key]:e.target.value})} placeholder={`Enter ${f.label.toLowerCase()}...`}/>}
@@ -4849,6 +5177,20 @@ const ClientApp = ({session, onLogout, showToast}) => {
         <span style={{fontSize:11.5,color:'var(--tx-1)',lineHeight:1.5}}>Custom fields are encrypted with AES-256-GCM, stored in your vault, and can be selectively shared with providers — identical to built-in fields.</span>
       </div>
       <button onClick={handleAddCustomField} className="b-pri" disabled={!newFieldLabel.trim()} style={{width:'100%'}}>Create Field</button>
+    </Modal>
+
+    {/* FRAMEWORK TOGGLE MODAL */}
+    <Modal open={frameworkModal} onClose={()=>setFrameworkModal(false)} title="Data Field Frameworks" w={640}>
+      <FrameworkTogglePanel
+        enabledFrameworks={enabledFrameworks}
+        onToggle={async (next) => {
+          setEnabledFrameworks(next);
+          await saveSnapshot(undefined, undefined, undefined, undefined, next);
+          const delta = next.length - enabledFrameworks.length;
+          if (delta > 0) showToast(`Framework enabled — ${getFrameworkFields(next).length} total fields`, 'success');
+          else if (delta < 0) showToast('Framework disabled', 'warn');
+        }}
+      />
     </Modal>
   </div>;
 };
@@ -6389,8 +6731,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">SHARED DATA — CLIENT CONTROLLED</span>
           {(()=>{
-            const knownKeys = new Set(VAULT_FIELDS.map(f=>f.key));
+            const allFwFields = getFrameworkFields(FRAMEWORK_FIELD_STANDARDS.map(fw=>fw.id));
+            const knownKeys = new Set([...VAULT_FIELDS.map(f=>f.key), ...allFwFields.map(f=>f.key)]);
+            const fwFieldsByKey = {};
+            allFwFields.forEach(f => { fwFieldsByKey[f.key] = f; });
             const customShared = Object.keys(activeCaseData.sharedData).filter(k=>!knownKeys.has(k));
+            const sharedFwFields = allFwFields.filter(f => activeCaseData.sharedData[f.key]);
             return <>
               {FIELD_CATEGORIES.map(cat=>{const fields=VAULT_FIELDS.filter(f=>f.category===cat&&activeCaseData.sharedData[f.key]);
                 if(!fields.length) return null;
@@ -6403,6 +6749,18 @@ const ProviderApp = ({session, onLogout, showToast}) => {
                     <span style={{fontSize:12.5,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeCaseData.sharedData[f.key]}</span>
                   </div>)}
                 </div>;})}
+              {sharedFwFields.length>0&&<div style={{marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                  <span style={{color:'var(--blue)'}}><I n="grid" s={12}/></span>
+                  <span style={{fontSize:10.5,fontFamily:'var(--mono)',color:'var(--tx-2)',letterSpacing:'.05em'}}>FRAMEWORK FIELDS</span></div>
+                {sharedFwFields.map(f=><div key={f.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border-0)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:12,color:'var(--tx-1)'}}>{f.label}</span>
+                    <span className={`tag tag-${FRAMEWORK_BY_ID[f.framework]?.accent||'blue'}`} style={{fontSize:7.5,padding:'1px 5px'}}>{f.frameworkName}</span>
+                  </div>
+                  <span style={{fontSize:12.5,fontWeight:500,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeCaseData.sharedData[f.key]}</span>
+                </div>)}
+              </div>}
               {customShared.length>0&&<div style={{marginBottom:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
                   <span style={{color:'var(--purple)'}}><I n="file" s={12}/></span>
