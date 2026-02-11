@@ -2936,7 +2936,7 @@ const SchemaWorkbench = ({isOrg = false}) => {
 
       {/* ═══ ADD PROMPT (overlay) ═══ */}
       {addingPrompt && (
-        <div style={{border:`1px solid ${SWC.givenBorder}`,borderRadius:10,background:SWC.surface,padding:20,marginBottom:16}}>
+        <div style={{position:"fixed",bottom:24,right:24,zIndex:1000,width:370,border:`1px solid ${SWC.givenBorder}`,borderRadius:10,background:SWC.surface,padding:20,boxShadow:"0 8px 32px rgba(0,0,0,0.45)"}}>
           <div style={{fontSize:13,fontWeight:600,color:SWC.given,marginBottom:10}}>New Observation Question</div>
           <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Type your question..." onKeyDown={e=>{if(e.key==="Enter")doAddPrompt();if(e.key==="Escape"){setAddingPrompt(false);setDraft("");}}}/>
           <div style={{fontSize:11,color:SWC.dim,marginTop:6,lineHeight:1.5}}>Can it be answered by observing — without consulting a policy? Then it's GIVEN.</div>
