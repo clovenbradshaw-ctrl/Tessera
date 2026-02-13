@@ -3790,7 +3790,7 @@ const classifyEvent = (ev, roomInfo) => {
       case EVT.BRIDGE_META: { const rel = RELATIONSHIP_TYPES[content.relationship_type] || RELATIONSHIP_TYPES.client_provider; return {op:'CON',epistemic:'MEANT',label:'Bridge Connection',desc:`${content.status} — ${rel.label} — ${content.client?.slice(0,16)} ↔ ${content.provider?.slice(0,16)}`}; }
       case EVT.BRIDGE_REFS: return {op:'SEG',epistemic:'MEANT',label:'Field Refs Update',desc:`${Object.keys(content.fields||{}).length} encrypted refs${content.revoked?' (REVOKED)':''}`};
       case EVT.ROSTER_INDEX: return {op:'ALT',epistemic:'MEANT',label:'Roster Update',desc:`${(content.cases||[]).length} cases`};
-      case EVT.ROSTER_ASSIGN: return {op:'SEG',epistemic:'MEANT',label:'Case Assignment',desc:`${Object.keys(content).length} assignments`};
+      case EVT.ROSTER_ASSIGN: return {op:'SEG',epistemic:'MEANT',label:'Case Assignment',desc:`${Object.keys(content.assignments||content).length} case${Object.keys(content.assignments||content).length!==1?'s':''} assigned`};
       case EVT.ORG_ROSTER: return {op:'ALT',epistemic:'MEANT',label:'Org Roster',desc:`${(content.staff||[]).length} staff`};
       case EVT.ORG_METADATA: return {op:'DES',epistemic:'MEANT',label:'Org Metadata',desc:content.name||'org'};
       case EVT.ORG_INVITE: return {op:'CON',epistemic:'MEANT',label:'Org Invite',desc:content.userId};
@@ -4222,11 +4222,13 @@ const ClientApp = ({session, onLogout, showToast}) => {
           const teamMembers = state[EVT.TEAM_MEMBERS] || {members:[]};
           detectedTeams.push({roomId:rid, ...teamMeta, members:teamMembers.members||[]});
         }
-        // Collect provider profiles from bridge rooms
+        // Collect provider profiles and bridge metadata from bridge rooms
         const bridgeMeta = state[EVT.BRIDGE_META];
         const provProfile = state[EVT.PROVIDER_PROFILE];
-        if (bridgeMeta && bridgeMeta.client === svc.userId && provProfile) {
-          bridgeProfiles[rid] = provProfile;
+        if (bridgeMeta && bridgeMeta.client === svc.userId) {
+          if (provProfile) bridgeProfiles[rid] = provProfile;
+          // Track transferable and org_id from bridge meta
+          bridgeProfiles[rid] = {...(bridgeProfiles[rid]||{}), _bridgeMeta: bridgeMeta};
         }
       }
       if (!vault) {
@@ -4275,10 +4277,19 @@ const ClientApp = ({session, onLogout, showToast}) => {
     setCustomFieldDefs(snap?.custom_field_defs || []);
     setEnabledFrameworks(snap?.enabled_frameworks || []);
     const idx = await svc.getState(rid, EVT.VAULT_PROVIDERS);
-    // Enrich providers with profile data from bridge rooms
+    // Enrich providers with profile data and bridge meta from bridge rooms
     const enrichedProviders = (idx?.providers || []).map(p => {
       const profile = bridgeProfiles?.[p.bridgeRoomId];
-      return profile ? {...p, providerProfile: profile, providerName: profile.display_name || p.providerName} : p;
+      if (!profile) return p;
+      const bm = profile._bridgeMeta;
+      const clean = {...profile}; delete clean._bridgeMeta;
+      return {...p,
+        providerProfile: clean.display_name ? clean : p.providerProfile,
+        providerName: clean.display_name || p.providerName,
+        transferable: bm?.transferable !== false ? true : false,
+        org_id: bm?.org_id || p.org_id || null,
+        assigned_staff: bm?.assigned_staff || [p.providerUserId],
+      };
     });
     setProviders(enrichedProviders);
   };
@@ -4341,13 +4352,13 @@ const ClientApp = ({session, onLogout, showToast}) => {
     if (!newProviderId.trim()) return;
     try {
       const bridgeId = await svc.createRoom(`[Khora Bridge] ${svc.userId} ↔ ${newProviderId}`, 'Khora bridge — shared data room', [
-        {type:EVT.BRIDGE_META,state_key:'',content:{client:svc.userId,provider:newProviderId,relationship_type:RELATIONSHIP_TYPES.client_provider.id,created:Date.now(),status:'active'}},
+        {type:EVT.BRIDGE_META,state_key:'',content:{client:svc.userId,provider:newProviderId,relationship_type:RELATIONSHIP_TYPES.client_provider.id,created:Date.now(),status:'active',transferable:true,org_id:null,assigned_staff:[newProviderId]}},
         {type:EVT.BRIDGE_REFS,state_key:'',content:{fields:{}}},
       ]);
       await svc.invite(bridgeId, newProviderId);
       await emitOp(vaultRoom, 'CON', {source:svc.userId,destination:newProviderId,relationship:RELATIONSHIP_TYPES.client_provider.id},
         {bridge_room:bridgeId,initiated_by:'client'}, vaultFrame());
-      const newProv = {bridgeRoomId:bridgeId,providerUserId:newProviderId,sharedFields:{},providerName:newProviderId};
+      const newProv = {bridgeRoomId:bridgeId,providerUserId:newProviderId,sharedFields:{},providerName:newProviderId,transferable:true};
       await saveProviderIndex([...providers, newProv]);
       setAddProviderModal(false); setNewProviderId('');
       showToast(`Bridge created — invite sent to ${newProviderId}`,'success');
@@ -4378,11 +4389,28 @@ const ClientApp = ({session, onLogout, showToast}) => {
     showToast(newShared[fk]?`Shared ${label} — new key issued`:`Revoked ${label} — key destroyed`, newShared[fk]?'success':'warn');
   };
 
+  // Toggle whether this client allows their case to be transferred between providers within the org
+  const handleToggleTransferable = async (pi) => {
+    const prov = providers[pi];
+    const newVal = !prov.transferable;
+    try {
+      // Update bridge meta (client has PL 100 — full control)
+      const currentMeta = await svc.getState(prov.bridgeRoomId, EVT.BRIDGE_META);
+      await svc.setState(prov.bridgeRoomId, EVT.BRIDGE_META, {...currentMeta, transferable: newVal});
+      await emitOp(prov.bridgeRoomId, 'ALT', {entity:'bridge',field:'transferable',value:newVal},
+        {reason:newVal?'client_enabled_transfer':'client_disabled_transfer'}, bridgeFrame(prov.bridgeRoomId));
+      // Update local provider index
+      const ups = [...providers]; ups[pi] = {...prov, transferable: newVal};
+      await saveProviderIndex(ups);
+      showToast(newVal ? 'Provider transfer allowed — org can reassign your case' : 'Provider transfer blocked — only this provider can access your bridge', newVal ? 'success' : 'warn');
+    } catch(e) { showToast('Failed to update transfer setting: '+e.message, 'error'); }
+  };
+
   const handleHardRevoke = async (pi) => {
     const prov = providers[pi];
     try {
       const newBridgeId = await svc.createRoom(`[Khora Bridge] ${svc.userId} ↔ ${prov.providerUserId}`, 'Khora bridge — replaced', [
-        {type:EVT.BRIDGE_META,state_key:'',content:{client:svc.userId,provider:prov.providerUserId,relationship_type:RELATIONSHIP_TYPES.client_provider.id,created:Date.now(),status:'active',previous:prov.bridgeRoomId}},
+        {type:EVT.BRIDGE_META,state_key:'',content:{client:svc.userId,provider:prov.providerUserId,relationship_type:RELATIONSHIP_TYPES.client_provider.id,created:Date.now(),status:'active',previous:prov.bridgeRoomId,transferable:prov.transferable!==false,org_id:null,assigned_staff:[prov.providerUserId]}},
         {type:EVT.BRIDGE_REFS,state_key:'',content:{fields:{}}},
       ]);
       await emitOp(prov.bridgeRoomId, 'NUL', {entity:'bridge',field:'relationship'}, {reason:'hard_revoke'}, bridgeFrame(prov.bridgeRoomId));
@@ -4730,6 +4758,23 @@ const ClientApp = ({session, onLogout, showToast}) => {
                     <button onClick={()=>setHardRevokeTarget(pi)} className="b-red b-sm"><I n="zap" s={11}/></button>
                     <button onClick={()=>handleRemoveProvider(pi)} className="b-gho b-sm" style={{color:'var(--red)'}}><I n="trash" s={12}/></button>
                   </div>
+                </div>
+                {/* Transferable setting — client controls whether org can reassign */}
+                <div style={{padding:'10px 18px',borderBottom:'1px solid var(--border-0)',background:prov.transferable===false?'var(--red-dim)':'var(--green-dim)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flex:1}}>
+                    <I n={prov.transferable===false?'lock':'users'} s={14} c={prov.transferable===false?'var(--red)':'var(--green)'}/>
+                    <div>
+                      <span style={{fontSize:12,fontWeight:600,color:prov.transferable===false?'var(--red)':'var(--green)',display:'block'}}>
+                        {prov.transferable===false ? 'Transfer Locked' : 'Transferable'}
+                      </span>
+                      <span style={{fontSize:10,color:'var(--tx-2)'}}>
+                        {prov.transferable===false
+                          ? 'Only this provider can access your bridge. Org cannot reassign.'
+                          : 'Org can reassign your case to a different provider if needed.'}
+                      </span>
+                    </div>
+                  </div>
+                  <Toggle on={prov.transferable!==false} onChange={()=>handleToggleTransferable(pi)}/>
                 </div>
                 <div style={{padding:'12px 18px'}}>
                   <span className="section-label">FIELD-LEVEL SHARING</span>
@@ -5261,6 +5306,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [inviteModal, setInviteModal] = useState(false);
   const [inviteUserId, setInviteUserId] = useState('');
   const [inviteRole, setInviteRole] = useState('case_manager');
+  // Case assignments — tracks which staff are assigned to which bridges within the org
+  const [caseAssignments, setCaseAssignments] = useState({}); // { [bridgeRoomId]: { primary, staff:[], client_name, transferable } }
+  const [transferModal, setTransferModal] = useState(null); // case object to transfer
+  const [transferTarget, setTransferTarget] = useState(''); // staff user ID to transfer to
   // Client records — provider-created rooms representing clients
   const [clientRecords, setClientRecords] = useState([]);
   const [createClientModal, setCreateClientModal] = useState(false);
@@ -5369,8 +5418,13 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           detectedTeams.push({roomId:rid, ...teamMeta, members:teamMembers.members||[], owner:id.owner, created:id.created});
         }
         const meta = state[EVT.BRIDGE_META];
-        if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
-          bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+        if (meta && meta.status!=='tombstoned') {
+          // Include bridges where this user is the provider OR any org staff member is assigned
+          if (meta.provider===svc.userId) {
+            bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS], mine: true});
+          } else if (meta.assigned_staff?.includes(svc.userId)) {
+            bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS], mine: true});
+          }
         }
       }
       if (!roster) {
@@ -5430,6 +5484,11 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         }
         // Load detected org messaging channels
         if (detectedOrgChannels.length > 0) setOrgChannels(detectedOrgChannels);
+        // Load case assignments from org room
+        try {
+          const assignments = await svc.getState(detectedOrg, EVT.ROSTER_ASSIGN);
+          if (assignments?.assignments) setCaseAssignments(assignments.assignments);
+        } catch(e) { console.warn('Assignment load:', e.message); }
       }
       // Load teams detected during scan
       if (detectedTeams.length > 0) setTeams(detectedTeams);
@@ -5459,6 +5518,21 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       // Process bridge data collected during scan (no second pass needed)
       await loadCasesFromScan(bridgeData, metricsR);
       await loadMetrics(metricsR);
+      // Auto-register bridges in org assignments if needed
+      if (detectedOrg && bridgeData.length > 0) {
+        const currentAssignments = {};
+        try {
+          const a = await svc.getState(detectedOrg, EVT.ROSTER_ASSIGN);
+          if (a?.assignments) Object.assign(currentAssignments, a.assignments);
+        } catch {}
+        const casesForSync = bridgeData.map(({rid, meta, refs}) => ({
+          bridgeRoomId: rid, meta,
+          sharedData: {}, clientUserId: meta.client,
+          transferable: meta.transferable !== false,
+          assigned_staff: meta.assigned_staff || [meta.provider],
+        }));
+        await syncAssignments(detectedOrg, casesForSync, currentAssignments);
+      }
     } catch (e) {
       console.error('Provider init failed:', e);
       setInitError(e.message || 'Failed to initialize provider workspace.');
@@ -5480,7 +5554,17 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           } catch { /* skip undecryptable field */ }
         }
       }
-      found.push({bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted, metricsRoom:mRoom||metricsRoom});
+      // Backfill org_id on bridge meta if provider has an org and bridge doesn't have one yet
+      if (orgRoom && !meta.org_id && meta.provider === svc.userId) {
+        try { await svc.setState(rid, EVT.BRIDGE_META, {...meta, org_id: orgRoom}); meta.org_id = orgRoom; } catch {}
+      }
+      found.push({
+        bridgeRoomId:rid, clientUserId:meta.client, meta, sharedData:decrypted,
+        metricsRoom:mRoom||metricsRoom,
+        transferable: meta.transferable !== false,
+        org_id: meta.org_id || null,
+        assigned_staff: meta.assigned_staff || [meta.provider],
+      });
     }
     setCases(found);
   };
@@ -5490,11 +5574,38 @@ const ProviderApp = ({session, onLogout, showToast}) => {
     const bridgeData = [];
     for (const [rid, state] of Object.entries(scanned)) {
       const meta = state[EVT.BRIDGE_META];
-      if (meta && meta.provider===svc.userId && meta.status!=='tombstoned') {
-        bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+      if (meta && meta.status!=='tombstoned') {
+        if (meta.provider===svc.userId || meta.assigned_staff?.includes(svc.userId)) {
+          bridgeData.push({rid, meta, refs: state[EVT.BRIDGE_REFS]});
+        }
       }
     }
     await loadCasesFromScan(bridgeData);
+  };
+
+  // Auto-register cases in org ROSTER_ASSIGN when they aren't tracked yet
+  const syncAssignments = async (orgRoomId, currentCases, currentAssignments) => {
+    if (!orgRoomId) return;
+    let updated = false;
+    const assignments = {...currentAssignments};
+    for (const c of currentCases) {
+      if (!assignments[c.bridgeRoomId]) {
+        assignments[c.bridgeRoomId] = {
+          primary: c.meta.provider,
+          staff: c.assigned_staff || [c.meta.provider],
+          client_name: c.sharedData.full_name || c.clientUserId,
+          transferable: c.transferable,
+          added: Date.now(),
+        };
+        updated = true;
+      }
+    }
+    if (updated) {
+      try {
+        await svc.setState(orgRoomId, EVT.ROSTER_ASSIGN, {assignments});
+        setCaseAssignments(assignments);
+      } catch(e) { console.warn('Assignment sync failed:', e.message); }
+    }
   };
 
   const loadMetrics = async (mRoom) => {
@@ -5555,6 +5666,82 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       .filter(e=>e.getType()===EVT.OBSERVATION)
       .map(e=>e.getContent());
     setProvObservations(obs);
+  };
+
+  // ─── Case transfer between providers within org ───
+  const handleTransferCase = async () => {
+    if (!transferModal || !transferTarget.trim() || !orgRoom) return;
+    const c = transferModal;
+    // Check if client has allowed transfers
+    if (!c.transferable) {
+      showToast(`Transfer blocked — ${T.client_term.toLowerCase()} has disabled provider transfers for this bridge`, 'error');
+      return;
+    }
+    // Don't transfer to the same provider
+    if (transferTarget === c.meta.provider) {
+      showToast('Case is already assigned to this provider', 'warn');
+      return;
+    }
+    // Verify target is org staff
+    const targetStaff = staff.find(s => s.userId === transferTarget);
+    if (!targetStaff) {
+      showToast('Target must be a member of your organization', 'error');
+      return;
+    }
+    try {
+      // Step 1: Invite new provider to the bridge room
+      try {
+        await svc.invite(c.bridgeRoomId, transferTarget);
+      } catch(e) {
+        // May fail if already a member or if we lack permissions
+        console.warn('Invite during transfer:', e.message);
+      }
+      // Step 2: Update bridge meta — set new provider, update assigned_staff
+      const updatedStaff = [...new Set([...(c.assigned_staff||[]), transferTarget])];
+      try {
+        const currentMeta = await svc.getState(c.bridgeRoomId, EVT.BRIDGE_META);
+        await svc.setState(c.bridgeRoomId, EVT.BRIDGE_META, {
+          ...currentMeta,
+          provider: transferTarget,
+          assigned_staff: updatedStaff,
+          transferred_from: c.meta.provider,
+          transferred_at: Date.now(),
+          transferred_by: svc.userId,
+        });
+      } catch(e) {
+        // Provider may not have state permission — update org assignment instead
+        console.warn('Bridge meta update:', e.message);
+      }
+      // Step 3: Update ROSTER_ASSIGN in org room
+      const updatedAssignments = {...caseAssignments};
+      updatedAssignments[c.bridgeRoomId] = {
+        primary: transferTarget,
+        staff: updatedStaff,
+        client_name: c.sharedData?.full_name || c.clientUserId,
+        transferable: c.transferable,
+        transferred_from: c.meta.provider,
+        transferred_at: Date.now(),
+        transferred_by: svc.userId,
+        added: caseAssignments[c.bridgeRoomId]?.added || Date.now(),
+      };
+      await svc.setState(orgRoom, EVT.ROSTER_ASSIGN, {assignments: updatedAssignments});
+      setCaseAssignments(updatedAssignments);
+      // Step 4: Emit EO operation
+      await emitOp(orgRoom, 'ALT', {
+        entity:'case_assignment', field:'provider',
+        from: c.meta.provider, to: transferTarget,
+      }, {
+        bridge_room: c.bridgeRoomId,
+        client: c.clientUserId,
+        reason: 'org_transfer',
+        initiated_by: svc.userId,
+      }, orgFrame());
+      setTransferModal(null);
+      setTransferTarget('');
+      showToast(`Case transferred to ${targetStaff.userId}`, 'success');
+      // Refresh cases
+      await loadCases();
+    } catch(e) { showToast('Transfer failed: ' + e.message, 'error'); }
   };
 
   // ─── Client record management ───
@@ -6335,15 +6522,23 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         {/* Cases section */}
         <div style={{padding:'14px 10px 4px'}}><span className="section-label">CASES ({cases.length})</span></div>
         {cases.length===0&&<p style={{color:'var(--tx-3)',fontSize:11.5,padding:'12px 10px',textAlign:'center'}}>No clients shared with you yet</p>}
-        {cases.map((c,i)=><div key={c.bridgeRoomId} onClick={()=>openCase(c.bridgeRoomId)}
+        {cases.map((c,i)=>{
+          const assignment = caseAssignments[c.bridgeRoomId];
+          const isPrimary = (assignment?.primary || c.meta?.provider) === svc.userId;
+          return <div key={c.bridgeRoomId} onClick={()=>openCase(c.bridgeRoomId)}
           style={{padding:'8px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
             background:activeCase===c.bridgeRoomId?'var(--bg-4)':'transparent',
             borderLeft:activeCase===c.bridgeRoomId?'2px solid var(--gold)':'2px solid transparent',transition:'all .15s'}}
           onMouseEnter={e=>{if(activeCase!==c.bridgeRoomId)e.currentTarget.style.background='var(--bg-3)'}}
           onMouseLeave={e=>{if(activeCase!==c.bridgeRoomId)e.currentTarget.style.background='transparent'}}>
           <span style={{fontSize:12,fontWeight:activeCase===c.bridgeRoomId?600:400,display:'block'}}>{c.sharedData.full_name||c.clientUserId}</span>
-          <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{Object.keys(c.sharedData).length} fields</span>
-        </div>)}
+          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:1}}>
+            <span style={{fontSize:9.5,color:'var(--tx-3)',fontFamily:'var(--mono)'}}>{Object.keys(c.sharedData).length} fields</span>
+            {c.transferable ? <I n="users" s={8} c="var(--teal)"/> : <I n="lock" s={8} c="var(--red)"/>}
+            {!isPrimary && <span style={{fontSize:8,color:'var(--gold)',fontFamily:'var(--mono)'}}>{(assignment?.primary||c.meta?.provider)?.split(':')[0]?.replace('@','')}</span>}
+          </div>
+        </div>;})}
+
         <div style={{padding:'12px 10px',display:'flex',flexDirection:'column',gap:4}}>
           <button onClick={()=>setDiscoverModal(true)} className="b-gho b-sm" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
             <I n="search" s={12}/>Find Client</button>
@@ -6415,19 +6610,30 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
         {cases.length>0&&<><span className="section-label">ALL CASES</span>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10,marginTop:6}}>
-            {cases.map(c=><div key={c.bridgeRoomId} className="card-h" onClick={()=>openCase(c.bridgeRoomId)}>
+            {cases.map(c=>{
+              const assignment = caseAssignments[c.bridgeRoomId];
+              const primaryProvider = assignment?.primary || c.meta?.provider;
+              const isPrimaryMine = primaryProvider === svc.userId;
+              return <div key={c.bridgeRoomId} className="card-h" onClick={()=>openCase(c.bridgeRoomId)}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                 <span style={{fontSize:14,fontWeight:600}}>{c.sharedData.full_name||`Anonymous ${T.client_term}`}</span>
                 <I n="chevR" s={13} c="var(--tx-3)"/></div>
               {c.sharedData.email&&<span style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--tx-2)',display:'block',marginBottom:6}}>{c.sharedData.email}</span>}
-              <div style={{display:'flex',gap:4}}>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                 <span className="tag tag-green"><I n="lock" s={9}/>E2EE</span>
-                <span className="tag tag-blue">{Object.keys(c.sharedData).length} fields</span></div>
-            </div>)}
+                <span className="tag tag-blue">{Object.keys(c.sharedData).length} fields</span>
+                {c.transferable ? <span className="tag tag-teal"><I n="users" s={9}/>Transferable</span>
+                  : <span className="tag tag-red"><I n="lock" s={9}/>Locked</span>}
+                {!isPrimaryMine && <span className="tag tag-gold" style={{fontSize:8}}>{primaryProvider?.split(':')[0]?.replace('@','')}</span>}
+              </div>
+              {assignment?.transferred_from && <div style={{marginTop:6,fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>
+                Transferred from {assignment.transferred_from.split(':')[0]?.replace('@','')}
+              </div>}
+            </div>;})}
           </div></>}
         <div style={{background:'var(--gold-dim)',border:'1px solid var(--gold-mid)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:20,display:'flex',gap:10,alignItems:'flex-start'}}>
           <I n="eye" s={16} c="var(--gold)"/>
-          <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>As a provider, you cannot modify client vault data. Clients can revoke your access at any time.{!orgRoom&&' Create or join an organization to manage staff, cases across your team, and participate in networks.'}</span>
+          <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>As a provider, you cannot modify client vault data. Clients can revoke your access at any time.{!orgRoom&&' Create or join an organization to manage staff, cases across your team, and participate in networks.'}{orgRoom&&' Cases marked "Transferable" can be reassigned to other org staff. Clients can lock transfers at any time.'}</span>
         </div>
       </div>}
 
@@ -6751,10 +6957,40 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       {view==='case'&&activeCaseData&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
         <button onClick={()=>{setView('dashboard');setActiveCase(null)}} className="b-gho b-sm" style={{marginBottom:14,display:'flex',alignItems:'center',gap:4}}><I n="back" s={13}/>All Cases</button>
         <div style={{marginBottom:20}}>
-          <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>{activeCaseData.sharedData.full_name||activeCaseData.clientUserId}</h2>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
-            <span className="tag tag-green"><I n="lock" s={9}/>Megolm + AES-GCM</span>
-            <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>Client-owned bridge</span></div>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+            <div>
+              <h2 style={{fontFamily:'var(--serif)',fontSize:20,fontWeight:700}}>{activeCaseData.sharedData.full_name||activeCaseData.clientUserId}</h2>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,flexWrap:'wrap'}}>
+                <span className="tag tag-green"><I n="lock" s={9}/>Megolm + AES-GCM</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:9.5,color:'var(--tx-3)'}}>Client-owned bridge</span>
+                {activeCaseData.transferable
+                  ? <span className="tag tag-teal"><I n="users" s={9}/>Transferable</span>
+                  : <span className="tag tag-red"><I n="lock" s={9}/>Transfer Locked</span>}
+              </div>
+            </div>
+            {orgRoom && (orgRole==='admin'||orgRole==='case_manager') && staff.length > 1 &&
+              <button onClick={()=>{setTransferModal(activeCaseData);setTransferTarget('')}} className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:5}}>
+                <I n="users" s={12}/>Transfer
+              </button>}
+          </div>
+          {/* Assignment info */}
+          {(()=>{
+            const assignment = caseAssignments[activeCaseData.bridgeRoomId];
+            if (!assignment || !orgRoom) return null;
+            return <div style={{marginTop:10,padding:'10px 14px',background:'var(--bg-2)',border:'1px solid var(--border-0)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:10}}>
+              <I n="briefcase" s={14} c="var(--gold)"/>
+              <div style={{flex:1}}>
+                <span style={{fontSize:11.5,fontWeight:600,display:'block'}}>Assigned to: {assignment.primary?.split(':')[0]?.replace('@','')}</span>
+                {assignment.staff?.length > 1 && <span style={{fontSize:10,color:'var(--tx-2)'}}>
+                  +{assignment.staff.length - 1} additional staff with access
+                </span>}
+                {assignment.transferred_from && <span style={{fontSize:9.5,color:'var(--tx-2)',fontFamily:'var(--mono)',display:'block',marginTop:2}}>
+                  Transferred from {assignment.transferred_from.split(':')[0]?.replace('@','')} on {new Date(assignment.transferred_at).toLocaleDateString()}
+                </span>}
+              </div>
+              {assignment.primary === svc.userId && <span className="tag tag-gold" style={{fontSize:8}}>YOU</span>}
+            </div>;
+          })()}
         </div>
         <div className="card" style={{marginBottom:16}}>
           <span className="section-label">SHARED DATA — CLIENT CONTROLLED</span>
@@ -8115,6 +8351,72 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       <button onClick={handleSaveMsgAccess} className="b-pri" style={{width:'100%',padding:12,fontSize:14}}>
         <I n="check" s={16}/> Save Access Settings
       </button>
+    </Modal>
+
+    {/* TRANSFER CASE MODAL */}
+    <Modal open={!!transferModal} onClose={()=>{setTransferModal(null);setTransferTarget('')}} title="Transfer Case" w={520}>
+      {transferModal&&<>
+        <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:16,lineHeight:1.6}}>
+          Reassign this case to a different {T.provider_term.toLowerCase()} within your organization. The new {T.provider_term.toLowerCase()} will be invited to the encrypted bridge room.
+        </p>
+        {/* Current assignment info */}
+        <div className="card" style={{padding:14,marginBottom:16}}>
+          <span className="section-label">CURRENT CASE</span>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
+            <div style={{width:36,height:36,borderRadius:'50%',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)',border:'2px solid var(--teal)'}}>
+              <I n="user" s={16}/>
+            </div>
+            <div>
+              <span style={{fontSize:14,fontWeight:600,display:'block'}}>{transferModal.sharedData?.full_name||transferModal.clientUserId}</span>
+              <span style={{fontSize:10.5,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>Currently: {transferModal.meta?.provider?.split(':')[0]?.replace('@','')}</span>
+            </div>
+          </div>
+        </div>
+        {/* Transferable status */}
+        {!transferModal.transferable && <div style={{background:'var(--red-dim)',border:'1px solid rgba(232,93,93,.18)',borderRadius:'var(--r)',padding:'12px 16px',marginBottom:16,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <I n="lock" s={16} c="var(--red)"/>
+          <div>
+            <span style={{fontSize:12,fontWeight:600,color:'var(--red)',display:'block'}}>Transfer Blocked by {T.client_term}</span>
+            <span style={{fontSize:11,color:'var(--tx-1)'}}>This {T.client_term.toLowerCase()} has disabled provider transfers. Only they can change this setting.</span>
+          </div>
+        </div>}
+        {transferModal.transferable && <>
+          {/* Select new provider */}
+          <div style={{marginBottom:16}}>
+            <span className="section-label">ASSIGN TO {T.provider_term.toUpperCase()}</span>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {staff.filter(s=>s.userId!==transferModal.meta?.provider).map(s=>{
+                const isSelected = transferTarget === s.userId;
+                return <div key={s.userId} onClick={()=>setTransferTarget(s.userId)}
+                  style={{padding:'10px 14px',borderRadius:'var(--r)',cursor:'pointer',display:'flex',alignItems:'center',gap:10,
+                    border:`1px solid ${isSelected?'var(--gold)':'var(--border-1)'}`,
+                    background:isSelected?'var(--gold-dim)':'var(--bg-3)',transition:'all .15s'}}>
+                  <span style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${isSelected?'var(--gold)':'var(--tx-3)'}`,
+                    background:isSelected?'var(--gold)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--bg-0)',fontSize:9,fontWeight:800}}>
+                    {isSelected?'✓':''}
+                  </span>
+                  <div style={{flex:1}}>
+                    <span style={{fontSize:12.5,fontWeight:isSelected?600:400,display:'block'}}>{s.userId.split(':')[0]?.replace('@','')}</span>
+                    <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{ORG_ROLE_LABELS[s.role]||s.role}</span>
+                  </div>
+                  <span className={`tag tag-${s.role==='admin'?'gold':s.role==='case_manager'?'blue':'teal'}`} style={{fontSize:8}}>
+                    {(ORG_ROLE_LABELS[s.role]||s.role).toUpperCase()}
+                  </span>
+                </div>;
+              })}
+              {staff.filter(s=>s.userId!==transferModal.meta?.provider).length===0&&
+                <div style={{padding:16,textAlign:'center',color:'var(--tx-3)',fontSize:12}}>No other staff available for transfer.</div>}
+            </div>
+          </div>
+          <div style={{background:'var(--teal-dim)',border:'1px solid rgba(62,201,176,.15)',borderRadius:'var(--r)',padding:'10px 14px',marginBottom:16,fontSize:11.5,color:'var(--tx-1)',lineHeight:1.6}}>
+            <strong style={{color:'var(--teal)'}}>The {T.client_term.toLowerCase()} retains full control.</strong> They can revoke access from the new {T.provider_term.toLowerCase()} at any time. Encrypted field keys remain {T.client_term.toLowerCase()}-owned.
+          </div>
+          <button onClick={handleTransferCase} className="b-pri" disabled={!transferTarget}
+            style={{width:'100%',padding:12,fontSize:14}}>
+            <I n="users" s={16}/> Transfer Case
+          </button>
+        </>}
+      </>}
     </Modal>
   </div>;
 };
