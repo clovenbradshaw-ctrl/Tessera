@@ -164,6 +164,91 @@ button{font-family:var(--sans);cursor:pointer;border:none;border-radius:var(--r)
 .gm-sankey-line{position:absolute;pointer-events:none}
 .gm-sup-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:10px;
   font-size:11px;font-family:var(--mono);font-weight:600;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(201,163,82,.2)}
+
+/* ═══ Form Builder / Schema Builder UX ═══ */
+.fb-canvas{max-width:920px;margin:0 auto}
+.fb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px}
+.fb-header-title{font-family:var(--serif);font-size:22px;font-weight:700}
+.fb-header-meta{font-size:12px;color:var(--tx-2);font-family:var(--mono)}
+.fb-mode-toggle{display:flex;gap:2px;background:var(--bg-1);border-radius:var(--r);padding:3px}
+.fb-mode-btn{padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;
+  color:var(--tx-2);background:transparent;border:none;font-family:inherit;display:flex;align-items:center;gap:6px}
+.fb-mode-btn.active{background:var(--bg-3);color:var(--tx-0);font-weight:600}
+.fb-mode-btn:hover:not(.active){background:var(--bg-2)}
+.fb-section{border:1px solid var(--border-0);border-radius:var(--r-lg);margin-bottom:16px;overflow:hidden;background:var(--bg-1)}
+.fb-section-header{padding:14px 18px;background:var(--bg-2);border-bottom:1px solid var(--border-0);display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.fb-section-title{font-size:14px;font-weight:600;color:var(--tx-0);display:flex;align-items:center;gap:8px}
+.fb-section-count{font-size:11px;color:var(--tx-2);font-family:var(--mono)}
+.fb-question{padding:16px 18px;border-bottom:1px solid var(--border-0);transition:background .15s}
+.fb-question:last-child{border-bottom:none}
+.fb-question:hover{background:var(--bg-2)}
+.fb-question-prompt{font-size:15px;font-weight:600;color:var(--tx-0);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.fb-question-type{font-size:11px;color:var(--tx-2);font-family:var(--mono);padding:2px 8px;background:var(--bg-3);border-radius:3px}
+.fb-answer-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.fb-answer{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:5px;transition:all .12s;cursor:pointer}
+.fb-answer:hover{background:var(--bg-3)}
+.fb-answer-radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-2);flex-shrink:0}
+.fb-answer-check{width:16px;height:16px;border-radius:3px;border:2px solid var(--border-2);flex-shrink:0}
+.fb-answer-label{font-size:14px;color:var(--tx-0);flex:1}
+.fb-answer-dots{display:flex;gap:3px;align-items:center;flex-shrink:0}
+.fb-prov-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:all .15s}
+.fb-prov-dot.bound{background:var(--green)}
+.fb-prov-dot.unbound{background:var(--border-2);border:1.5px solid var(--tx-3);box-sizing:border-box}
+.fb-prov-dot.conflict{background:var(--gold);box-shadow:0 0 4px var(--gold)}
+.fb-source-tag{font-size:11px;color:var(--tx-2);margin-top:8px;display:flex;align-items:center;gap:6px}
+.fb-wire-btn{font-size:12px;color:var(--teal);cursor:pointer;padding:4px 10px;border:1px solid rgba(62,201,176,.2);
+  border-radius:var(--r);background:var(--teal-dim);transition:all .15s;font-family:inherit;font-weight:500}
+.fb-wire-btn:hover{border-color:var(--teal);background:rgba(62,201,176,.12)}
+.fb-add-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;color:var(--tx-2);font-size:13px;
+  cursor:pointer;transition:color .15s;border:none;background:none;font-family:inherit;width:100%}
+.fb-add-btn:hover{color:var(--tx-0)}
+.fb-nudge{padding:12px 16px;border-radius:var(--r);border:1px solid rgba(91,156,245,.2);
+  background:var(--blue-dim);font-size:13px;color:var(--tx-1);line-height:1.6;margin-top:8px}
+.fb-nudge-title{color:var(--blue);font-weight:600;font-size:12px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.fb-nudge-suggestion{padding:6px 10px;margin-top:6px;border:1px solid var(--border-1);border-radius:var(--r);
+  cursor:pointer;font-size:13px;color:var(--tx-1);transition:all .12s}
+.fb-nudge-suggestion:hover{border-color:var(--blue);color:var(--blue);background:rgba(91,156,245,.06)}
+
+/* Wiring Panel */
+.fb-wire-panel{position:fixed;top:0;right:0;bottom:0;width:520px;max-width:90vw;background:var(--bg-1);
+  border-left:1px solid var(--border-0);z-index:40;display:flex;flex-direction:column;
+  animation:slideInRight .2s ease both;box-shadow:-8px 0 32px rgba(0,0,0,.3)}
+@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.fb-wire-panel-header{padding:18px 20px;border-bottom:1px solid var(--border-0);background:var(--bg-2)}
+.fb-wire-panel-body{flex:1;overflow:auto;padding:16px 20px}
+.fb-wire-fw-card{border:1px solid var(--border-0);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden;
+  background:var(--bg-2);transition:border-color .15s}
+.fb-wire-fw-card:hover{border-color:var(--border-2)}
+.fb-wire-fw-card-header{padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.fb-wire-fw-card-body{padding:10px 16px;border-top:1px solid var(--border-0)}
+.fb-wire-code-option{padding:8px 12px;border-radius:6px;cursor:pointer;transition:all .12s;
+  display:flex;align-items:center;gap:8px;border:1px solid transparent;margin-bottom:4px}
+.fb-wire-code-option:hover{border-color:var(--border-2);background:var(--bg-3)}
+.fb-wire-code-option.selected{border-color:var(--green);background:var(--green-dim)}
+.fb-wire-ground-truth{padding:14px 16px;border-radius:var(--r);border:1px solid var(--border-0);
+  background:var(--bg-2);font-size:12.5px;color:var(--tx-2);line-height:1.6;margin-top:16px}
+.fb-wire-conflict{padding:10px 14px;border-radius:var(--r);border:1px solid rgba(201,163,82,.25);
+  background:rgba(201,163,82,.06);margin-top:6px;font-size:12.5px;color:var(--tx-1);line-height:1.6}
+
+/* Inheritance markers */
+.fb-inherit-lock{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--blue);
+  font-family:var(--mono);font-weight:600;padding:1px 6px;border-radius:3px;background:var(--blue-dim)}
+.fb-inherit-local{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--green);
+  font-family:var(--mono);font-weight:600;padding:1px 6px;border-radius:3px;background:var(--green-dim)}
+
+/* Framework adoption modal */
+.fb-adopt-modal{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;z-index:50}
+.fb-adopt-panel{width:600px;max-height:85vh;overflow:auto;background:var(--bg-1);
+  border:1px solid var(--border-0);border-radius:var(--r-lg);padding:24px}
+
+/* Form preview mode */
+.fb-preview{max-width:640px;margin:0 auto;padding:24px}
+.fb-preview-question{margin-bottom:24px}
+.fb-preview-prompt{font-size:16px;font-weight:500;color:var(--tx-0);margin-bottom:10px}
+.fb-preview-option{padding:10px 14px;border:1px solid var(--border-0);border-radius:var(--r);
+  margin-bottom:6px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:10px}
+.fb-preview-option:hover{border-color:var(--teal);background:var(--teal-dim)}
 </style>
 </head>
 <body>
@@ -3846,6 +3931,965 @@ const SchemaWorkbench = ({isOrg = false}) => {
 };
 
 
+/* ═══════════════════ FORM BUILDER — Schema Builder UX ═══════════════════
+ * The FormBuilder implements the ideated Schema Builder UX with two modes:
+ *
+ *   Compose mode — Google-Forms-like drag-and-drop question building.
+ *     Questions are GIVEN (observations). Answer options describe observable things.
+ *     The GIVEN test nudge guides users toward observation-quality questions.
+ *
+ *   Wire mode — Connect answer options to framework codes (GIVEN → MEANT).
+ *     A wiring panel shows framework bindings with full provenance.
+ *     Provenance dots (●/○/⚡) encode binding status at a glance.
+ *
+ * The five primitives: QUESTION → VALUE → CODE → FRAMEWORK → BINDING + CROSSWALK
+ * ═══════════════════════════════════════════════════════════════════════════════ */
+
+// GIVEN test: words that suggest interpretation rather than observation
+const MEANT_SIGNAL_WORDS = ['category','classification','level','status','type','code','score','rating','rank','tier','class','grade','priority','eligibility','determination','assessment'];
+const checkGivenTest = (text) => {
+  const lower = text.toLowerCase();
+  const found = MEANT_SIGNAL_WORDS.filter(w => lower.includes(w));
+  return found.length > 0 ? found : null;
+};
+const suggestGivenRephrasing = (text) => {
+  const lower = text.toLowerCase();
+  if (lower.includes('homeless') && lower.includes('category')) return ['Where did you sleep last night?','Describe your current living situation.'];
+  if (lower.includes('status')) return ['What is happening right now?','Describe the current situation.'];
+  if (lower.includes('priority') || lower.includes('level')) return ['What did you observe?','Describe what you see.'];
+  if (lower.includes('eligibility') || lower.includes('determination')) return ['What information was provided?','What was reported?'];
+  if (lower.includes('assessment') || lower.includes('score')) return ['What did you observe during the interaction?','Describe the person\'s current condition.'];
+  return ['Rephrase as something a person could answer from their own experience.'];
+};
+
+let _fbId = 5000;
+const fbUid = () => `fb_${_fbId++}`;
+
+const FormBuilder = ({isOrg = false}) => {
+  SWC = useSWC();
+  const [mode, setMode] = useState('compose'); // compose | wire | preview
+  const [forms, setForms] = useState([{
+    id: fbUid(), name: 'New Form', description: '', status: 'draft',
+    sections: [{id: fbUid(), title: 'General', questions: []}]
+  }]);
+  const [activeFormIdx, setActiveFormIdx] = useState(0);
+  const [frameworks, setFrameworks] = useState([]);
+  const [bindings, setBindings] = useState({}); // `${valueId}__${codeId}` → {t, method, confidence, notes}
+  const [crosswalks, setCrosswalks] = useState([]);
+
+  // UI state
+  const [editingFormName, setEditingFormName] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
+  const [addingQuestion, setAddingQuestion] = useState(null); // sectionId
+  const [addingAnswer, setAddingAnswer] = useState(null); // questionId
+  const [addingFw, setAddingFw] = useState(false);
+  const [addingCode, setAddingCode] = useState(null); // frameworkId
+  const [wiringValue, setWiringValue] = useState(null); // {question, value, sectionIdx}
+  const [adoptingFw, setAdoptingFw] = useState(false);
+  const [addingXW, setAddingXW] = useState(false);
+  const [givenNudge, setGivenNudge] = useState(null); // {questionId, signals, suggestions}
+  const [draft, setDraft] = useState('');
+  const [draft2, setDraft2] = useState('');
+  const [draft3, setDraft3] = useState('');
+  const [expandedSections, setExpandedSections] = useState(new Set(['all']));
+  const [xwFrom, setXwFrom] = useState('');
+  const [xwTo, setXwTo] = useState('');
+  const [xwType, setXwType] = useState('equivalent');
+  const [xwNotes, setXwNotes] = useState('');
+
+  const form = forms[activeFormIdx];
+
+  // ── Derived data ──
+  const allQuestions = form.sections.flatMap(s => s.questions);
+  const allValues = allQuestions.flatMap(q => (q.options || []).map(o => ({...o, questionId: q.id, questionPrompt: q.prompt})));
+  const allCodes = frameworks.flatMap((f, fi) => f.codes.map(c => ({...c, frameworkId: f.id, frameworkName: f.name, fwIdx: fi})));
+
+  // ── Binding helpers ──
+  const getBindingCode = (valId, fwId) => {
+    const fw = frameworks.find(f => f.id === fwId);
+    if (!fw) return null;
+    for (const c of fw.codes) if (bindings[`${valId}__${c.id}`]) return c;
+    return null;
+  };
+  const getBindingsForValue = (valId) => frameworks.map((f, fi) => {
+    const c = getBindingCode(valId, f.id);
+    return c ? {...c, fwIdx: fi, frameworkName: f.name, frameworkId: f.id} : null;
+  }).filter(Boolean);
+  const getUnboundFrameworks = (valId) => frameworks.filter(f => !getBindingCode(valId, f.id));
+  const hasConflict = (valId) => {
+    const cs = getBindingsForValue(valId);
+    return cs.length >= 2 && new Set(cs.map(c => c.label)).size > 1;
+  };
+  const getProvDotState = (valId) => {
+    if (frameworks.length === 0) return 'none';
+    const bound = getBindingsForValue(valId);
+    if (bound.length === 0) return 'unbound';
+    if (hasConflict(valId)) return 'conflict';
+    return 'bound';
+  };
+  const doSetBind = (valId, codeId, fwId) => {
+    const nb = {...bindings};
+    const fw = frameworks.find(f => f.id === fwId);
+    if (fw) fw.codes.forEach(c => { delete nb[`${valId}__${c.id}`]; });
+    nb[`${valId}__${codeId}`] = {t: Date.now(), method: 'manual', confidence: 1.0};
+    setBindings(nb);
+  };
+  const doClearBind = (valId, fwId) => {
+    const nb = {...bindings};
+    const fw = frameworks.find(f => f.id === fwId);
+    if (fw) fw.codes.forEach(c => { delete nb[`${valId}__${c.id}`]; });
+    setBindings(nb);
+  };
+
+  // ── Form mutation helpers ──
+  const updateForm = (fn) => setForms(fs => fs.map((f, i) => i === activeFormIdx ? fn(f) : f));
+  const updateSection = (secId, fn) => updateForm(f => ({...f, sections: f.sections.map(s => s.id === secId ? fn(s) : s)}));
+  const updateQuestion = (secId, qId, fn) => updateSection(secId, s => ({...s, questions: s.questions.map(q => q.id === qId ? fn(q) : q)}));
+
+  const doAddSection = () => {
+    if (!draft.trim()) return;
+    updateForm(f => ({...f, sections: [...f.sections, {id: fbUid(), title: draft.trim(), questions: []}]}));
+    setDraft(''); setAddingSection(false);
+  };
+  const doAddQuestion = (secId) => {
+    if (!draft.trim()) return;
+    const prompt = draft.trim();
+    const qId = fbUid();
+    const signals = checkGivenTest(prompt);
+    if (signals) {
+      setGivenNudge({questionId: qId, signals, suggestions: suggestGivenRephrasing(prompt), originalPrompt: prompt, sectionId: secId});
+    }
+    updateSection(secId, s => ({...s, questions: [...s.questions, {
+      id: qId, prompt, type: draft2 || 'single_select', options: [],
+      origin: isOrg ? 'org' : 'local', givenTestPassed: !signals, helpText: ''
+    }]}));
+    setDraft(''); setDraft2(''); setAddingQuestion(null);
+  };
+  const doAddAnswer = (secId, qId) => {
+    if (!draft.trim()) return;
+    updateQuestion(secId, qId, q => ({...q, options: [...q.options, {
+      id: fbUid(), label: draft.trim(), origin: isOrg ? 'org' : 'local'
+    }]}));
+    setDraft('');
+  };
+  const doRemoveQuestion = (secId, qId) => {
+    updateSection(secId, s => ({...s, questions: s.questions.filter(q => q.id !== qId)}));
+  };
+  const doRemoveAnswer = (secId, qId, valId) => {
+    updateQuestion(secId, qId, q => ({...q, options: q.options.filter(o => o.id !== valId)}));
+    // Clean up bindings for removed value
+    const nb = {...bindings};
+    Object.keys(nb).forEach(k => { if (k.startsWith(`${valId}__`)) delete nb[k]; });
+    setBindings(nb);
+  };
+  const doMoveQuestion = (secId, qIdx, dir) => {
+    updateSection(secId, s => {
+      const qs = [...s.questions];
+      const newIdx = qIdx + dir;
+      if (newIdx < 0 || newIdx >= qs.length) return s;
+      [qs[qIdx], qs[newIdx]] = [qs[newIdx], qs[qIdx]];
+      return {...s, questions: qs};
+    });
+  };
+
+  // ── Framework helpers ──
+  const doAddFramework = () => {
+    if (!draft.trim()) return;
+    setFrameworks(fs => [...fs, {id: fbUid(), name: draft.trim(), fullName: draft2.trim() || null,
+      authority: draft3.trim() || null, type: 'local', codes: [], adoptedAt: new Date().toISOString()}]);
+    setDraft(''); setDraft2(''); setDraft3(''); setAddingFw(false);
+  };
+  const doAddCode = (fwId) => {
+    if (!draft.trim() || !draft2.trim()) return;
+    setFrameworks(fs => fs.map(f => f.id === fwId ? {...f, codes: [...f.codes, {
+      id: fbUid(), code: draft.trim(), label: draft2.trim(), definition: draft3.trim() || null
+    }]} : f));
+    setDraft(''); setDraft2(''); setDraft3('');
+  };
+
+  // ── Auto-suggest bindings ──
+  const autoSuggestBindings = (fwId) => {
+    const fw = frameworks.find(f => f.id === fwId);
+    if (!fw || fw.codes.length === 0) return [];
+    const suggestions = [];
+    allValues.forEach(val => {
+      const valLower = val.label.toLowerCase();
+      fw.codes.forEach(code => {
+        const codeLower = code.label.toLowerCase();
+        // Simple label similarity: check if they share significant words
+        const valWords = valLower.split(/\s+/).filter(w => w.length > 2);
+        const codeWords = codeLower.split(/\s+/).filter(w => w.length > 2);
+        const shared = valWords.filter(w => codeWords.some(cw => cw.includes(w) || w.includes(cw)));
+        if (shared.length > 0 || valLower.includes(codeLower) || codeLower.includes(valLower)) {
+          const confidence = Math.min(0.95, 0.5 + (shared.length * 0.15));
+          if (!bindings[`${val.id}__${code.id}`]) {
+            suggestions.push({valueId: val.id, valueLabel: val.label, codeId: code.id,
+              codeLabel: code.label, codeValue: code.code, fwId, confidence});
+          }
+        }
+      });
+    });
+    return suggestions;
+  };
+  const doAcceptSuggestion = (suggestion) => {
+    const nb = {...bindings};
+    const fw = frameworks.find(f => f.id === suggestion.fwId);
+    if (fw) fw.codes.forEach(c => { delete nb[`${suggestion.valueId}__${c.id}`]; });
+    nb[`${suggestion.valueId}__${suggestion.codeId}`] = {
+      t: Date.now(), method: 'auto_suggested', confidence: suggestion.confidence
+    };
+    setBindings(nb);
+  };
+  const doAcceptAllSuggestions = (suggestions) => {
+    const nb = {...bindings};
+    suggestions.forEach(s => {
+      const fw = frameworks.find(f => f.id === s.fwId);
+      if (fw) fw.codes.forEach(c => { delete nb[`${s.valueId}__${c.id}`]; });
+      nb[`${s.valueId}__${s.codeId}`] = {t: Date.now(), method: 'auto_suggested', confidence: s.confidence};
+    });
+    setBindings(nb);
+  };
+
+  // ── Crosswalk helpers ──
+  const doAddXW = () => {
+    if (!xwFrom || !xwTo) return;
+    setCrosswalks(xws => [...xws, {id: fbUid(), fromCodeId: xwFrom, toCodeId: xwTo, type: xwType, notes: xwNotes}]);
+    setAddingXW(false); setXwFrom(''); setXwTo(''); setXwType('equivalent'); setXwNotes('');
+  };
+
+  // ── Stats ──
+  const totalBindings = Object.keys(bindings).length;
+  const totalPossible = allValues.length * frameworks.length;
+  const boundCount = allValues.filter(v => getBindingsForValue(v.id).length > 0).length;
+  const conflictCount = allValues.filter(v => hasConflict(v.id)).length;
+
+  const toggleSection = (secId) => {
+    const next = new Set(expandedSections);
+    if (next.has(secId) || next.has('all')) { next.delete(secId); next.delete('all'); }
+    else next.add(secId);
+    setExpandedSections(next);
+  };
+  const isSectionExpanded = (secId) => expandedSections.has('all') || expandedSections.has(secId);
+
+  return (
+    <div className="fb-canvas anim-up">
+      {/* ═══ HEADER ═══ */}
+      <div className="fb-header">
+        <div>
+          {editingFormName ? (
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Form name..."
+                onKeyDown={e => { if (e.key==='Enter' && draft.trim()) { updateForm(f=>({...f,name:draft.trim()})); setEditingFormName(false); setDraft(''); }
+                  if (e.key==='Escape') { setEditingFormName(false); setDraft(''); }}}
+                style={{width:280,padding:'8px 12px',fontSize:18,fontFamily:'var(--serif)',fontWeight:700}}/>
+            </div>
+          ) : (
+            <div className="fb-header-title" onClick={()=>{setDraft(form.name);setEditingFormName(true);}} style={{cursor:'pointer'}} title="Click to rename">
+              {form.name}
+              <span style={{fontSize:12,color:SWC.dim,marginLeft:8,fontFamily:'var(--mono)',fontWeight:400}}>{form.status}</span>
+            </div>
+          )}
+          <div className="fb-header-meta">
+            {allQuestions.length} question{allQuestions.length!==1?'s':''} · {allValues.length} answer option{allValues.length!==1?'s':''}
+            {frameworks.length > 0 && <> · {frameworks.length} framework{frameworks.length!==1?'s':''}</>}
+            {totalBindings > 0 && <> · {totalBindings} binding{totalBindings!==1?'s':''}</>}
+            {conflictCount > 0 && <span style={{color:SWC.sup}}> · {conflictCount} conflict{conflictCount!==1?'s':''}</span>}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <div className="fb-mode-toggle">
+            <button className={`fb-mode-btn ${mode==='compose'?'active':''}`} onClick={()=>setMode('compose')}>
+              <I n="grid" s={13}/> Compose
+            </button>
+            <button className={`fb-mode-btn ${mode==='wire'?'active':''}`} onClick={()=>setMode('wire')}>
+              <I n="link" s={13}/> Wire
+              {frameworks.length > 0 && totalPossible > 0 && (
+                <span style={{fontSize:10,color:totalBindings===totalPossible?SWC.given:SWC.dim,fontFamily:'var(--mono)'}}>
+                  {totalBindings}/{totalPossible}
+                </span>
+              )}
+            </button>
+            <button className={`fb-mode-btn ${mode==='preview'?'active':''}`} onClick={()=>setMode('preview')}>
+              <I n="eye" s={13}/> Preview
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ COMPOSE MODE ═══ */}
+      {mode === 'compose' && (
+        <div>
+          {/* Epistemic note */}
+          <div style={{padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.givenBorder}`,background:'rgba(45,212,160,0.04)',
+            fontSize:13,color:SWC.muted,lineHeight:1.6,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
+            <SwTag color={SWC.given} sm>COMPOSE</SwTag>
+            Build your form. Questions should be answerable by observation — what happened, what was seen, what was said. Framework bindings come later.
+          </div>
+
+          {/* Sections */}
+          {form.sections.map((sec, secIdx) => (
+            <div key={sec.id} className="fb-section">
+              <div className="fb-section-header" onClick={()=>toggleSection(sec.id)}>
+                <div className="fb-section-title">
+                  <span style={{fontSize:11,color:SWC.dim,transform:isSectionExpanded(sec.id)?'rotate(90deg)':'rotate(0)',transition:'transform .15s',display:'inline-block'}}>▶</span>
+                  {sec.title}
+                  <span className="fb-section-count">{sec.questions.length} question{sec.questions.length!==1?'s':''}</span>
+                </div>
+                {sec.origin === 'network' && <span className="fb-inherit-lock">🔒 Network</span>}
+                {sec.origin === 'local' && sec.questions.some(q=>q.origin==='local') && <span className="fb-inherit-local">🏠 Local</span>}
+              </div>
+
+              {isSectionExpanded(sec.id) && (
+                <div>
+                  {sec.questions.map((q, qIdx) => (
+                    <div key={q.id} className="fb-question">
+                      <div className="fb-question-prompt">
+                        <span>{q.prompt}</span>
+                        <span className="fb-question-type">{q.type}</span>
+                        {q.origin === 'network' && <span className="fb-inherit-lock">🔒</span>}
+                        {q.origin === 'local' && <span className="fb-inherit-local">🏠</span>}
+                        {!q.givenTestPassed && <span style={{fontSize:11,color:SWC.sup}} title="This question may embed institutional interpretation">⚠</span>}
+                        {hasConflict && q.options?.some(o => hasConflict(o.id)) && <span style={{fontSize:11}} title="Framework conflict">⚡</span>}
+                      </div>
+
+                      {/* Answer options */}
+                      {(q.type === 'single_select' || q.type === 'multi_select') && (
+                        <div className="fb-answer-list">
+                          {(q.options || []).map(opt => {
+                            const dotState = getProvDotState(opt.id);
+                            return (
+                              <div key={opt.id} className="fb-answer"
+                                onClick={()=>{if(frameworks.length>0){setWiringValue({question:q,value:opt,sectionIdx:secIdx});setMode('wire');}}}
+                              >
+                                <div className={q.type==='single_select'?'fb-answer-radio':'fb-answer-check'}/>
+                                <span className="fb-answer-label">{opt.label}</span>
+                                {opt.origin === 'network' && <span className="fb-inherit-lock">🔒</span>}
+                                {opt.origin === 'local' && <span className="fb-inherit-local">🏠</span>}
+                                <div className="fb-answer-dots">
+                                  {frameworks.map((fw, fi) => {
+                                    const code = getBindingCode(opt.id, fw.id);
+                                    const isConflict = hasConflict(opt.id);
+                                    return <span key={fw.id} className={`fb-prov-dot ${code ? (isConflict ? 'conflict' : 'bound') : 'unbound'}`}
+                                      title={code ? `${fw.name}: ${code.code} — ${code.label}${isConflict?' (conflict)':''}` : `${fw.name}: not bound`}
+                                      style={code ? {background: SWC.fw[fi%5]} : {}}
+                                    />;
+                                  })}
+                                </div>
+                                <button onClick={e=>{e.stopPropagation();doRemoveAnswer(sec.id,q.id,opt.id);}} style={{background:'none',border:'none',color:SWC.dim,cursor:'pointer',fontSize:14,padding:'2px 4px',opacity:0.5,transition:'opacity .15s'}}
+                                  onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='0.5'}>×</button>
+                              </div>
+                            );
+                          })}
+
+                          {/* Add answer inline */}
+                          {addingAnswer === q.id ? (
+                            <div style={{display:'flex',gap:6,padding:'4px 10px',alignItems:'center'}}>
+                              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Answer option..."
+                                onKeyDown={e=>{if(e.key==='Enter'){doAddAnswer(sec.id,q.id);} if(e.key==='Escape'){setAddingAnswer(null);setDraft('');}}}
+                                style={{padding:'6px 10px',fontSize:13}}/>
+                              <SwBtn onClick={()=>doAddAnswer(sec.id,q.id)} disabled={!draft.trim()} style={{padding:'5px 12px',fontSize:11}}>Add</SwBtn>
+                              <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingAnswer(null);setDraft('');}} style={{padding:'5px 8px',fontSize:11}}>×</SwBtn>
+                            </div>
+                          ) : (
+                            <button className="fb-add-btn" onClick={()=>{setAddingAnswer(q.id);setDraft('');}}>+ Add answer option</button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Question source & wire button */}
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
+                        <div className="fb-source-tag">
+                          {q.origin === 'network' ? 'Source: Network (required)' : q.origin === 'org' ? 'Source: Organization' : 'Source: Local'}
+                          {!q.givenTestPassed && <span style={{color:SWC.sup,fontSize:10}}>MEANT-origin</span>}
+                        </div>
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                          {frameworks.length > 0 && q.options?.length > 0 && (
+                            <button className="fb-wire-btn" onClick={()=>{setWiringValue({question:q,value:q.options[0],sectionIdx:secIdx});setMode('wire');}}>
+                              Wire to frameworks →
+                            </button>
+                          )}
+                          <div style={{display:'flex',gap:2}}>
+                            <button onClick={()=>doMoveQuestion(sec.id,qIdx,-1)} disabled={qIdx===0}
+                              style={{background:'none',border:'1px solid '+SWC.border,borderRadius:4,color:SWC.dim,cursor:qIdx===0?'default':'pointer',padding:'2px 6px',fontSize:11,opacity:qIdx===0?0.3:1}}>↑</button>
+                            <button onClick={()=>doMoveQuestion(sec.id,qIdx,1)} disabled={qIdx===sec.questions.length-1}
+                              style={{background:'none',border:'1px solid '+SWC.border,borderRadius:4,color:SWC.dim,cursor:qIdx===sec.questions.length-1?'default':'pointer',padding:'2px 6px',fontSize:11,opacity:qIdx===sec.questions.length-1?0.3:1}}>↓</button>
+                            <button onClick={()=>doRemoveQuestion(sec.id,q.id)}
+                              style={{background:'none',border:'1px solid '+SWC.border,borderRadius:4,color:SWC.dim,cursor:'pointer',padding:'2px 6px',fontSize:11}}
+                              onMouseEnter={e=>e.currentTarget.style.color=SWC.red} onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}>×</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add question to section */}
+                  {addingQuestion === sec.id ? (
+                    <div style={{padding:'14px 18px',borderTop:sec.questions.length>0?`1px solid ${SWC.border}`:'none'}}>
+                      <div style={{fontSize:13,fontWeight:600,color:SWC.given,marginBottom:8}}>New Question</div>
+                      <SwInput autoFocus value={draft} onChange={v=>{setDraft(v);setGivenNudge(null);}} placeholder="Type your question..."
+                        onKeyDown={e=>{if(e.key==='Enter' && draft.trim()){doAddQuestion(sec.id);} if(e.key==='Escape'){setAddingQuestion(null);setDraft('');setDraft2('');setGivenNudge(null);}}}/>
+                      <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
+                        <select value={draft2||'single_select'} onChange={e=>setDraft2(e.target.value)}
+                          style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:12,fontFamily:'inherit'}}>
+                          <option value="single_select">Single select</option>
+                          <option value="multi_select">Multi select</option>
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                          <option value="date">Date</option>
+                          <option value="duration">Duration</option>
+                          <option value="boolean">Yes/No</option>
+                          <option value="scale">Scale</option>
+                        </select>
+                        <SwBtn onClick={()=>doAddQuestion(sec.id)} disabled={!draft.trim()}>Create</SwBtn>
+                        <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingQuestion(null);setDraft('');setDraft2('');setGivenNudge(null);}}>Cancel</SwBtn>
+                      </div>
+
+                      {/* GIVEN test nudge */}
+                      {draft.trim() && checkGivenTest(draft) && (
+                        <div className="fb-nudge">
+                          <div className="fb-nudge-title">
+                            <I n="alert" s={12} c={SWC.fw[0]}/>
+                            This question may embed institutional interpretation
+                          </div>
+                          <div style={{marginBottom:6}}>
+                            Detected signal words: {checkGivenTest(draft).map(w => <SwTag key={w} color={SWC.sup} sm style={{marginRight:4}}>{w}</SwTag>)}
+                          </div>
+                          <div style={{fontSize:12.5,color:SWC.dim,marginBottom:6}}>
+                            Consider rephrasing as something a person could answer without institutional knowledge:
+                          </div>
+                          {suggestGivenRephrasing(draft).map((sug, i) => (
+                            <div key={i} className="fb-nudge-suggestion" onClick={()=>setDraft(sug)}>{sug}</div>
+                          ))}
+                          <div style={{marginTop:8,fontSize:12,color:SWC.dim}}>
+                            <span style={{cursor:'pointer',textDecoration:'underline'}} onClick={()=>setGivenNudge(null)}>Keep as-is</span> — the question will be tagged as MEANT-origin.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button className="fb-add-btn" style={{borderTop:sec.questions.length>0?`1px solid ${SWC.border}`:'none'}}
+                      onClick={()=>{setAddingQuestion(sec.id);setDraft('');setDraft2('');}}>
+                      + Add question
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Add section */}
+          {addingSection ? (
+            <div style={{padding:16,border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:600,color:SWC.white,marginBottom:8}}>New Section</div>
+              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Section title..."
+                onKeyDown={e=>{if(e.key==='Enter')doAddSection();if(e.key==='Escape'){setAddingSection(false);setDraft('');}}}/>
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <SwBtn onClick={doAddSection} disabled={!draft.trim()}>Create</SwBtn>
+                <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingSection(false);setDraft('');}}>Cancel</SwBtn>
+              </div>
+            </div>
+          ) : (
+            <div style={{display:'flex',gap:8,marginBottom:16}}>
+              <button className="fb-add-btn" style={{border:`1px dashed ${SWC.border}`,borderRadius:8,justifyContent:'center'}}
+                onClick={()=>{setAddingSection(true);setDraft('');}}>+ Add section</button>
+            </div>
+          )}
+
+          {/* Unbound values notice */}
+          {frameworks.length > 0 && allValues.length > 0 && (
+            (() => {
+              const unboundCount = allValues.filter(v => getBindingsForValue(v.id).length === 0).length;
+              return unboundCount > 0 ? (
+                <div style={{padding:'12px 16px',borderRadius:8,border:`1px solid ${SWC.meantBorder}`,background:'rgba(167,139,250,0.04)',
+                  fontSize:13,color:SWC.muted,lineHeight:1.6,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <span>{unboundCount} answer option{unboundCount!==1?'s aren\'t':' isn\'t'} connected to any framework yet.</span>
+                  <button className="fb-wire-btn" onClick={()=>setMode('wire')}>Wire them →</button>
+                </div>
+              ) : null;
+            })()
+          )}
+
+          {/* No frameworks yet — invitation (not error) */}
+          {frameworks.length === 0 && allValues.length > 0 && (
+            <div style={{padding:'14px 18px',borderRadius:8,border:`1px solid ${SWC.border}`,background:SWC.surface,
+              fontSize:13,color:SWC.muted,lineHeight:1.6}}>
+              This form collects observations without connecting them to any reporting framework. You can add framework bindings anytime.
+              <button className="fb-wire-btn" style={{marginLeft:8}} onClick={()=>{setMode('wire');setAddingFw(true);setDraft('');setDraft2('');setDraft3('');}}>
+                + Add a framework
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GIVEN test nudge dismissal */}
+      {givenNudge && mode === 'compose' && (
+        <div style={{position:'fixed',bottom:24,right:24,zIndex:45,width:380,background:SWC.surface,border:`1px solid ${SWC.fw[0]}40`,
+          borderRadius:10,padding:16,boxShadow:'0 8px 32px rgba(0,0,0,0.4)'}}>
+          <div style={{fontSize:13,fontWeight:600,color:SWC.fw[0],marginBottom:6}}>GIVEN Test Result</div>
+          <div style={{fontSize:13,color:SWC.text,marginBottom:8}}>
+            "{givenNudge.originalPrompt}" contains interpretation-language: {givenNudge.signals.join(', ')}
+          </div>
+          <div style={{fontSize:12,color:SWC.dim,marginBottom:8}}>The question was created but tagged as MEANT-origin. You can rephrase it anytime.</div>
+          <SwBtn ghost accent={SWC.muted} onClick={()=>setGivenNudge(null)} style={{fontSize:12,padding:'5px 12px'}}>Dismiss</SwBtn>
+        </div>
+      )}
+
+
+      {/* ═══ WIRE MODE ═══ */}
+      {mode === 'wire' && (
+        <div>
+          <div style={{padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.meantBorder}`,background:'rgba(167,139,250,0.04)',
+            fontSize:13,color:SWC.muted,lineHeight:1.6,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
+            <SwTag color={SWC.meant} sm>WIRE</SwTag>
+            Connect your observations (GIVEN) to framework codes (MEANT). Each connection creates an auditable binding with provenance.
+          </div>
+
+          {/* Framework management bar */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+              {frameworks.map((fw, fi) => (
+                <div key={fw.id} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:5,
+                  border:`1px solid ${SWC.fw[fi%5]}40`,background:`${SWC.fw[fi%5]}10`,fontSize:12,fontWeight:600,color:SWC.fw[fi%5]}}>
+                  <SwDot color={SWC.fw[fi%5]} size={6}/> {fw.name}
+                  <span style={{fontSize:10,color:SWC.dim,marginLeft:4}}>{fw.codes.length}c</span>
+                </div>
+              ))}
+              {frameworks.length === 0 && <span style={{fontSize:13,color:SWC.dim}}>No frameworks adopted yet.</span>}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <SwBtn ghost accent={SWC.meant} onClick={()=>{setAddingFw(true);setDraft('');setDraft2('');setDraft3('');}}>+ Add framework</SwBtn>
+              {allValues.length > 0 && frameworks.length > 0 && (
+                <SwBtn ghost accent={SWC.given} onClick={()=>setAdoptingFw(true)}>Auto-suggest bindings</SwBtn>
+              )}
+            </div>
+          </div>
+
+          {/* Add framework panel */}
+          {addingFw && (
+            <div style={{border:`1px solid ${SWC.meantBorder}`,borderRadius:10,background:SWC.surface,padding:16,marginBottom:16}}>
+              <div style={{fontSize:15,fontWeight:600,color:SWC.meant,marginBottom:12}}>Adopt a Reporting Framework</div>
+              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Short name (e.g. HUD HMIS, CoC Priority)"
+                onKeyDown={e=>{if(e.key==='Enter'&&draft.trim())doAddFramework();if(e.key==='Escape'){setAddingFw(false);setDraft('');setDraft2('');setDraft3('');}}}/>
+              <div style={{marginTop:8}}><SwInput value={draft2} onChange={setDraft2} placeholder="Full name (optional)" onKeyDown={e=>{if(e.key==='Enter'&&draft.trim())doAddFramework();}}/></div>
+              <div style={{marginTop:8}}><SwInput value={draft3} onChange={setDraft3} placeholder="Governing authority (optional)" onKeyDown={e=>{if(e.key==='Enter'&&draft.trim())doAddFramework();}}/></div>
+              <div style={{fontSize:13,color:SWC.dim,marginTop:8,lineHeight:1.55}}>A framework defines institutional categories (MEANT). Add its codes after creation.</div>
+              <div style={{display:'flex',gap:8,marginTop:12}}>
+                <SwBtn accent={SWC.meant} onClick={doAddFramework} disabled={!draft.trim()}>Adopt</SwBtn>
+                <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingFw(false);setDraft('');setDraft2('');setDraft3('');}}>Cancel</SwBtn>
+              </div>
+            </div>
+          )}
+
+          {/* Binding matrix — overview of all values × frameworks */}
+          {allValues.length > 0 && frameworks.length > 0 && (
+            <div style={{marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <span style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:SWC.muted}}>Binding Matrix</span>
+                <SwTag color={SWC.meant} sm>GIVEN → MEANT</SwTag>
+              </div>
+              {form.sections.map(sec => (
+                sec.questions.filter(q=>q.options && q.options.length > 0).map(q => (
+                  <div key={q.id} style={{marginBottom:12}}>
+                    <div style={{fontSize:14,fontWeight:600,color:SWC.white,marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                      {q.prompt}
+                      {q.options.some(o=>hasConflict(o.id)) && <span style={{fontSize:11}}>⚡</span>}
+                    </div>
+                    <div style={{border:`1px solid ${SWC.border}`,borderRadius:8,overflow:'hidden',background:SWC.surface}}>
+                      {/* Header row */}
+                      <div style={{display:'grid',gridTemplateColumns:`minmax(140px,200px) repeat(${frameworks.length}, 1fr)`,
+                        borderBottom:`1px solid ${SWC.border}`,background:SWC.raised}}>
+                        <div style={{padding:'8px 12px',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:SWC.dim}}>Value</div>
+                        {frameworks.map((fw,fi) => (
+                          <div key={fw.id} style={{padding:'8px 10px',fontSize:11,fontWeight:600,color:SWC.fw[fi%5],textAlign:'center',
+                            borderLeft:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                            <SwDot color={SWC.fw[fi%5]} size={5}/>{fw.name}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Value rows */}
+                      {q.options.map((opt, oi) => (
+                        <SwMRow key={opt.id} opt={opt} frameworks={frameworks} getBindingCode={getBindingCode}
+                          setBind={doSetBind} clearBind={doClearBind} hasConflict={(o)=>hasConflict(o.id)}
+                          isLast={oi===q.options.length-1}/>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ))}
+            </div>
+          )}
+
+          {/* Frameworks & codes management */}
+          {frameworks.length > 0 && (
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:SWC.muted,marginBottom:10}}>Framework Codes</div>
+              {frameworks.map((fw, fi) => (
+                <div key={fw.id} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:8,overflow:'hidden'}}>
+                  <div style={{padding:'10px 14px',borderBottom:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',gap:6}}>
+                    <SwDot color={SWC.fw[fi%5]} size={8}/>
+                    <span style={{fontSize:14,fontWeight:600,color:SWC.fw[fi%5]}}>{fw.name}</span>
+                    {fw.fullName && <span style={{fontSize:12,color:SWC.dim}}>— {fw.fullName}</span>}
+                    {fw.authority && <span style={{fontSize:11,color:SWC.dim,marginLeft:'auto'}}>Authority: {fw.authority}</span>}
+                    <span style={{fontSize:12,color:SWC.dim,marginLeft:fw.authority?8:'auto'}}>{fw.codes.length} code{fw.codes.length!==1?'s':''}</span>
+                  </div>
+                  <div style={{padding:'4px 6px'}}>
+                    {fw.codes.map(c => (
+                      <div key={c.id} style={{padding:'5px 10px',display:'flex',alignItems:'center',gap:8}}>
+                        <SwTag color={SWC.fw[fi%5]} sm mono>{c.code}</SwTag>
+                        <span style={{fontSize:13,color:SWC.text}}>{c.label}</span>
+                        {c.definition && <span style={{fontSize:11,color:SWC.dim,marginLeft:'auto'}}>{c.definition}</span>}
+                      </div>
+                    ))}
+                    {addingCode === fw.id ? (
+                      <div style={{padding:'4px 8px'}}>
+                        <div style={{display:'flex',gap:6,marginBottom:4}}>
+                          <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Code (e.g. Cat-1)"
+                            onKeyDown={e=>{if(e.key==='Escape'){setAddingCode(null);setDraft('');setDraft2('');setDraft3('');}}}
+                            style={{padding:'5px 10px',fontSize:12,width:100,flex:'none'}}/>
+                          <SwInput value={draft2} onChange={setDraft2} placeholder="Label"
+                            onKeyDown={e=>{if(e.key==='Enter'&&draft.trim()&&draft2.trim()){doAddCode(fw.id);}else if(e.key==='Escape'){setAddingCode(null);setDraft('');setDraft2('');setDraft3('');}}}
+                            style={{padding:'5px 10px',fontSize:12}}/>
+                        </div>
+                        <SwInput value={draft3} onChange={setDraft3} placeholder="Definition (optional)"
+                          style={{padding:'5px 10px',fontSize:12,marginBottom:6}}/>
+                        <div style={{display:'flex',gap:6}}>
+                          <SwBtn accent={SWC.meant} onClick={()=>doAddCode(fw.id)} disabled={!draft.trim()||!draft2.trim()} style={{padding:'5px 12px',fontSize:11}}>Add</SwBtn>
+                          <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingCode(null);setDraft('');setDraft2('');setDraft3('');}} style={{padding:'5px 8px',fontSize:11}}>×</SwBtn>
+                        </div>
+                      </div>
+                    ) : (
+                      <div onClick={()=>{setAddingCode(fw.id);setDraft('');setDraft2('');setDraft3('');}} style={{padding:'8px 12px',fontSize:13,color:SWC.fw[fi%5],cursor:'pointer'}}>+ Add code</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Crosswalks */}
+          {frameworks.length >= 2 && (
+            <div style={{marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:SWC.muted}}>Crosswalks</span>
+                  <SwTag color={SWC.meant} sm>MEANT ↔ MEANT</SwTag>
+                </div>
+                {allCodes.length >= 2 && <SwBtn ghost accent={SWC.meant} onClick={()=>setAddingXW(true)}>+ Add crosswalk</SwBtn>}
+              </div>
+              <div style={{fontSize:13,color:SWC.dim,marginBottom:10,lineHeight:1.55}}>
+                Crosswalks translate between frameworks — how one institution's codes map to another's.
+              </div>
+              {addingXW && (
+                <div style={{border:`1px solid ${SWC.meantBorder}`,borderRadius:10,background:SWC.surface,padding:16,marginBottom:12}}>
+                  <div style={{fontSize:15,fontWeight:600,color:SWC.meant,marginBottom:12}}>New Crosswalk</div>
+                  <div style={{display:'flex',gap:8,marginBottom:8}}>
+                    <select value={xwFrom} onChange={e=>setXwFrom(e.target.value)} style={{flex:1,padding:'7px 10px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:12,fontFamily:'inherit'}}>
+                      <option value="">From code...</option>
+                      {allCodes.map(c=><option key={c.id} value={c.id}>{c.frameworkName}: {c.code} — {c.label}</option>)}
+                    </select>
+                    <select value={xwTo} onChange={e=>setXwTo(e.target.value)} style={{flex:1,padding:'7px 10px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:12,fontFamily:'inherit'}}>
+                      <option value="">To code...</option>
+                      {allCodes.filter(c=>c.id!==xwFrom).map(c=><option key={c.id} value={c.id}>{c.frameworkName}: {c.code} — {c.label}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:'flex',gap:6,marginBottom:8}}>
+                    {['equivalent','implies','overlaps','conflicts'].map(t=>(
+                      <SwTag key={t} color={xwType===t?(t==='conflicts'?SWC.sup:t==='equivalent'?SWC.given:SWC.meant):SWC.dim}
+                        onClick={()=>setXwType(t)} sm style={{cursor:'pointer',padding:'3px 8px',fontSize:11}}>{t}</SwTag>
+                    ))}
+                  </div>
+                  <SwInput value={xwNotes} onChange={setXwNotes} placeholder="Notes (optional)" style={{marginBottom:10}}/>
+                  <div style={{display:'flex',gap:8}}>
+                    <SwBtn accent={SWC.meant} onClick={doAddXW} disabled={!xwFrom||!xwTo}>Create</SwBtn>
+                    <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingXW(false);setXwFrom('');setXwTo('');setXwNotes('');}}>Cancel</SwBtn>
+                  </div>
+                </div>
+              )}
+              {crosswalks.length === 0 && !addingXW ? (
+                <div style={{padding:20,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:'center',color:SWC.dim,fontSize:13}}>
+                  {allCodes.length < 2 ? 'Need codes in at least two frameworks.' : 'No crosswalks yet.'}
+                </div>
+              ) : crosswalks.map(xw => {
+                const from = allCodes.find(c=>c.id===xw.fromCodeId);
+                const to = allCodes.find(c=>c.id===xw.toCodeId);
+                if (!from || !to) return null;
+                return (
+                  <div key={xw.id} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,padding:'10px 14px',marginBottom:6}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:xw.notes?6:0}}>
+                      <SwDot color={SWC.fw[from.fwIdx%5]} size={6}/><SwTag color={SWC.fw[from.fwIdx%5]} sm>{from.frameworkName}: {from.code}</SwTag>
+                      <span style={{color:SWC.dim,fontSize:13}}>{xw.type==='equivalent'?'=':xw.type==='implies'?'→':xw.type==='overlaps'?'↔':'⚡'}</span>
+                      <SwDot color={SWC.fw[to.fwIdx%5]} size={6}/><SwTag color={SWC.fw[to.fwIdx%5]} sm>{to.frameworkName}: {to.code}</SwTag>
+                      <SwTag color={xw.type==='conflicts'?SWC.sup:xw.type==='equivalent'?SWC.given:SWC.meant} sm>{xw.type}</SwTag>
+                    </div>
+                    {xw.notes && <div style={{fontSize:13,color:SWC.text,lineHeight:1.55}}>{xw.notes}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* No questions yet */}
+          {allValues.length === 0 && (
+            <div style={{padding:32,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:'center',color:SWC.dim,fontSize:14}}>
+              Add questions with answer options first, then wire them to frameworks here.
+              <div style={{marginTop:12}}>
+                <SwBtn ghost accent={SWC.given} onClick={()=>setMode('compose')}>← Back to Compose</SwBtn>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* ═══ WIRING PANEL (slide-in from right) ═══ */}
+      {wiringValue && (
+        <div style={{position:'fixed',inset:0,zIndex:39}} onClick={()=>setWiringValue(null)}>
+          <div className="fb-wire-panel" onClick={e=>e.stopPropagation()}>
+            <div className="fb-wire-panel-header">
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div>
+                  <SwTag color={SWC.given} sm>GIVEN</SwTag>
+                  <div style={{fontSize:13,color:SWC.muted,marginTop:6}}>{wiringValue.question.prompt}</div>
+                  <div style={{fontSize:20,fontWeight:700,color:SWC.white,marginTop:3}}>{wiringValue.value.label}</div>
+                </div>
+                <button onClick={()=>setWiringValue(null)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20,padding:4}}>×</button>
+              </div>
+              <div style={{marginTop:8,fontSize:12,color:SWC.dim}}>
+                This is an observation (GIVEN). Below are its interpretations across active frameworks (MEANT).
+              </div>
+            </div>
+            <div className="fb-wire-panel-body">
+              {frameworks.length === 0 ? (
+                <div style={{padding:24,textAlign:'center',color:SWC.dim,fontSize:13}}>
+                  No frameworks adopted yet.
+                  <div style={{marginTop:10}}>
+                    <SwBtn accent={SWC.meant} onClick={()=>{setAddingFw(true);setDraft('');setDraft2('');setDraft3('');}}>+ Adopt a framework</SwBtn>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {frameworks.map((fw, fi) => {
+                    const code = getBindingCode(wiringValue.value.id, fw.id);
+                    const binding = code ? bindings[`${wiringValue.value.id}__${code.id}`] : null;
+                    return (
+                      <div key={fw.id} className="fb-wire-fw-card" style={{borderColor: code ? `${SWC.fw[fi%5]}40` : undefined}}>
+                        <div className="fb-wire-fw-card-header">
+                          <SwDot color={SWC.fw[fi%5]} size={10}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:14,fontWeight:600,color:SWC.fw[fi%5]}}>{fw.name}</div>
+                            {fw.fullName && <div style={{fontSize:11,color:SWC.dim}}>{fw.fullName}</div>}
+                          </div>
+                          {code ? (
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <SwTag color={SWC.fw[fi%5]} mono>{code.code}</SwTag>
+                              <span style={{fontSize:13,fontWeight:500,color:SWC.white}}>{code.label}</span>
+                              <span className={`fb-prov-dot ${hasConflict(wiringValue.value.id)?'conflict':'bound'}`}
+                                style={{background:hasConflict(wiringValue.value.id)?undefined:SWC.fw[fi%5]}}/>
+                            </div>
+                          ) : (
+                            <span className="fb-prov-dot unbound"/>
+                          )}
+                        </div>
+                        <div className="fb-wire-fw-card-body">
+                          {code && binding && (
+                            <div style={{fontSize:12,color:SWC.dim,marginBottom:8}}>
+                              Bound via: {binding.method === 'auto_suggested' ? 'auto-suggested' : 'manual'} · Confidence: {Math.round((binding.confidence||1)*100)}% · {new Date(binding.t).toLocaleDateString()}
+                            </div>
+                          )}
+                          {code && code.definition && (
+                            <div style={{fontSize:12,color:SWC.text,marginBottom:8,padding:'6px 10px',background:SWC.raised,borderRadius:4}}>
+                              {code.definition}
+                            </div>
+                          )}
+                          <div style={{fontSize:12,color:SWC.muted,marginBottom:6,fontWeight:600}}>Select a code:</div>
+                          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                            {fw.codes.map(c => {
+                              const isActive = code?.id === c.id;
+                              return (
+                                <div key={c.id} className={`fb-wire-code-option ${isActive?'selected':''}`}
+                                  onClick={()=>{if(isActive)doClearBind(wiringValue.value.id,fw.id);else doSetBind(wiringValue.value.id,c.id,fw.id);}}>
+                                  <div style={{width:16,height:16,borderRadius:8,border:`2px solid ${isActive?SWC.fw[fi%5]:SWC.border}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                    {isActive && <div style={{width:8,height:8,borderRadius:4,background:SWC.fw[fi%5]}}/>}
+                                  </div>
+                                  <SwTag color={SWC.fw[fi%5]} mono sm>{c.code}</SwTag>
+                                  <span style={{fontSize:13,color:isActive?SWC.white:SWC.text}}>{c.label}</span>
+                                  {isActive && <span style={{fontSize:11,color:SWC.fw[fi%5],marginLeft:'auto'}}>✓ bound</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {fw.codes.length === 0 && (
+                            <div style={{fontSize:12,color:SWC.dim,padding:'8px 0'}}>No codes yet.</div>
+                          )}
+                          {code && (
+                            <div onClick={()=>doClearBind(wiringValue.value.id,fw.id)}
+                              style={{fontSize:12,color:SWC.dim,cursor:'pointer',marginTop:8}}
+                              onMouseEnter={e=>e.currentTarget.style.color=SWC.red}
+                              onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}
+                            >Clear binding</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Conflict card */}
+                  {hasConflict(wiringValue.value.id) && (
+                    <div className="fb-wire-conflict">
+                      <span style={{color:SWC.sup,fontWeight:600}}>⚡ Superposition — </span>
+                      Frameworks disagree about what "{wiringValue.value.label}" means. This isn't an error — it's data about how institutions see differently.
+                      <div style={{marginTop:8,display:'flex',gap:8}}>
+                        <span style={{fontSize:12,color:SWC.muted,cursor:'pointer'}} onClick={()=>{setWiringValue(null);setAddingXW(true);}}>Document in crosswalks →</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ground truth reminder */}
+                  <div className="fb-wire-ground-truth">
+                    <strong style={{color:SWC.given}}>Ground truth reminder:</strong><br/>
+                    "{wiringValue.value.label}" is what the person said. Everything above is what institutions decided it means. The observation stands regardless.
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ═══ AUTO-SUGGEST BINDINGS MODAL ═══ */}
+      {adoptingFw && (
+        <div className="fb-adopt-modal" onClick={()=>setAdoptingFw(false)}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Auto-Suggest Bindings</div>
+                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
+                  The system proposes matches based on label similarity. Review and confirm.
+                </div>
+              </div>
+              <button onClick={()=>setAdoptingFw(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+            </div>
+
+            {frameworks.map((fw, fi) => {
+              const suggestions = autoSuggestBindings(fw.id);
+              if (suggestions.length === 0) return (
+                <div key={fw.id} style={{padding:'10px 14px',border:`1px solid ${SWC.border}`,borderRadius:8,marginBottom:8,color:SWC.dim,fontSize:13}}>
+                  <SwDot color={SWC.fw[fi%5]} size={6}/> <span style={{color:SWC.fw[fi%5],fontWeight:600}}>{fw.name}</span> — no suggestions (all bound or no matches)
+                </div>
+              );
+              return (
+                <div key={fw.id} style={{border:`1px solid ${SWC.fw[fi%5]}40`,borderRadius:8,marginBottom:12,overflow:'hidden'}}>
+                  <div style={{padding:'10px 14px',background:`${SWC.fw[fi%5]}10`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <SwDot color={SWC.fw[fi%5]} size={8}/>
+                      <span style={{fontSize:14,fontWeight:600,color:SWC.fw[fi%5]}}>{fw.name}</span>
+                      <span style={{fontSize:12,color:SWC.dim}}>{suggestions.length} suggestion{suggestions.length!==1?'s':''}</span>
+                    </div>
+                    <SwBtn accent={SWC.fw[fi%5]} onClick={()=>doAcceptAllSuggestions(suggestions)} style={{padding:'5px 12px',fontSize:11}}>
+                      Accept all
+                    </SwBtn>
+                  </div>
+                  <div style={{padding:'6px 8px'}}>
+                    {suggestions.map(s => (
+                      <div key={`${s.valueId}_${s.codeId}`} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:`1px solid ${SWC.border}`}}>
+                        <span style={{fontSize:13,color:SWC.white,flex:1}}>{s.valueLabel}</span>
+                        <span style={{color:SWC.dim,fontSize:12}}>→</span>
+                        <SwTag color={SWC.fw[fi%5]} mono sm>{s.codeValue}</SwTag>
+                        <span style={{fontSize:12,color:SWC.text,flex:1}}>{s.codeLabel}</span>
+                        <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{Math.round(s.confidence*100)}%</span>
+                        <SwBtn accent={SWC.fw[fi%5]} onClick={()=>doAcceptSuggestion(s)} style={{padding:'3px 10px',fontSize:10}}>Accept</SwBtn>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{marginTop:12,textAlign:'right'}}>
+              <SwBtn ghost accent={SWC.muted} onClick={()=>setAdoptingFw(false)}>Done</SwBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ═══ PREVIEW MODE ═══ */}
+      {mode === 'preview' && (
+        <div className="fb-preview">
+          <div style={{marginBottom:20,padding:'12px 16px',borderRadius:8,border:`1px solid ${SWC.border}`,background:SWC.surface,
+            fontSize:13,color:SWC.muted,lineHeight:1.6}}>
+            <strong style={{color:SWC.white}}>Preview:</strong> This is how the form appears to a person filling it out. No framework information is visible — only the questions and answer options.
+          </div>
+          {form.sections.map(sec => (
+            <div key={sec.id} style={{marginBottom:24}}>
+              <div style={{fontSize:16,fontWeight:600,color:SWC.white,marginBottom:12,padding:'8px 0',borderBottom:`1px solid ${SWC.border}`}}>{sec.title}</div>
+              {sec.questions.map(q => (
+                <div key={q.id} className="fb-preview-question">
+                  <div className="fb-preview-prompt">{q.prompt}</div>
+                  {(q.type === 'single_select' || q.type === 'multi_select') && (q.options || []).map(opt => (
+                    <div key={opt.id} className="fb-preview-option">
+                      <div className={q.type==='single_select'?'fb-answer-radio':'fb-answer-check'}/>
+                      <span style={{fontSize:14}}>{opt.label}</span>
+                    </div>
+                  ))}
+                  {q.type === 'text' && <input placeholder="Type your answer..." style={{width:'100%',padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:14,fontFamily:'inherit'}} readOnly/>}
+                  {q.type === 'number' && <input type="number" placeholder="0" style={{width:120,padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:14,fontFamily:'inherit'}} readOnly/>}
+                  {q.type === 'date' && <input type="date" style={{width:200,padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:14,fontFamily:'inherit'}} readOnly/>}
+                  {q.type === 'boolean' && (
+                    <div style={{display:'flex',gap:8}}>
+                      <div className="fb-preview-option" style={{flex:1}}><div className="fb-answer-radio"/><span>Yes</span></div>
+                      <div className="fb-preview-option" style={{flex:1}}><div className="fb-answer-radio"/><span>No</span></div>
+                    </div>
+                  )}
+                  {q.type === 'duration' && <input placeholder="e.g. 3 months" style={{width:200,padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:14,fontFamily:'inherit'}} readOnly/>}
+                </div>
+              ))}
+              {sec.questions.length === 0 && <div style={{color:SWC.dim,fontSize:13,fontStyle:'italic'}}>No questions in this section yet.</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+/* ═══════════════════ SCHEMA BUILDER VIEW — Wrapper ═══════════════════
+ * Provides top-level toggle between:
+ *   Form Builder — the new form-first authoring experience (Compose/Wire/Preview)
+ *   Schema Workbench — the primitives-first schema building tool (Questions/Frameworks/Bindings/Crosswalks)
+ * Both share the same epistemic model. Form Builder is recommended for most users.
+ * ═══════════════════════════════════════════════════════════════════════ */
+const SchemaBuilderView = ({isOrg = false}) => {
+  SWC = useSWC();
+  const [tab, setTab] = useState('form-builder'); // form-builder | workbench
+
+  return (
+    <div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <div>
+          <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Schema Builder</h2>
+          <p style={{color:'var(--tx-1)',fontSize:12.5}}>Build forms, wire them to frameworks, and manage your data vocabulary.</p>
+        </div>
+        <div className="fb-mode-toggle">
+          <button className={`fb-mode-btn ${tab==='form-builder'?'active':''}`} onClick={()=>setTab('form-builder')}>
+            <I n="grid" s={13}/> Form Builder
+          </button>
+          <button className={`fb-mode-btn ${tab==='workbench'?'active':''}`} onClick={()=>setTab('workbench')}>
+            <I n="settings" s={13}/> Workbench
+          </button>
+        </div>
+      </div>
+
+      {tab === 'form-builder' && <FormBuilder isOrg={isOrg}/>}
+      {tab === 'workbench' && <SchemaWorkbench isOrg={isOrg}/>}
+    </div>
+  );
+};
+
+
 /* ═══════════════════ ACTIVITY STREAM ═══════════════════ */
 const ROOM_COLORS = {vault:'teal',bridge:'blue',roster:'gold',org:'blue',schema:'purple',metrics:'orange',network:'green',client_record:'teal',team:'purple',unknown:'orange'};
 
@@ -7303,8 +8347,8 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
       </div>}
 
-      {/* SCHEMA WORKBENCH */}
-      {view==='schema'&&<SchemaWorkbench isOrg={false}/>}
+      {/* SCHEMA BUILDER — Form Builder UX with Compose/Wire/Preview modes */}
+      {view==='schema'&&<SchemaBuilderView isOrg={!!orgRoom}/>}
 
       {/* ORG SETTINGS VIEW (admin only) */}
       {view==='org-settings'&&orgRoom&&orgRole==='admin'&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
