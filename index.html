@@ -3965,17 +3965,65 @@ const suggestGivenRephrasing = (text) => {
 let _fbId = 5000;
 const fbUid = () => `fb_${_fbId++}`;
 
+/* ── Form key generation — creates a stable snake_case key from a name ── */
+const formNameToKey = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 48) || 'unnamed_form';
+
+/* ── Version diff — compares two form versions and returns structural changes ── */
+const diffFormVersions = (oldForm, newForm) => {
+  const changes = { added: [], removed: [], renamed: [], typeChanged: [] };
+  const oldQs = (oldForm?.sections || []).flatMap(s => s.questions || []);
+  const newQs = (newForm?.sections || []).flatMap(s => s.questions || []);
+  const oldById = Object.fromEntries(oldQs.map(q => [q.id, q]));
+  const newById = Object.fromEntries(newQs.map(q => [q.id, q]));
+  // Removed questions
+  oldQs.forEach(oq => { if (!newById[oq.id]) changes.removed.push(oq); });
+  // Added questions
+  newQs.forEach(nq => { if (!oldById[nq.id]) changes.added.push(nq); });
+  // Modified questions
+  newQs.forEach(nq => {
+    const oq = oldById[nq.id];
+    if (!oq) return;
+    if (oq.prompt !== nq.prompt) changes.renamed.push({ old: oq, new: nq });
+    if (oq.type !== nq.type) changes.typeChanged.push({ old: oq, new: nq });
+  });
+  // Option-level changes
+  const oldOpts = oldQs.flatMap(q => (q.options || []).map(o => ({ ...o, questionId: q.id, questionPrompt: q.prompt })));
+  const newOpts = newQs.flatMap(q => (q.options || []).map(o => ({ ...o, questionId: q.id, questionPrompt: q.prompt })));
+  const oldOptIds = new Set(oldOpts.map(o => o.id));
+  const newOptIds = new Set(newOpts.map(o => o.id));
+  changes.addedOptions = newOpts.filter(o => !oldOptIds.has(o.id));
+  changes.removedOptions = oldOpts.filter(o => !newOptIds.has(o.id));
+  return changes;
+};
+
 const FormBuilder = ({isOrg = false}) => {
   SWC = useSWC();
   const [mode, setMode] = useState('compose'); // compose | wire | preview
   const [forms, setForms] = useState([{
-    id: fbUid(), name: 'New Form', description: '', status: 'draft',
+    id: fbUid(), name: 'New Form', key: 'new_form', description: '', status: 'draft',
+    version: 1, versionHistory: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    maturity: 'draft', source: { level: isOrg ? 'org' : 'local', propagation: 'optional' },
     sections: [{id: fbUid(), title: 'General', questions: []}]
   }]);
   const [activeFormIdx, setActiveFormIdx] = useState(0);
   const [frameworks, setFrameworks] = useState([]);
   const [bindings, setBindings] = useState({}); // `${valueId}__${codeId}` → {t, method, confidence, notes}
   const [crosswalks, setCrosswalks] = useState([]);
+
+  // ── Saved forms library ──
+  const [savedForms, setSavedForms] = useState([]); // [{id, name, key, version, maturity, savedAt, form, frameworks, bindings, crosswalks}]
+  const [showFormList, setShowFormList] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // ── Versioning state ──
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showVersionBump, setShowVersionBump] = useState(false);
+  const [versionNotes, setVersionNotes] = useState('');
+
+  // ── Answer crosswalk state ──
+  const [showAnswerCrosswalk, setShowAnswerCrosswalk] = useState(false);
+  const [crosswalkSource, setCrosswalkSource] = useState(null); // saved form (old version) to map from
+  const [answerMappings, setAnswerMappings] = useState({}); // oldOptionId → newOptionId
 
   // UI state
   const [editingFormName, setEditingFormName] = useState(false);
@@ -4157,6 +4205,185 @@ const FormBuilder = ({isOrg = false}) => {
     setAddingXW(false); setXwFrom(''); setXwTo(''); setXwType('equivalent'); setXwNotes('');
   };
 
+  // ── Form naming helpers ──
+  const doRenameForm = (newName) => {
+    const key = formNameToKey(newName);
+    updateForm(f => ({...f, name: newName.trim(), key, updatedAt: new Date().toISOString()}));
+    setEditingFormName(false); setDraft('');
+  };
+  const doSetDescription = (desc) => {
+    updateForm(f => ({...f, description: desc, updatedAt: new Date().toISOString()}));
+  };
+  const doSetMaturity = (maturity) => {
+    updateForm(f => ({...f, maturity, updatedAt: new Date().toISOString()}));
+  };
+  const doSetPropagation = (propagation) => {
+    updateForm(f => ({...f, source: {...(f.source || {}), propagation}, updatedAt: new Date().toISOString()}));
+  };
+
+  // ── Save form to library ──
+  const doSaveForm = () => {
+    setSaving(true);
+    const snapshot = {
+      id: form.key + '_v' + form.version,
+      formId: form.id,
+      name: form.name,
+      key: form.key,
+      version: form.version,
+      maturity: form.maturity,
+      description: form.description,
+      source: form.source,
+      savedAt: new Date().toISOString(),
+      form: JSON.parse(JSON.stringify(form)),
+      frameworks: JSON.parse(JSON.stringify(frameworks)),
+      bindings: JSON.parse(JSON.stringify(bindings)),
+      crosswalks: JSON.parse(JSON.stringify(crosswalks)),
+    };
+    // Replace existing save for same key+version, or append
+    setSavedForms(prev => {
+      const idx = prev.findIndex(s => s.key === snapshot.key && s.version === snapshot.version);
+      if (idx >= 0) { const next = [...prev]; next[idx] = snapshot; return next; }
+      return [...prev, snapshot];
+    });
+    updateForm(f => ({...f, updatedAt: new Date().toISOString(), status: 'saved'}));
+    setTimeout(() => setSaving(false), 600);
+  };
+
+  // ── Load form from library ──
+  const doLoadForm = (saved) => {
+    // Restore form into active slot
+    setForms(fs => fs.map((f, i) => i === activeFormIdx ? {...saved.form} : f));
+    setFrameworks(saved.frameworks || []);
+    setBindings(saved.bindings || {});
+    setCrosswalks(saved.crosswalks || []);
+    setShowFormList(false);
+  };
+
+  // ── New blank form ──
+  const doNewForm = () => {
+    const newForm = {
+      id: fbUid(), name: 'Untitled Form', key: 'untitled_form', description: '', status: 'draft',
+      version: 1, versionHistory: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      maturity: 'draft', source: { level: isOrg ? 'org' : 'local', propagation: 'optional' },
+      sections: [{id: fbUid(), title: 'General', questions: []}]
+    };
+    setForms(fs => [...fs, newForm]);
+    setActiveFormIdx(forms.length);
+    setFrameworks([]); setBindings({}); setCrosswalks([]);
+    setShowFormList(false);
+  };
+
+  // ── Delete saved form ──
+  const doDeleteSaved = (savedId) => {
+    setSavedForms(prev => prev.filter(s => s.id !== savedId));
+  };
+
+  // ── Version bump ──
+  const doVersionBump = (bumpType) => {
+    // Save current as history entry before bumping
+    const historyEntry = {
+      version: form.version,
+      name: form.name,
+      snapshot: JSON.parse(JSON.stringify(form)),
+      frameworks: JSON.parse(JSON.stringify(frameworks)),
+      bindings: JSON.parse(JSON.stringify(bindings)),
+      crosswalks: JSON.parse(JSON.stringify(crosswalks)),
+      bumpedAt: new Date().toISOString(),
+      notes: versionNotes || ('Version ' + form.version + ' snapshot'),
+    };
+    const nextVersion = bumpType === 'major' ? Math.floor(form.version) + 1 : +(form.version + 0.1).toFixed(1);
+    updateForm(f => ({
+      ...f,
+      version: nextVersion,
+      versionHistory: [...(f.versionHistory || []), historyEntry],
+      updatedAt: new Date().toISOString(),
+      status: 'draft',
+    }));
+    setShowVersionBump(false);
+    setVersionNotes('');
+  };
+
+  // ── Answer crosswalk — build mappings from old version to current ──
+  const doStartAnswerCrosswalk = (sourceVersion) => {
+    // sourceVersion is a history entry or a saved form
+    const sourceForm = sourceVersion.snapshot || sourceVersion.form;
+    setCrosswalkSource({ ...sourceVersion, form: sourceForm });
+    setAnswerMappings({});
+    setShowAnswerCrosswalk(true);
+  };
+  const doSetAnswerMapping = (oldOptId, newOptId) => {
+    setAnswerMappings(prev => {
+      if (!newOptId) { const next = {...prev}; delete next[oldOptId]; return next; }
+      return {...prev, [oldOptId]: newOptId};
+    });
+  };
+  const doSaveAnswerCrosswalk = () => {
+    // Save the mapping as a form-level crosswalk record
+    const xwRecord = {
+      id: fbUid(),
+      type: 'answer_version_crosswalk',
+      fromFormKey: form.key,
+      fromVersion: crosswalkSource.version,
+      toVersion: form.version,
+      mappings: {...answerMappings},
+      createdAt: new Date().toISOString(),
+    };
+    updateForm(f => ({
+      ...f,
+      answerCrosswalks: [...(f.answerCrosswalks || []), xwRecord],
+      updatedAt: new Date().toISOString(),
+    }));
+    setShowAnswerCrosswalk(false);
+    setCrosswalkSource(null);
+    setAnswerMappings({});
+  };
+
+  // ── Persist to Matrix schema room (if svc is available) ──
+  const doPersistToSchema = async () => {
+    if (!svc || !svc.userId) return;
+    setSaving(true);
+    try {
+      // Find schema room from scanned rooms
+      const rooms = svc._client?.getRooms?.() || [];
+      let schemaRoomId = null;
+      for (const r of rooms) {
+        try {
+          const idEvt = r.currentState?.getStateEvents?.(EVT.IDENTITY, '');
+          if (idEvt && idEvt.getContent?.()?.account_type === 'schema') { schemaRoomId = r.roomId; break; }
+        } catch(e) { /* skip */ }
+      }
+      if (!schemaRoomId) { setSaving(false); return; }
+      // Build the schema-compatible form object
+      const schemaForm = {
+        id: form.key || form.id,
+        name: form.name,
+        version: form.version,
+        description: form.description || '',
+        maturity: form.maturity || 'draft',
+        source: form.source || { level: isOrg ? 'org' : 'local', propagation: 'optional' },
+        versionHistory: (form.versionHistory || []).map(h => ({ version: h.version, bumpedAt: h.bumpedAt, notes: h.notes })),
+        answerCrosswalks: form.answerCrosswalks || [],
+        fields: form.sections.flatMap(sec => sec.questions.map(q => ({
+          id: q.id, key: formNameToKey(q.prompt), question: q.prompt, type: q.type,
+          version: form.version, maturity: form.maturity || 'draft', section: sec.title,
+          options: (q.options || []).map(o => ({ v: formNameToKey(o.label), l: o.label, id: o.id })),
+          category: formNameToKey(sec.title), sensitive: false, metrics: true,
+        }))),
+        eo: {
+          chain: [{ op: 'DES', target: { entity: form.key, designation: form.name + ' Form' },
+            frame: { type: 'schema', epistemic: 'GIVEN', role: isOrg ? 'org' : 'local' } }],
+          trace: `${form.key} = DES (${isOrg ? 'org' : 'local'}-authored, ${form.source?.propagation || 'optional'} propagation)`
+        },
+        savedAt: new Date().toISOString(),
+      };
+      await svc.setState(schemaRoomId, EVT.SCHEMA_FORM, schemaForm, schemaForm.id);
+      updateForm(f => ({...f, status: 'persisted', updatedAt: new Date().toISOString()}));
+    } catch(e) {
+      console.error('Failed to persist form to schema room:', e);
+    }
+    setSaving(false);
+  };
+
   // ── Stats ──
   const totalBindings = Object.keys(bindings).length;
   const totalPossible = allValues.length * frameworks.length;
@@ -4175,18 +4402,35 @@ const FormBuilder = ({isOrg = false}) => {
     <div className="fb-canvas anim-up">
       {/* ═══ HEADER ═══ */}
       <div className="fb-header">
-        <div>
-          {editingFormName ? (
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Form name..."
-                onKeyDown={e => { if (e.key==='Enter' && draft.trim()) { updateForm(f=>({...f,name:draft.trim()})); setEditingFormName(false); setDraft(''); }
-                  if (e.key==='Escape') { setEditingFormName(false); setDraft(''); }}}
-                style={{width:280,padding:'8px 12px',fontSize:18,fontFamily:'var(--serif)',fontWeight:700}}/>
-            </div>
-          ) : (
-            <div className="fb-header-title" onClick={()=>{setDraft(form.name);setEditingFormName(true);}} style={{cursor:'pointer'}} title="Click to rename">
-              {form.name}
-              <span style={{fontSize:12,color:SWC.dim,marginLeft:8,fontFamily:'var(--mono)',fontWeight:400}}>{form.status}</span>
+        <div style={{flex:1}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            {editingFormName ? (
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Form name..."
+                  onKeyDown={e => { if (e.key==='Enter' && draft.trim()) { doRenameForm(draft); }
+                    if (e.key==='Escape') { setEditingFormName(false); setDraft(''); }}}
+                  style={{width:280,padding:'8px 12px',fontSize:18,fontFamily:'var(--serif)',fontWeight:700}}/>
+              </div>
+            ) : (
+              <div className="fb-header-title" onClick={()=>{setDraft(form.name);setEditingFormName(true);}} style={{cursor:'pointer'}} title="Click to rename">
+                {form.name}
+              </div>
+            )}
+            <SwTag color={MATURITY_LEVELS[form.maturity]?.color === 'green' ? SWC.given : MATURITY_LEVELS[form.maturity]?.color === 'red' ? SWC.red : SWC.meant} sm>
+              {MATURITY_LEVELS[form.maturity]?.label || 'Draft'}
+            </SwTag>
+            <span style={{fontSize:12,color:SWC.dim,fontFamily:'var(--mono)',fontWeight:400}}>
+              v{form.version}
+            </span>
+            {form.status === 'persisted' && <SwTag color={SWC.given} sm>Saved</SwTag>}
+            {form.status === 'saved' && <SwTag color={SWC.meant} sm>Local</SwTag>}
+          </div>
+          {form.key && (
+            <div style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',marginTop:2}}>
+              key: {form.key}
+              {form.source?.propagation && <span style={{marginLeft:8,color:PROPAGATION_LEVELS[form.source.propagation]?.color === 'red' ? SWC.red : SWC.dim}}>
+                {PROPAGATION_LEVELS[form.source.propagation]?.label || form.source.propagation}
+              </span>}
             </div>
           )}
           <div className="fb-header-meta">
@@ -4194,10 +4438,30 @@ const FormBuilder = ({isOrg = false}) => {
             {frameworks.length > 0 && <> · {frameworks.length} framework{frameworks.length!==1?'s':''}</>}
             {totalBindings > 0 && <> · {totalBindings} binding{totalBindings!==1?'s':''}</>}
             {conflictCount > 0 && <span style={{color:SWC.sup}}> · {conflictCount} conflict{conflictCount!==1?'s':''}</span>}
+            {(form.versionHistory || []).length > 0 && <> · {form.versionHistory.length} prior version{form.versionHistory.length!==1?'s':''}</>}
           </div>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <div className="fb-mode-toggle">
+        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+          {/* Form actions */}
+          <SwBtn ghost accent={SWC.muted} onClick={()=>setShowFormList(true)} style={{padding:'5px 10px',fontSize:11}}>
+            <I n="folder" s={11}/> Forms
+            {savedForms.length > 0 && <span style={{marginLeft:4,fontFamily:'var(--mono)',fontSize:10}}>{savedForms.length}</span>}
+          </SwBtn>
+          <SwBtn ghost accent={SWC.given} onClick={doSaveForm} disabled={saving} style={{padding:'5px 10px',fontSize:11}}>
+            {saving ? '...' : 'Save'}
+          </SwBtn>
+          <SwBtn ghost accent={SWC.meant} onClick={()=>setShowVersionBump(true)} style={{padding:'5px 10px',fontSize:11}}>
+            <I n="share" s={11}/> Version
+          </SwBtn>
+          {(form.versionHistory || []).length > 0 && (
+            <SwBtn ghost accent={SWC.dim} onClick={()=>setShowVersionHistory(true)} style={{padding:'5px 10px',fontSize:11}}>
+              History
+            </SwBtn>
+          )}
+          <SwBtn ghost accent={SWC.sup} onClick={doPersistToSchema} disabled={saving} style={{padding:'5px 10px',fontSize:11}} title="Save to Matrix schema room">
+            Publish
+          </SwBtn>
+          <div className="fb-mode-toggle" style={{marginLeft:4}}>
             <button className={`fb-mode-btn ${mode==='compose'?'active':''}`} onClick={()=>setMode('compose')}>
               <I n="grid" s={13}/> Compose
             </button>
@@ -4215,6 +4479,32 @@ const FormBuilder = ({isOrg = false}) => {
           </div>
         </div>
       </div>
+
+      {/* ═══ FORM METADATA (inline, collapsible) ═══ */}
+      {mode === 'compose' && (
+        <div style={{padding:'10px 14px',borderRadius:8,border:`1px solid ${SWC.border}`,background:SWC.surface,marginBottom:12,
+          display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',fontSize:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{color:SWC.dim}}>Maturity:</span>
+            <select value={form.maturity || 'draft'} onChange={e => doSetMaturity(e.target.value)}
+              style={{padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
+              {Object.entries(MATURITY_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{color:SWC.dim}}>Propagation:</span>
+            <select value={form.source?.propagation || 'optional'} onChange={e => doSetPropagation(e.target.value)}
+              style={{padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
+              {Object.entries(PROPAGATION_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label} — {v.desc}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:4,flex:1,minWidth:200}}>
+            <span style={{color:SWC.dim}}>Description:</span>
+            <input value={form.description || ''} onChange={e => doSetDescription(e.target.value)} placeholder="Form description..."
+              style={{flex:1,padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}/>
+          </div>
+        </div>
+      )}
 
       {/* ═══ COMPOSE MODE ═══ */}
       {mode === 'compose' && (
@@ -4849,6 +5139,287 @@ const FormBuilder = ({isOrg = false}) => {
               {sec.questions.length === 0 && <div style={{color:SWC.dim,fontSize:13,fontStyle:'italic'}}>No questions in this section yet.</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ═══ SAVED FORMS LIST MODAL ═══ */}
+      {showFormList && (
+        <div className="fb-adopt-modal" onClick={()=>setShowFormList(false)}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Form Library</div>
+                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
+                  Saved forms and their versions. Load a form or create a new one.
+                </div>
+              </div>
+              <button onClick={()=>setShowFormList(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+            </div>
+
+            <SwBtn accent={SWC.given} onClick={doNewForm} style={{marginBottom:16}}>+ New blank form</SwBtn>
+
+            {savedForms.length === 0 ? (
+              <div style={{padding:24,textAlign:'center',color:SWC.dim,fontSize:13,border:`1px dashed ${SWC.border}`,borderRadius:8}}>
+                No saved forms yet. Use "Save" to save the current form to your library.
+              </div>
+            ) : (
+              <div>
+                {/* Group by form key */}
+                {Object.entries(savedForms.reduce((acc, sf) => {
+                  (acc[sf.key] = acc[sf.key] || []).push(sf);
+                  return acc;
+                }, {})).map(([key, versions]) => (
+                  <div key={key} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:8,overflow:'hidden'}}>
+                    <div style={{padding:'10px 14px',borderBottom:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <div>
+                        <span style={{fontSize:14,fontWeight:600,color:SWC.white}}>{versions[0].name}</span>
+                        <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',marginLeft:8}}>key: {key}</span>
+                      </div>
+                      <span style={{fontSize:11,color:SWC.dim}}>{versions.length} version{versions.length!==1?'s':''}</span>
+                    </div>
+                    {versions.sort((a,b) => b.version - a.version).map(sv => (
+                      <div key={sv.id} style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:8,borderBottom:`1px solid ${SWC.border}`}}>
+                        <SwTag color={SWC.meant} sm mono>v{sv.version}</SwTag>
+                        <SwTag color={MATURITY_LEVELS[sv.maturity]?.color === 'green' ? SWC.given : SWC.dim} sm>{sv.maturity}</SwTag>
+                        <span style={{fontSize:12,color:SWC.dim,flex:1}}>{sv.description || ''}</span>
+                        <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{new Date(sv.savedAt).toLocaleDateString()}</span>
+                        <SwBtn accent={SWC.given} onClick={()=>doLoadForm(sv)} style={{padding:'3px 10px',fontSize:10}}>Load</SwBtn>
+                        <SwBtn ghost accent={SWC.dim} onClick={()=>doDeleteSaved(sv.id)} style={{padding:'3px 8px',fontSize:10}}
+                          onMouseEnter={e=>e.currentTarget.style.color=SWC.red} onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}>×</SwBtn>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{marginTop:12,textAlign:'right'}}>
+              <SwBtn ghost accent={SWC.muted} onClick={()=>setShowFormList(false)}>Done</SwBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ VERSION BUMP MODAL ═══ */}
+      {showVersionBump && (
+        <div className="fb-adopt-modal" onClick={()=>setShowVersionBump(false)}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Bump Version</div>
+                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
+                  Create a new version of <strong style={{color:SWC.white}}>{form.name}</strong>.
+                  Current version: <strong style={{color:SWC.meant}}>v{form.version}</strong>
+                </div>
+              </div>
+              <button onClick={()=>setShowVersionBump(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:12,color:SWC.dim,marginBottom:6}}>Version notes (what changed):</div>
+              <SwInput value={versionNotes} onChange={setVersionNotes} placeholder="Describe what changed in this version..."
+                onKeyDown={e => { if (e.key === 'Escape') setShowVersionBump(false); }}/>
+            </div>
+
+            <div style={{fontSize:12,color:SWC.dim,marginBottom:12,lineHeight:1.6}}>
+              The current form state will be saved as v{form.version} in the version history before bumping.
+              Prior answers remain linked to the version they were recorded against.
+            </div>
+
+            <div style={{display:'flex',gap:8}}>
+              <SwBtn accent={SWC.meant} onClick={()=>doVersionBump('minor')} style={{flex:1}}>
+                Minor bump → v{+(form.version + 0.1).toFixed(1)}
+                <div style={{fontSize:10,fontWeight:400,marginTop:2}}>Additive changes, compatible</div>
+              </SwBtn>
+              <SwBtn accent={SWC.sup} onClick={()=>doVersionBump('major')} style={{flex:1}}>
+                Major bump → v{Math.floor(form.version) + 1}
+                <div style={{fontSize:10,fontWeight:400,marginTop:2}}>Breaking changes, crosswalk needed</div>
+              </SwBtn>
+            </div>
+
+            <div style={{marginTop:12,textAlign:'right'}}>
+              <SwBtn ghost accent={SWC.muted} onClick={()=>setShowVersionBump(false)}>Cancel</SwBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ VERSION HISTORY MODAL ═══ */}
+      {showVersionHistory && (
+        <div className="fb-adopt-modal" onClick={()=>setShowVersionHistory(false)}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Version History — {form.name}</div>
+                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
+                  Current: v{form.version} · {(form.versionHistory||[]).length} prior version{(form.versionHistory||[]).length!==1?'s':''}
+                </div>
+              </div>
+              <button onClick={()=>setShowVersionHistory(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+            </div>
+
+            {/* Current version */}
+            <div style={{border:`1px solid ${SWC.givenBorder}`,borderRadius:8,background:'rgba(45,212,160,0.04)',padding:'10px 14px',marginBottom:8}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <SwTag color={SWC.given} sm mono>v{form.version}</SwTag>
+                <span style={{fontSize:13,fontWeight:600,color:SWC.white}}>Current (working)</span>
+                <SwTag color={SWC.given} sm>{form.maturity}</SwTag>
+                <span style={{fontSize:11,color:SWC.dim,marginLeft:'auto'}}>{allQuestions.length} questions · {allValues.length} options</span>
+              </div>
+            </div>
+
+            {/* Prior versions */}
+            {(form.versionHistory || []).slice().reverse().map((h, i) => {
+              const hQuestions = (h.snapshot?.sections || []).flatMap(s => s.questions || []);
+              const hValues = hQuestions.flatMap(q => (q.options || []).map(o => o));
+              const diff = diffFormVersions(h.snapshot, form);
+              return (
+                <div key={i} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,padding:'10px 14px',marginBottom:6}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:h.notes?6:0}}>
+                    <SwTag color={SWC.meant} sm mono>v{h.version}</SwTag>
+                    <span style={{fontSize:13,color:SWC.text,flex:1}}>{h.notes || 'No notes'}</span>
+                    <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{new Date(h.bumpedAt).toLocaleDateString()}</span>
+                    <span style={{fontSize:11,color:SWC.dim}}>{hQuestions.length}q · {hValues.length}o</span>
+                  </div>
+                  {/* Diff summary */}
+                  {(diff.added.length > 0 || diff.removed.length > 0 || diff.addedOptions.length > 0 || diff.removedOptions.length > 0) && (
+                    <div style={{fontSize:11,color:SWC.dim,marginTop:4,display:'flex',gap:8,flexWrap:'wrap'}}>
+                      {diff.added.length > 0 && <span style={{color:SWC.given}}>+{diff.added.length} question{diff.added.length!==1?'s':''}</span>}
+                      {diff.removed.length > 0 && <span style={{color:SWC.red}}>-{diff.removed.length} question{diff.removed.length!==1?'s':''}</span>}
+                      {diff.addedOptions.length > 0 && <span style={{color:SWC.given}}>+{diff.addedOptions.length} option{diff.addedOptions.length!==1?'s':''}</span>}
+                      {diff.removedOptions.length > 0 && <span style={{color:SWC.red}}>-{diff.removedOptions.length} option{diff.removedOptions.length!==1?'s':''}</span>}
+                      {diff.renamed.length > 0 && <span style={{color:SWC.sup}}>{diff.renamed.length} renamed</span>}
+                    </div>
+                  )}
+                  <div style={{display:'flex',gap:6,marginTop:8}}>
+                    <SwBtn ghost accent={SWC.meant} onClick={()=>{setShowVersionHistory(false);doStartAnswerCrosswalk(h);}} style={{padding:'3px 10px',fontSize:10}}>
+                      Crosswalk answers from v{h.version}
+                    </SwBtn>
+                  </div>
+                </div>
+              );
+            })}
+
+            {(form.versionHistory || []).length === 0 && (
+              <div style={{padding:24,textAlign:'center',color:SWC.dim,fontSize:13,border:`1px dashed ${SWC.border}`,borderRadius:8}}>
+                No prior versions. Use "Version" to create a version snapshot.
+              </div>
+            )}
+
+            {/* Existing answer crosswalks */}
+            {(form.answerCrosswalks || []).length > 0 && (
+              <div style={{marginTop:16}}>
+                <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:SWC.muted,marginBottom:8}}>
+                  Answer Crosswalks
+                </div>
+                {form.answerCrosswalks.map(xw => (
+                  <div key={xw.id} style={{border:`1px solid ${SWC.border}`,borderRadius:6,background:SWC.surface,padding:'8px 12px',marginBottom:4,
+                    display:'flex',alignItems:'center',gap:8}}>
+                    <SwTag color={SWC.meant} sm mono>v{xw.fromVersion}</SwTag>
+                    <span style={{color:SWC.dim,fontSize:12}}>→</span>
+                    <SwTag color={SWC.given} sm mono>v{xw.toVersion}</SwTag>
+                    <span style={{fontSize:12,color:SWC.text}}>{Object.keys(xw.mappings).length} mapping{Object.keys(xw.mappings).length!==1?'s':''}</span>
+                    <span style={{fontSize:11,color:SWC.dim,marginLeft:'auto',fontFamily:'var(--mono)'}}>{new Date(xw.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{marginTop:12,textAlign:'right'}}>
+              <SwBtn ghost accent={SWC.muted} onClick={()=>setShowVersionHistory(false)}>Done</SwBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ANSWER CROSSWALK MODAL ═══ */}
+      {showAnswerCrosswalk && crosswalkSource && (
+        <div className="fb-adopt-modal" onClick={()=>{setShowAnswerCrosswalk(false);setCrosswalkSource(null);}}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:760}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Answer Crosswalk</div>
+                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
+                  Map answers from <SwTag color={SWC.meant} sm mono>v{crosswalkSource.version}</SwTag> to the current
+                  form <SwTag color={SWC.given} sm mono>v{form.version}</SwTag>.
+                  Past answers recorded against v{crosswalkSource.version} will be translated using these mappings.
+                </div>
+              </div>
+              <button onClick={()=>{setShowAnswerCrosswalk(false);setCrosswalkSource(null);}} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+            </div>
+
+            <div style={{fontSize:12,color:SWC.dim,marginBottom:12,padding:'8px 12px',background:SWC.raised,borderRadius:6,lineHeight:1.6}}>
+              For each old answer option on the left, select the equivalent current answer option on the right.
+              Unmapped answers will be preserved as-is with their original value.
+            </div>
+
+            {/* Map old sections/questions to new ones */}
+            {(() => {
+              const oldSections = crosswalkSource.form?.sections || [];
+              const newAllQs = form.sections.flatMap(s => s.questions);
+              const newAllOpts = newAllQs.flatMap(q => (q.options || []).map(o => ({...o, questionPrompt: q.prompt, questionId: q.id})));
+
+              return oldSections.map(oldSec => (
+                <div key={oldSec.id} style={{marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:600,color:SWC.muted,marginBottom:6,borderBottom:`1px solid ${SWC.border}`,paddingBottom:4}}>
+                    {oldSec.title}
+                  </div>
+                  {(oldSec.questions || []).filter(q => q.options && q.options.length > 0).map(oldQ => {
+                    // Try to find matching new question by id or prompt similarity
+                    const matchingNewQ = newAllQs.find(nq => nq.id === oldQ.id) || newAllQs.find(nq => nq.prompt === oldQ.prompt);
+                    const targetOpts = matchingNewQ ? (matchingNewQ.options || []) : newAllOpts;
+
+                    return (
+                      <div key={oldQ.id} style={{marginBottom:8}}>
+                        <div style={{fontSize:13,color:SWC.white,marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{color:SWC.meant}}>OLD:</span> {oldQ.prompt}
+                          {matchingNewQ && <span style={{fontSize:11,color:SWC.given}}>→ matched</span>}
+                          {!matchingNewQ && <span style={{fontSize:11,color:SWC.sup}}>→ no exact match (showing all options)</span>}
+                        </div>
+                        <div style={{border:`1px solid ${SWC.border}`,borderRadius:8,overflow:'hidden',background:SWC.surface}}>
+                          {/* Header */}
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 40px 1fr',borderBottom:`1px solid ${SWC.border}`,background:SWC.raised}}>
+                            <div style={{padding:'6px 10px',fontSize:11,fontWeight:700,textTransform:'uppercase',color:SWC.meant}}>Old answer (v{crosswalkSource.version})</div>
+                            <div style={{padding:'6px 4px',fontSize:11,color:SWC.dim,textAlign:'center'}}>→</div>
+                            <div style={{padding:'6px 10px',fontSize:11,fontWeight:700,textTransform:'uppercase',color:SWC.given}}>Current answer (v{form.version})</div>
+                          </div>
+                          {/* Rows */}
+                          {oldQ.options.map(oldOpt => (
+                            <div key={oldOpt.id} style={{display:'grid',gridTemplateColumns:'1fr 40px 1fr',borderBottom:`1px solid ${SWC.border}`,alignItems:'center'}}>
+                              <div style={{padding:'6px 10px',fontSize:13,color:SWC.text}}>{oldOpt.label}</div>
+                              <div style={{padding:'6px 4px',fontSize:11,color:SWC.dim,textAlign:'center'}}>→</div>
+                              <div style={{padding:'4px 6px'}}>
+                                <select value={answerMappings[oldOpt.id] || ''} onChange={e => doSetAnswerMapping(oldOpt.id, e.target.value || null)}
+                                  style={{width:'100%',padding:'5px 8px',borderRadius:4,border:`1px solid ${answerMappings[oldOpt.id] ? SWC.givenBorder : SWC.border}`,
+                                    background:answerMappings[oldOpt.id] ? 'rgba(45,212,160,0.06)' : SWC.surface,color:SWC.white,fontSize:12,fontFamily:'inherit'}}>
+                                  <option value="">— unmapped (keep original) —</option>
+                                  {targetOpts.map(nOpt => (
+                                    <option key={nOpt.id} value={nOpt.id}>{nOpt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ));
+            })()}
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+              <div style={{fontSize:12,color:SWC.dim}}>
+                {Object.keys(answerMappings).length} mapping{Object.keys(answerMappings).length!==1?'s':''} defined
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <SwBtn ghost accent={SWC.muted} onClick={()=>{setShowAnswerCrosswalk(false);setCrosswalkSource(null);}}>Cancel</SwBtn>
+                <SwBtn accent={SWC.given} onClick={doSaveAnswerCrosswalk} disabled={Object.keys(answerMappings).length === 0}>
+                  Save Answer Crosswalk
+                </SwBtn>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
