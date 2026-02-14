@@ -6983,6 +6983,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
   const [newFieldSensitive, setNewFieldSensitive] = useState(false);
   const [enabledFrameworks, setEnabledFrameworks] = useState([]); // framework ids toggled on
   const [frameworkModal, setFrameworkModal] = useState(false);
+  const [myTeams, setMyTeams] = useState([]);
 
   useEffect(() => { initVault(); }, []);
 
