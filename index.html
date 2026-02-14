@@ -166,10 +166,7 @@ button{font-family:var(--sans);cursor:pointer;border:none;border-radius:var(--r)
   font-size:11px;font-family:var(--mono);font-weight:600;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(201,163,82,.2)}
 
 /* ═══ Form Builder / Schema Builder UX ═══ */
-.fb-canvas{max-width:920px;margin:0 auto}
-.fb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px}
-.fb-header-title{font-family:var(--serif);font-size:22px;font-weight:700}
-.fb-header-meta{font-size:12px;color:var(--tx-2);font-family:var(--mono)}
+/* fb-canvas, fb-header, fb-header-title, fb-header-meta removed — now inline */
 .fb-mode-toggle{display:flex;gap:2px;background:var(--bg-1);border-radius:var(--r);padding:3px}
 .fb-mode-btn{padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;
   color:var(--tx-2);background:transparent;border:none;font-family:inherit;display:flex;align-items:center;gap:6px}
@@ -3277,8 +3274,7 @@ const useSWC = () => { const {theme} = useTheme(); return theme === 'light' ? SW
 /* Legacy alias — components that haven't migrated yet still read SWC */
 let SWC = SWC_DARK;
 
-let _swId = 100;
-const swUid = () => `id_${_swId++}`;
+
 
 const SwTag = ({color=SWC.muted,children,sm,mono,onClick,style:sx}) => (
   <span onClick={onClick} style={{display:"inline-flex",alignItems:"center",padding:sm?"1px 7px":"2px 9px",fontSize:sm?11:12,fontWeight:600,fontFamily:mono?"var(--mono)":"inherit",background:`${color}10`,border:`1px solid ${color}28`,borderRadius:3,color,cursor:onClick?"pointer":"default",letterSpacing:"0.01em",lineHeight:"20px",whiteSpace:"nowrap",...sx}}>{children}</span>
@@ -3290,29 +3286,6 @@ const SwBtn = ({children,accent=SWC.given,ghost,disabled,onClick,style:sx}) => (
 const SwInput = ({value,onChange,placeholder,autoFocus,onKeyDown,style:sx}) => (
   <input autoFocus={autoFocus} value={value} onChange={e=>onChange(e.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} style={{width:"100%",padding:"10px 14px",borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box",...sx}} onFocus={e=>e.target.style.borderColor=SWC.borderLit} onBlur={e=>e.target.style.borderColor=SWC.border}/>
 );
-const SwHdr = ({title,tag,tagColor,right,children:ch}) => (
-  <div style={{marginBottom:22}}>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:SWC.muted}}>{title}</span>
-        {tag && <SwTag color={tagColor} sm>{tag}</SwTag>}
-      </div>
-      {right}
-    </div>
-    {ch}
-  </div>
-);
-
-const SwEpNote = ({type}) => (
-  <div style={{padding:"10px 14px",borderRadius:6,border:`1px solid ${type==="given"?SWC.givenBorder:SWC.meantBorder}`,background:type==="given"?"rgba(45,212,160,0.04)":"rgba(167,139,250,0.04)",fontSize:13,color:SWC.muted,lineHeight:1.6,marginBottom:16}}>
-    {type==="given" ? (<>
-      <SwTag color={SWC.given} sm style={{marginRight:4}}>GIVEN</SwTag> = what happened. Could someone disagree? <b style={{color:SWC.text}}>No</b> → it's a fact of observation. Questions and their answer options live here — phenomenological, no interpretation baked in.
-    </>) : (<>
-      <SwTag color={SWC.meant} sm style={{marginRight:4}}>MEANT</SwTag> = what someone says it means. Could someone disagree? <b style={{color:SWC.text}}>Yes</b> → it's interpretation. Frameworks and their codes live here — institutional, perspectival, revisable.
-    </>)}
-  </div>
-);
-
 function SwMRow({opt,frameworks,getBindingCode,setBind,clearBind,hasConflict,isLast}) {
   const [openCell,setOpenCell] = useState(null);
   return (
@@ -3374,562 +3347,6 @@ function SwMRow({opt,frameworks,getBindingCode,setBind,clearBind,hasConflict,isL
     </div>
   );
 }
-
-const SchemaWorkbench = ({isOrg = false}) => {
-  SWC = useSWC();
-  const [screen, setScreen] = useState("start");
-  const [prompts, setPrompts] = useState([]);
-  const [frameworks, setFrameworks] = useState([]);
-  const [bindings, setBindings] = useState({});
-  const [crosswalks, setCrosswalks] = useState([]);
-
-  const [addingPrompt, setAddingPrompt] = useState(false);
-  const [addingOption, setAddingOption] = useState(null);
-  const [addingFw, setAddingFw] = useState(false);
-  const [addingCode, setAddingCode] = useState(null);
-  const [draft, setDraft] = useState("");
-  const [draft2, setDraft2] = useState("");
-  const [matrixPrompt, setMatrixPrompt] = useState(null);
-  const [selectedValue, setSelectedValue] = useState(null);
-  const [expandedFw, setExpandedFw] = useState(null);
-  const [modalAddingCode, setModalAddingCode] = useState(null);
-  const [addingXW, setAddingXW] = useState(false);
-  const [xwFrom, setXwFrom] = useState("");
-  const [xwTo, setXwTo] = useState("");
-  const [xwType, setXwType] = useState("equivalent");
-  const [xwNotes, setXwNotes] = useState("");
-
-  const allOptions = prompts.flatMap(p => p.options.map(o => ({...o, promptId: p.id, promptText: p.prompt})));
-  const allCodes = frameworks.flatMap((f,fi) => f.codes.map(c => ({...c, frameworkId: f.id, frameworkName: f.name, fwIdx: fi})));
-
-  const getBindingCode = (optId, fwId) => {
-    const fw = frameworks.find(f=>f.id===fwId);
-    if(!fw) return null;
-    for(const c of fw.codes) if(bindings[`${optId}__${c.id}`]) return c;
-    return null;
-  };
-  const getBindingsForOption = (optId) => frameworks.map((f,fi) => {
-    const c = getBindingCode(optId,f.id);
-    return c ? {...c,fwIdx:fi,frameworkName:f.name} : null;
-  }).filter(Boolean);
-  const hasConflict = (opt) => {
-    const cs = getBindingsForOption(opt.id);
-    return cs.length >= 2 && new Set(cs.map(c=>c.label)).size > 1;
-  };
-
-  const doAddPrompt = () => { if(!draft.trim()) return; setPrompts(p=>[...p,{id:swUid(),prompt:draft.trim(),options:[]}]); setDraft(""); setAddingPrompt(false); if(screen==="start") setScreen("questions"); };
-  const doAddOption = (pid) => { if(!draft.trim()) return; setPrompts(ps=>ps.map(p=>p.id===pid?{...p,options:[...p.options,{id:swUid(),label:draft.trim()}]}:p)); setDraft(""); };
-  const doAddFw = () => { if(!draft.trim()) return; setFrameworks(f=>[...f,{id:swUid(),name:draft.trim(),fullName:draft2.trim()||null,codes:[]}]); setDraft(""); setDraft2(""); setAddingFw(false); if(screen==="start") setScreen("frameworks"); };
-  const doAddCode = (fwId) => { if(!draft.trim()||!draft2.trim()) return; setFrameworks(fs=>fs.map(f=>f.id===fwId?{...f,codes:[...f.codes,{id:swUid(),code:draft.trim(),label:draft2.trim()}]}:f)); setDraft(""); setDraft2(""); };
-  const doSetBind = (optId,codeId,fwId) => { const nb={...bindings}; const fw=frameworks.find(f=>f.id===fwId); if(fw) fw.codes.forEach(c=>{delete nb[`${optId}__${c.id}`];}); nb[`${optId}__${codeId}`]={t:Date.now()}; setBindings(nb); };
-  const doClearBind = (optId,fwId) => { const nb={...bindings}; const fw=frameworks.find(f=>f.id===fwId); if(fw) fw.codes.forEach(c=>{delete nb[`${optId}__${c.id}`];}); setBindings(nb); };
-  const doAddXW = () => { if(!xwFrom||!xwTo) return; setCrosswalks(x=>[...x,{id:swUid(),fromCodeId:xwFrom,toCodeId:xwTo,type:xwType,notes:xwNotes}]); setAddingXW(false); setXwFrom(""); setXwTo(""); setXwType("equivalent"); setXwNotes(""); };
-
-  const totalBindings = Object.keys(bindings).length;
-  const totalPossible = allOptions.length * frameworks.length;
-  const hasData = prompts.length > 0 || frameworks.length > 0;
-
-  const tabs = [
-    {id:"questions",label:"Questions",ep:"GIVEN",color:SWC.given},
-    {id:"frameworks",label:"Frameworks",ep:"MEANT",color:SWC.meant},
-    {id:"matrix",label:"Bindings",ep:"GIVEN → MEANT",color:SWC.meant},
-    {id:"crosswalks",label:"Crosswalks",ep:"MEANT ↔ MEANT",color:SWC.meant},
-  ];
-
-  return (
-    <div className="anim-up" style={{color:SWC.text}}>
-      {/* Header */}
-      <div style={{marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <I n="grid" s={20} c={SWC.given}/>
-          <span onClick={()=>setScreen(hasData?"questions":"start")} style={{fontSize:19,fontWeight:700,color:SWC.white,letterSpacing:"-0.03em",cursor:"pointer",fontFamily:"var(--serif)"}}>Schema Workbench</span>
-        </div>
-        {hasData && (
-          <div style={{display:"flex",gap:2}}>
-            {tabs.map(t => (
-              <button key={t.id} onClick={()=>{setScreen(t.id);setSelectedValue(null);setExpandedFw(null);setMatrixPrompt(null);}} style={{
-                padding:"6px 12px",borderRadius:5,border:"none",fontSize:12.5,fontWeight:500,
-                cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s",
-                display:"flex",alignItems:"center",gap:5,
-                background:screen===t.id?SWC.raised:"transparent",
-                color:screen===t.id?SWC.white:SWC.muted,
-              }}>{t.label}<SwTag color={screen===t.id?t.color:SWC.dim} sm>{t.ep}</SwTag></button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Stats bar */}
-      {hasData && (
-        <div style={{padding:"8px 0",borderTop:`1px solid ${SWC.border}`,borderBottom:`1px solid ${SWC.border}`,fontSize:12.5,color:SWC.dim,display:"flex",gap:18,marginBottom:18}}>
-          <span>{prompts.length} question{prompts.length!==1?"s":""} · {allOptions.length} options</span>
-          <span>{frameworks.length} framework{frameworks.length!==1?"s":""} · {allCodes.length} codes</span>
-          {totalPossible > 0 && <span style={{marginLeft:"auto"}}>{totalBindings}/{totalPossible} bindings · {crosswalks.length} crosswalks</span>}
-        </div>
-      )}
-
-      {/* ═══ START ═══ */}
-      {screen === "start" && !hasData && (
-        <div style={{paddingTop:40}}>
-          <div style={{textAlign:"center",marginBottom:40}}>
-            <div style={{fontSize:22,fontWeight:600,color:SWC.white,marginBottom:8}}>Build a schema from any angle</div>
-            <div style={{fontSize:15,color:SWC.muted,maxWidth:480,margin:"0 auto",lineHeight:1.6}}>
-              Start with what you observe, or start with what you need to report. They'll connect in the middle.
-            </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,maxWidth:520,margin:"0 auto"}}>
-            <div onClick={()=>{setAddingPrompt(true);setDraft("");}} style={{
-              padding:20,borderRadius:10,border:`1px solid ${SWC.givenBorder}`,background:"rgba(45,212,160,0.03)",
-              cursor:"pointer",transition:"all 0.15s",
-            }}
-            onMouseEnter={e=>e.currentTarget.style.borderColor=SWC.given}
-            onMouseLeave={e=>e.currentTarget.style.borderColor=SWC.givenBorder}
-            >
-              <SwTag color={SWC.given}>GIVEN</SwTag>
-              <div style={{fontSize:16,fontWeight:600,color:SWC.white,marginTop:10}}>Start with a question</div>
-              <div style={{fontSize:13.5,color:SWC.muted,marginTop:6,lineHeight:1.55}}>What do you need to observe? Something answerable by looking, listening, or asking.</div>
-            </div>
-            <div onClick={()=>{setAddingFw(true);setDraft("");setDraft2("");}} style={{
-              padding:20,borderRadius:10,border:`1px solid ${SWC.meantBorder}`,background:"rgba(167,139,250,0.03)",
-              cursor:"pointer",transition:"all 0.15s",
-            }}
-            onMouseEnter={e=>e.currentTarget.style.borderColor=SWC.meant}
-            onMouseLeave={e=>e.currentTarget.style.borderColor=SWC.meantBorder}
-            >
-              <SwTag color={SWC.meant}>MEANT</SwTag>
-              <div style={{fontSize:16,fontWeight:600,color:SWC.white,marginTop:10}}>Start with a framework</div>
-              <div style={{fontSize:13.5,color:SWC.muted,marginTop:6,lineHeight:1.55}}>Who do you report to? A regulation, a funder's categories, an internal policy.</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ ADD PROMPT (overlay) ═══ */}
-      {addingPrompt && (
-        <div style={{position:"fixed",bottom:24,right:24,zIndex:1000,width:370,border:`1px solid ${SWC.givenBorder}`,borderRadius:10,background:SWC.surface,padding:20,boxShadow:"0 8px 32px rgba(0,0,0,0.45)"}}>
-          <div style={{fontSize:15,fontWeight:600,color:SWC.given,marginBottom:12}}>New Observation Question</div>
-          <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Type your question..." onKeyDown={e=>{if(e.key==="Enter")doAddPrompt();if(e.key==="Escape"){setAddingPrompt(false);setDraft("");}}}/>
-          <div style={{fontSize:13,color:SWC.dim,marginTop:8,lineHeight:1.55}}>Can it be answered by observing — without consulting a policy? Then it's GIVEN.</div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
-            <SwBtn onClick={doAddPrompt} disabled={!draft.trim()}>Create</SwBtn>
-            <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingPrompt(false);setDraft("");}}>Cancel</SwBtn>
-          </div>
-          {screen==="start" && (
-            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:6}}>
-              {["Where did you sleep last night?","What temperature was recorded?","What condition is this part in?","What did the patient report?"].map(ex => (
-                <div key={ex} onClick={()=>setDraft(ex)} style={{padding:"8px 12px",borderRadius:5,border:`1px solid ${SWC.border}`,fontSize:13,color:SWC.dim,cursor:"pointer",transition:"all 0.12s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.color=SWC.given;e.currentTarget.style.borderColor=SWC.given;}}
-                  onMouseLeave={e=>{e.currentTarget.style.color=SWC.dim;e.currentTarget.style.borderColor=SWC.border;}}
-                >{ex}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ ADD FRAMEWORK (overlay) ═══ */}
-      {addingFw && (
-        <div style={{border:`1px solid ${SWC.meantBorder}`,borderRadius:10,background:SWC.surface,padding:20,marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:600,color:SWC.meant,marginBottom:12}}>New Reporting Framework</div>
-          <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Short name (e.g. HUD §578.3)" onKeyDown={e=>{if(e.key==="Enter"&&draft.trim())doAddFw();if(e.key==="Escape"){setAddingFw(false);setDraft("");setDraft2("");}}}/>
-          <div style={{marginTop:8}}><SwInput value={draft2} onChange={setDraft2} placeholder="Full name (optional)" onKeyDown={e=>{if(e.key==="Enter"&&draft.trim())doAddFw();}}/></div>
-          <div style={{fontSize:13,color:SWC.dim,marginTop:8,lineHeight:1.55}}>Could someone disagree about what a code means? Then it's MEANT.</div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
-            <SwBtn accent={SWC.meant} onClick={doAddFw} disabled={!draft.trim()}>Create</SwBtn>
-            <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingFw(false);setDraft("");setDraft2("");}}>Cancel</SwBtn>
-          </div>
-        </div>
-      )}
-
-
-      {/* ═══════════════════════════════════════════════
-          TAB 1: QUESTIONS & VALUES
-      ═══════════════════════════════════════════════ */}
-      {screen === "questions" && !addingPrompt && !addingFw && (
-        <>
-          <SwEpNote type="given"/>
-          <SwHdr title="Observation Questions" tag="GIVEN" tagColor={SWC.given}
-            right={<SwBtn ghost accent={SWC.given} onClick={()=>{setAddingPrompt(true);setDraft("");}}>+ Add question</SwBtn>}>
-            {prompts.length === 0 ? (
-              <div style={{padding:20,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:"center",color:SWC.dim,fontSize:13.5}}>
-                No questions yet. <span style={{color:SWC.given,cursor:"pointer"}} onClick={()=>{setAddingPrompt(true);setDraft("");}}>Create one →</span>
-              </div>
-            ) : prompts.map(p => (
-              <div key={p.id} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:8,overflow:"hidden"}}>
-                <div style={{padding:"10px 14px",borderBottom:`1px solid ${SWC.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <div>
-                    <span style={{fontSize:15,fontWeight:600,color:SWC.white}}>{p.prompt}</span>
-                    {p.options.some(o=>hasConflict(o)) && <span style={{marginLeft:6}}>⚡</span>}
-                    <div style={{fontSize:12.5,color:SWC.dim,marginTop:3}}>{p.options.length} option{p.options.length!==1?"s":""}</div>
-                  </div>
-                  {frameworks.length > 0 && p.options.length > 0 && (
-                    <button onClick={()=>{setMatrixPrompt(p);setScreen("matrix");}} style={{padding:"5px 12px",borderRadius:5,border:`1px solid ${SWC.border}`,background:"transparent",color:SWC.muted,fontSize:12.5,cursor:"pointer",fontFamily:"inherit"}}>Bindings →</button>
-                  )}
-                </div>
-                <div style={{padding:"4px 6px"}}>
-                  {p.options.map(o => {
-                    const bound = getBindingsForOption(o.id);
-                    return (
-                      <div key={o.id} onClick={()=>{if(frameworks.length>0){setSelectedValue({prompt:p,option:o});setExpandedFw(null);setModalAddingCode(null);}}} style={{
-                        padding:"6px 10px",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"space-between",
-                        cursor:frameworks.length>0?"pointer":"default",transition:"background 0.1s",
-                      }}
-                      onMouseEnter={e=>{if(frameworks.length>0)e.currentTarget.style.background=SWC.hover;}}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-                      >
-                        <span style={{fontSize:14,color:SWC.white}}>{o.label}</span>
-                        <div style={{display:"flex",alignItems:"center",gap:4}}>
-                          {hasConflict(o) && <span style={{fontSize:11}}>⚡</span>}
-                          {bound.map((c,i)=><SwDot key={i} color={SWC.fw[c.fwIdx%5]}/>)}
-                          {bound.length===0 && frameworks.length>0 && <span style={{fontSize:11.5,color:SWC.dim}}>unbound</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {addingOption === p.id ? (
-                    <div style={{padding:"4px 8px",display:"flex",gap:6,alignItems:"center"}}>
-                      <SwInput autoFocus value={draft} onChange={setDraft} placeholder="New option..."
-                        onKeyDown={e=>{if(e.key==="Enter"){doAddOption(p.id);}else if(e.key==="Escape"){setAddingOption(null);setDraft("");}}}
-                        style={{padding:"5px 10px",fontSize:12}}/>
-                      <SwBtn onClick={()=>doAddOption(p.id)} disabled={!draft.trim()} style={{padding:"5px 12px",fontSize:11}}>Add</SwBtn>
-                      <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingOption(null);setDraft("");}} style={{padding:"5px 8px",fontSize:11}}>×</SwBtn>
-                    </div>
-                  ) : (
-                    <div onClick={()=>{setAddingOption(p.id);setDraft("");}} style={{padding:"8px 12px",fontSize:13,color:SWC.dim,cursor:"pointer"}}>+ Add option</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </SwHdr>
-        </>
-      )}
-
-
-      {/* ═══════════════════════════════════════════════
-          TAB 2: FRAMEWORKS & CODES
-      ═══════════════════════════════════════════════ */}
-      {screen === "frameworks" && !addingPrompt && !addingFw && (
-        <>
-          <SwEpNote type="meant"/>
-          <SwHdr title="Reporting Frameworks" tag="MEANT" tagColor={SWC.meant}
-            right={<SwBtn ghost accent={SWC.meant} onClick={()=>{setAddingFw(true);setDraft("");setDraft2("");}}>+ Add framework</SwBtn>}>
-            {frameworks.length === 0 ? (
-              <div style={{padding:20,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:"center",color:SWC.dim,fontSize:13.5}}>
-                No frameworks yet. <span style={{color:SWC.meant,cursor:"pointer"}} onClick={()=>{setAddingFw(true);setDraft("");setDraft2("");}}>Create one →</span>
-              </div>
-            ) : frameworks.map((f,fi) => (
-              <div key={f.id} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:8,overflow:"hidden"}}>
-                <div style={{padding:"10px 14px",borderBottom:`1px solid ${SWC.border}`,display:"flex",alignItems:"center",gap:6}}>
-                  <SwDot color={SWC.fw[fi%5]} size={8}/>
-                  <span style={{fontSize:15,fontWeight:600,color:SWC.fw[fi%5]}}>{f.name}</span>
-                  {f.fullName && <span style={{fontSize:13,color:SWC.muted}}>— {f.fullName}</span>}
-                  <span style={{marginLeft:"auto",fontSize:12.5,color:SWC.dim}}>{f.codes.length} code{f.codes.length!==1?"s":""}</span>
-                </div>
-                <div style={{padding:"4px 6px"}}>
-                  {f.codes.map(c => (
-                    <div key={c.id} style={{padding:"5px 10px",display:"flex",alignItems:"center",gap:8}}>
-                      <SwTag color={SWC.fw[fi%5]} sm mono>{c.code}</SwTag>
-                      <span style={{fontSize:13,color:SWC.text}}>{c.label}</span>
-                    </div>
-                  ))}
-                  {addingCode === f.id ? (
-                    <div style={{padding:"4px 8px"}}>
-                      <div style={{display:"flex",gap:6,marginBottom:4}}>
-                        <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Code (e.g. Cat-1)"
-                          onKeyDown={e=>{if(e.key==="Escape"){setAddingCode(null);setDraft("");setDraft2("");}}}
-                          style={{padding:"5px 10px",fontSize:12,width:120,flex:"none"}}/>
-                        <SwInput value={draft2} onChange={setDraft2} placeholder="Label (e.g. Literally Homeless)"
-                          onKeyDown={e=>{if(e.key==="Enter"&&draft.trim()&&draft2.trim()){doAddCode(f.id);}else if(e.key==="Escape"){setAddingCode(null);setDraft("");setDraft2("");}}}
-                          style={{padding:"5px 10px",fontSize:12}}/>
-                      </div>
-                      <div style={{display:"flex",gap:6}}>
-                        <SwBtn accent={SWC.meant} onClick={()=>doAddCode(f.id)} disabled={!draft.trim()||!draft2.trim()} style={{padding:"5px 12px",fontSize:11}}>Add</SwBtn>
-                        <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingCode(null);setDraft("");setDraft2("");}} style={{padding:"5px 8px",fontSize:11}}>×</SwBtn>
-                      </div>
-                    </div>
-                  ) : (
-                    <div onClick={()=>{setAddingCode(f.id);setDraft("");setDraft2("");}} style={{padding:"8px 12px",fontSize:13,color:SWC.dim,cursor:"pointer"}}>+ Add code</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </SwHdr>
-        </>
-      )}
-
-
-      {/* ═══════════════════════════════════════════════
-          VALUE MODAL — with inline binding + inline code creation
-      ═══════════════════════════════════════════════ */}
-      {selectedValue && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50}}
-          onClick={()=>{setSelectedValue(null);setExpandedFw(null);setModalAddingCode(null);setDraft("");setDraft2("");}}>
-          <div style={{width:540,maxHeight:"85vh",overflow:"auto",background:SWC.raised,border:`1px solid ${SWC.border}`,borderRadius:12,padding:24}}
-            onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-              <div>
-                <SwTag color={SWC.given}>GIVEN</SwTag>
-                <div style={{fontSize:13,color:SWC.muted,marginTop:6}}>{selectedValue.prompt.prompt}</div>
-                <div style={{fontSize:20,fontWeight:700,color:SWC.white,marginTop:3}}>{selectedValue.option.label}</div>
-              </div>
-              <button onClick={()=>{setSelectedValue(null);setExpandedFw(null);setModalAddingCode(null);}} style={{background:"none",border:"none",color:SWC.muted,cursor:"pointer",fontSize:20,padding:4,lineHeight:1}}>×</button>
-            </div>
-
-            <div style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:SWC.muted,marginBottom:8}}>Framework Readings</div>
-            <div style={{fontSize:13,color:SWC.dim,marginBottom:14}}>Click a framework to assign its reading of this observation.</div>
-
-            {frameworks.map((fw,fi) => {
-              const code = getBindingCode(selectedValue.option.id, fw.id);
-              const isExpanded = expandedFw === fw.id;
-              const hasCodes = fw.codes.length > 0;
-              const isAddingCodeHere = modalAddingCode === fw.id;
-
-              return (
-                <div key={fw.id} style={{
-                  borderRadius:8,border:`1px solid ${isExpanded?SWC.fwBorder(fi):SWC.border}`,
-                  background:isExpanded?SWC.fwBg(fi):SWC.surface,
-                  marginBottom:6,overflow:"hidden",transition:"all 0.15s",
-                }}>
-                  {/* Header row */}
-                  <div onClick={()=>{setExpandedFw(isExpanded?null:fw.id);setModalAddingCode(null);setDraft("");setDraft2("");}} style={{
-                    padding:"10px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",
-                  }}>
-                    <SwDot color={SWC.fw[fi%5]} size={8}/>
-                    <span style={{fontSize:14,fontWeight:600,color:SWC.fw[fi%5],minWidth:80}}>{fw.name}</span>
-                    <span style={{color:SWC.dim,fontSize:14}}>→</span>
-                    {code ? (
-                      <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
-                        <SwTag color={SWC.fw[fi%5]} mono>{code.code}</SwTag>
-                        <span style={{fontSize:14,fontWeight:500,color:SWC.white}}>{code.label}</span>
-                      </div>
-                    ) : (
-                      <span style={{fontSize:13,color:SWC.muted,fontStyle:"italic",flex:1}}>
-                        {hasCodes ? "click to assign" : "no codes yet — click to add"}
-                      </span>
-                    )}
-                    <span style={{fontSize:11,color:SWC.dim,transform:isExpanded?"rotate(180deg)":"rotate(0)",transition:"transform 0.15s"}}>▼</span>
-                  </div>
-
-                  {/* Expanded panel */}
-                  {isExpanded && (
-                    <div style={{padding:"6px 14px 12px",borderTop:`1px solid ${SWC.fwBorder(fi)}`}}>
-                      {hasCodes && (
-                        <>
-                          <div style={{fontSize:12,color:SWC.muted,marginBottom:8,fontWeight:600}}>Select a code:</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                            {fw.codes.map(c => {
-                              const isActive = code?.id === c.id;
-                              return (
-                                <div key={c.id} onClick={()=>{
-                                  if(isActive) doClearBind(selectedValue.option.id,fw.id);
-                                  else doSetBind(selectedValue.option.id,c.id,fw.id);
-                                  setExpandedFw(null);
-                                }} style={{
-                                  padding:"8px 12px",borderRadius:6,cursor:"pointer",transition:"all 0.12s",
-                                  display:"flex",alignItems:"center",gap:8,
-                                  border:`1px solid ${isActive?SWC.fw[fi%5]:SWC.border}`,
-                                  background:isActive?`${SWC.fw[fi%5]}18`:"transparent",
-                                }}
-                                onMouseEnter={e=>{e.currentTarget.style.borderColor=SWC.fw[fi%5];if(!isActive)e.currentTarget.style.background=SWC.hover;}}
-                                onMouseLeave={e=>{e.currentTarget.style.borderColor=isActive?SWC.fw[fi%5]:SWC.border;e.currentTarget.style.background=isActive?`${SWC.fw[fi%5]}18`:"transparent";}}
-                                >
-                                  <div style={{width:16,height:16,borderRadius:8,border:`2px solid ${isActive?SWC.fw[fi%5]:SWC.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                    {isActive && <div style={{width:8,height:8,borderRadius:4,background:SWC.fw[fi%5]}}/>}
-                                  </div>
-                                  <SwTag color={SWC.fw[fi%5]} mono sm>{c.code}</SwTag>
-                                  <span style={{fontSize:13,color:isActive?SWC.white:SWC.text}}>{c.label}</span>
-                                  {isActive && <span style={{fontSize:11.5,color:SWC.fw[fi%5],marginLeft:"auto"}}>✓ bound</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {code && (
-                            <div onClick={()=>{doClearBind(selectedValue.option.id,fw.id);setExpandedFw(null);}}
-                              style={{fontSize:12.5,color:SWC.dim,cursor:"pointer",marginTop:10}}
-                              onMouseEnter={e=>e.currentTarget.style.color=SWC.red}
-                              onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}
-                            >Clear binding</div>
-                          )}
-                          <div style={{marginTop:8,borderTop:`1px solid ${SWC.fwBorder(fi)}`,paddingTop:8}}/>
-                        </>
-                      )}
-
-                      {/* Inline add code */}
-                      {isAddingCodeHere ? (
-                        <div>
-                          <div style={{fontSize:12,color:SWC.muted,marginBottom:6,fontWeight:600}}>Add a code to {fw.name}:</div>
-                          <div style={{display:"flex",gap:6,marginBottom:4}}>
-                            <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Code"
-                              onKeyDown={e=>{if(e.key==="Escape"){setModalAddingCode(null);setDraft("");setDraft2("");}}}
-                              style={{padding:"5px 10px",fontSize:12,width:100,flex:"none"}}/>
-                            <SwInput value={draft2} onChange={setDraft2} placeholder="Label"
-                              onKeyDown={e=>{if(e.key==="Enter"&&draft.trim()&&draft2.trim()){doAddCode(fw.id);} else if(e.key==="Escape"){setModalAddingCode(null);setDraft("");setDraft2("");}}}
-                              style={{padding:"5px 10px",fontSize:12}}/>
-                          </div>
-                          <div style={{display:"flex",gap:6}}>
-                            <SwBtn accent={SWC.fw[fi%5]} onClick={()=>doAddCode(fw.id)} disabled={!draft.trim()||!draft2.trim()} style={{padding:"4px 10px",fontSize:11}}>Add code</SwBtn>
-                            <SwBtn ghost accent={SWC.muted} onClick={()=>{setModalAddingCode(null);setDraft("");setDraft2("");}} style={{padding:"4px 8px",fontSize:11}}>Done</SwBtn>
-                          </div>
-                        </div>
-                      ) : (
-                        <div onClick={()=>{setModalAddingCode(fw.id);setDraft("");setDraft2("");}} style={{fontSize:12.5,color:SWC.fw[fi%5],cursor:"pointer"}}
-                          onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"}
-                          onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}
-                        >+ Add code to {fw.name}</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {hasConflict(selectedValue.option) && (
-              <div style={{marginTop:14,padding:"12px 16px",borderRadius:8,border:`1px solid ${SWC.sup}25`,background:SWC.supBg,fontSize:13.5,color:SWC.text,lineHeight:1.55}}>
-                <span style={{color:SWC.sup,fontWeight:600}}>⚡ Superposition — </span>
-                Frameworks disagree. Different lenses, same thermometer.{" "}
-                <span style={{color:SWC.meant,cursor:"pointer",textDecoration:"underline"}}
-                  onClick={()=>{setSelectedValue(null);setExpandedFw(null);setScreen("crosswalks");}}>Document in crosswalks →</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-
-      {/* ═══════════════════════════════════════════════
-          TAB 3: BINDING MATRIX
-      ═══════════════════════════════════════════════ */}
-      {screen === "matrix" && !addingPrompt && !addingFw && (
-        <>
-          {!matrixPrompt && (
-            <SwHdr title="Binding Matrix" tag="GIVEN → MEANT" tagColor={SWC.meant}>
-              <div style={{fontSize:13.5,color:SWC.muted,marginBottom:14,lineHeight:1.55}}>
-                Each binding connects an observation (GIVEN) to a classification (MEANT). The same observation can mean different things to different frameworks.
-              </div>
-              {prompts.filter(p=>p.options.length>0).length === 0 ? (
-                <div style={{padding:20,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:"center",color:SWC.dim,fontSize:13.5}}>
-                  Add questions with options first. <span style={{color:SWC.given,cursor:"pointer"}} onClick={()=>setScreen("questions")}>Go to Questions →</span>
-                </div>
-              ) : frameworks.length === 0 ? (
-                <div style={{padding:20,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:"center",color:SWC.dim,fontSize:13.5}}>
-                  Add a framework to bind against. <span style={{color:SWC.meant,cursor:"pointer"}} onClick={()=>setScreen("frameworks")}>Go to Frameworks →</span>
-                </div>
-              ) : prompts.filter(p=>p.options.length>0).map(p => {
-                const bc = p.options.reduce((n,o)=>n+getBindingsForOption(o.id).length,0);
-                const ps = p.options.length * frameworks.length;
-                return (
-                  <div key={p.id} onClick={()=>setMatrixPrompt(p)} style={{
-                    padding:"10px 14px",borderRadius:8,border:`1px solid ${SWC.border}`,background:SWC.surface,
-                    marginBottom:6,cursor:"pointer",transition:"all 0.12s",display:"flex",alignItems:"center",justifyContent:"space-between",
-                  }}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor=SWC.borderLit}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor=SWC.border}
-                  >
-                    <span style={{fontSize:15,fontWeight:600,color:SWC.white}}>{p.prompt}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      {ps>0 && <span style={{fontSize:12.5,color:bc===ps?SWC.given:SWC.dim}}>{bc}/{ps}</span>}
-                      <span style={{fontSize:12.5,color:SWC.dim}}>→</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </SwHdr>
-          )}
-
-          {matrixPrompt && (
-            <>
-              <div style={{marginBottom:14}}>
-                <button onClick={()=>setMatrixPrompt(null)} style={{background:"none",border:"none",color:SWC.muted,fontSize:12.5,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:8}}>← All questions</button>
-                <div style={{fontSize:17,fontWeight:600,color:SWC.white}}>{matrixPrompt.prompt}</div>
-                <div style={{fontSize:13,color:SWC.muted,marginTop:3}}>Click any cell to assign a code.</div>
-              </div>
-              <div style={{border:`1px solid ${SWC.border}`,borderRadius:10,overflow:"hidden",background:SWC.surface}}>
-                <div style={{display:"grid",gridTemplateColumns:`minmax(140px,180px) repeat(${frameworks.length}, 1fr)`,borderBottom:`1px solid ${SWC.border}`,background:SWC.raised}}>
-                  <div style={{padding:"10px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:SWC.dim}}>Value</div>
-                  {frameworks.map((fw,fi) => (
-                    <div key={fw.id} style={{padding:"10px 12px",fontSize:12.5,fontWeight:600,color:SWC.fw[fi%5],textAlign:"center",borderLeft:`1px solid ${SWC.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                      <SwDot color={SWC.fw[fi%5]} size={5}/>{fw.name}
-                    </div>
-                  ))}
-                </div>
-                {matrixPrompt.options.map((opt,oi) => (
-                  <SwMRow key={opt.id} opt={opt} frameworks={frameworks} getBindingCode={getBindingCode} setBind={doSetBind} clearBind={doClearBind} hasConflict={hasConflict} isLast={oi===matrixPrompt.options.length-1}/>
-                ))}
-              </div>
-              {matrixPrompt.options.some(o=>hasConflict(o)) && (
-                <div style={{marginTop:12,padding:"12px 16px",borderRadius:8,border:`1px solid ${SWC.sup}25`,background:SWC.supBg,fontSize:13.5,color:SWC.text,lineHeight:1.55}}>
-                  <span style={{color:SWC.sup,fontWeight:600}}>⚡ Disagreement.</span>{" "}
-                  <span style={{color:SWC.meant,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setScreen("crosswalks")}>Document in crosswalks →</span>
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-
-      {/* ═══════════════════════════════════════════════
-          TAB 4: CROSSWALKS
-      ═══════════════════════════════════════════════ */}
-      {screen === "crosswalks" && !addingPrompt && !addingFw && (
-        <SwHdr title="Crosswalks" tag="MEANT ↔ MEANT" tagColor={SWC.meant}
-          right={allCodes.length>=2 && <SwBtn ghost accent={SWC.meant} onClick={()=>setAddingXW(true)}>+ Add crosswalk</SwBtn>}>
-          <div style={{fontSize:13.5,color:SWC.muted,marginBottom:16,lineHeight:1.55}}>
-            Crosswalks translate between frameworks — how one institution's categories map to another's. Both sides are MEANT.
-          </div>
-          {addingXW && (
-            <div style={{border:`1px solid ${SWC.meantBorder}`,borderRadius:10,background:SWC.surface,padding:16,marginBottom:12}}>
-              <div style={{fontSize:15,fontWeight:600,color:SWC.meant,marginBottom:12}}>New Crosswalk</div>
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <select value={xwFrom} onChange={e=>setXwFrom(e.target.value)} style={{flex:1,padding:"7px 10px",borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:12,fontFamily:"inherit"}}>
-                  <option value="">From code...</option>
-                  {allCodes.map(c=><option key={c.id} value={c.id}>{c.frameworkName}: {c.code} — {c.label}</option>)}
-                </select>
-                <select value={xwTo} onChange={e=>setXwTo(e.target.value)} style={{flex:1,padding:"7px 10px",borderRadius:6,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:12,fontFamily:"inherit"}}>
-                  <option value="">To code...</option>
-                  {allCodes.filter(c=>c.id!==xwFrom).map(c=><option key={c.id} value={c.id}>{c.frameworkName}: {c.code} — {c.label}</option>)}
-                </select>
-              </div>
-              <div style={{display:"flex",gap:6,marginBottom:8}}>
-                {["equivalent","implies","overlaps","conflicts"].map(t=>(
-                  <SwTag key={t} color={xwType===t?(t==="conflicts"?SWC.sup:t==="equivalent"?SWC.given:SWC.meant):SWC.dim}
-                    onClick={()=>setXwType(t)} sm style={{cursor:"pointer",padding:"3px 8px",fontSize:11}}>{t}</SwTag>
-                ))}
-              </div>
-              <SwInput value={xwNotes} onChange={setXwNotes} placeholder="Notes (optional)" style={{marginBottom:10}}/>
-              <div style={{display:"flex",gap:8}}>
-                <SwBtn accent={SWC.meant} onClick={doAddXW} disabled={!xwFrom||!xwTo}>Create</SwBtn>
-                <SwBtn ghost accent={SWC.muted} onClick={()=>{setAddingXW(false);setXwFrom("");setXwTo("");setXwNotes("");}}>Cancel</SwBtn>
-              </div>
-            </div>
-          )}
-          {crosswalks.length===0 && !addingXW ? (
-            <div style={{padding:24,border:`1px dashed ${SWC.border}`,borderRadius:8,textAlign:"center",color:SWC.dim,fontSize:13.5}}>
-              {allCodes.length<2?"Need codes in at least two frameworks first.":"No crosswalks yet."}
-            </div>
-          ) : crosswalks.map(xw=>{
-            const from=allCodes.find(c=>c.id===xw.fromCodeId);
-            const to=allCodes.find(c=>c.id===xw.toCodeId);
-            if(!from||!to) return null;
-            return (
-              <div key={xw.id} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,padding:"10px 14px",marginBottom:6}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:xw.notes?6:0}}>
-                  <SwDot color={SWC.fw[from.fwIdx%5]} size={6}/><SwTag color={SWC.fw[from.fwIdx%5]} sm>{from.frameworkName}: {from.code}</SwTag>
-                  <span style={{color:SWC.dim,fontSize:13}}>{xw.type==="equivalent"?"=":xw.type==="implies"?"→":xw.type==="overlaps"?"↔":"⚡"}</span>
-                  <SwDot color={SWC.fw[to.fwIdx%5]} size={6}/><SwTag color={SWC.fw[to.fwIdx%5]} sm>{to.frameworkName}: {to.code}</SwTag>
-                  <SwTag color={xw.type==="conflicts"?SWC.sup:xw.type==="equivalent"?SWC.given:SWC.meant} sm>{xw.type}</SwTag>
-                </div>
-                {xw.notes && <div style={{fontSize:13,color:SWC.text,lineHeight:1.55}}>{xw.notes}</div>}
-              </div>
-            );
-          })}
-        </SwHdr>
-      )}
-
-    </div>
-  );
-};
-
 
 /* ═══════════════════ FORM BUILDER — Schema Builder UX ═══════════════════
  * The FormBuilder implements the ideated Schema Builder UX with two modes:
@@ -4399,59 +3816,68 @@ const FormBuilder = ({isOrg = false}) => {
   const isSectionExpanded = (secId) => expandedSections.has('all') || expandedSections.has(secId);
 
   return (
-    <div className="fb-canvas anim-up">
-      {/* ═══ HEADER ═══ */}
-      <div className="fb-header">
-        <div style={{flex:1}}>
+    <div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
+      {/* ═══ PAGE TITLE + MODE TOGGLE ═══ */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <div>
+          <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Schema Builder</h2>
+          <p style={{color:'var(--tx-1)',fontSize:12.5}}>Build forms, wire them to frameworks, and manage your data vocabulary.</p>
+        </div>
+        <div className="fb-mode-toggle">
+          <button className={`fb-mode-btn ${mode==='compose'?'active':''}`} onClick={()=>setMode('compose')}>
+            <I n="grid" s={13}/> Compose
+          </button>
+          <button className={`fb-mode-btn ${mode==='wire'?'active':''}`} onClick={()=>setMode('wire')}>
+            <I n="link" s={13}/> Wire
+            {frameworks.length > 0 && totalPossible > 0 && (
+              <span style={{fontSize:10,color:totalBindings===totalPossible?SWC.given:SWC.dim,fontFamily:'var(--mono)'}}>
+                {totalBindings}/{totalPossible}
+              </span>
+            )}
+          </button>
+          <button className={`fb-mode-btn ${mode==='preview'?'active':''}`} onClick={()=>setMode('preview')}>
+            <I n="eye" s={13}/> Preview
+          </button>
+        </div>
+      </div>
+
+      {/* ═══ FORM HEADER ═══ */}
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:16,
+        padding:'14px 18px',borderRadius:'var(--r-lg)',border:`1px solid ${SWC.border}`,background:SWC.surface}}>
+        <div style={{flex:1,minWidth:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
             {editingFormName ? (
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Form name..."
-                  onKeyDown={e => { if (e.key==='Enter' && draft.trim()) { doRenameForm(draft); }
-                    if (e.key==='Escape') { setEditingFormName(false); setDraft(''); }}}
-                  style={{width:280,padding:'8px 12px',fontSize:18,fontFamily:'var(--serif)',fontWeight:700}}/>
-              </div>
+              <SwInput autoFocus value={draft} onChange={setDraft} placeholder="Form name..."
+                onKeyDown={e => { if (e.key==='Enter' && draft.trim()) { doRenameForm(draft); }
+                  if (e.key==='Escape') { setEditingFormName(false); setDraft(''); }}}
+                style={{width:260,padding:'6px 10px',fontSize:17,fontFamily:'var(--serif)',fontWeight:700}}/>
             ) : (
-              <div className="fb-header-title" onClick={()=>{setDraft(form.name);setEditingFormName(true);}} style={{cursor:'pointer'}} title="Click to rename">
+              <span style={{fontFamily:'var(--serif)',fontSize:17,fontWeight:700,cursor:'pointer'}}
+                onClick={()=>{setDraft(form.name);setEditingFormName(true);}} title="Click to rename">
                 {form.name}
-              </div>
+              </span>
             )}
             <SwTag color={MATURITY_LEVELS[form.maturity]?.color === 'green' ? SWC.given : MATURITY_LEVELS[form.maturity]?.color === 'red' ? SWC.red : SWC.meant} sm>
               {MATURITY_LEVELS[form.maturity]?.label || 'Draft'}
             </SwTag>
-            <span style={{fontSize:12,color:SWC.dim,fontFamily:'var(--mono)',fontWeight:400}}>
-              v{form.version}
-            </span>
+            <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',cursor:'pointer',borderBottom:`1px dashed ${SWC.dim}`}}
+              onClick={()=>setShowVersionBump(true)} title="Click to bump version">v{form.version}</span>
             {form.status === 'persisted' && <SwTag color={SWC.given} sm>Saved</SwTag>}
-            {form.status === 'saved' && <SwTag color={SWC.meant} sm>Local</SwTag>}
           </div>
-          {form.key && (
-            <div style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',marginTop:2}}>
-              key: {form.key}
-              {form.source?.propagation && <span style={{marginLeft:8,color:PROPAGATION_LEVELS[form.source.propagation]?.color === 'red' ? SWC.red : SWC.dim}}>
-                {PROPAGATION_LEVELS[form.source.propagation]?.label || form.source.propagation}
-              </span>}
-            </div>
-          )}
-          <div className="fb-header-meta">
-            {allQuestions.length} question{allQuestions.length!==1?'s':''} · {allValues.length} answer option{allValues.length!==1?'s':''}
-            {frameworks.length > 0 && <> · {frameworks.length} framework{frameworks.length!==1?'s':''}</>}
+          <div style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',marginTop:4}}>
+            {allQuestions.length} question{allQuestions.length!==1?'s':''} · {allValues.length} option{allValues.length!==1?'s':''}
+            {frameworks.length > 0 && <> · {frameworks.length} fw</>}
             {totalBindings > 0 && <> · {totalBindings} binding{totalBindings!==1?'s':''}</>}
             {conflictCount > 0 && <span style={{color:SWC.sup}}> · {conflictCount} conflict{conflictCount!==1?'s':''}</span>}
-            {(form.versionHistory || []).length > 0 && <> · {form.versionHistory.length} prior version{form.versionHistory.length!==1?'s':''}</>}
           </div>
         </div>
-        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-          {/* Form actions */}
+        <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0}}>
           <SwBtn ghost accent={SWC.muted} onClick={()=>setShowFormList(true)} style={{padding:'5px 10px',fontSize:11}}>
-            <I n="folder" s={11}/> Forms
+            <I n="folder" s={11}/> Library
             {savedForms.length > 0 && <span style={{marginLeft:4,fontFamily:'var(--mono)',fontSize:10}}>{savedForms.length}</span>}
           </SwBtn>
           <SwBtn ghost accent={SWC.given} onClick={doSaveForm} disabled={saving} style={{padding:'5px 10px',fontSize:11}}>
             {saving ? '...' : 'Save'}
-          </SwBtn>
-          <SwBtn ghost accent={SWC.meant} onClick={()=>setShowVersionBump(true)} style={{padding:'5px 10px',fontSize:11}}>
-            <I n="share" s={11}/> Version
           </SwBtn>
           {(form.versionHistory || []).length > 0 && (
             <SwBtn ghost accent={SWC.dim} onClick={()=>setShowVersionHistory(true)} style={{padding:'5px 10px',fontSize:11}}>
@@ -4461,60 +3887,28 @@ const FormBuilder = ({isOrg = false}) => {
           <SwBtn ghost accent={SWC.sup} onClick={doPersistToSchema} disabled={saving} style={{padding:'5px 10px',fontSize:11}} title="Save to Matrix schema room">
             Publish
           </SwBtn>
-          <div className="fb-mode-toggle" style={{marginLeft:4}}>
-            <button className={`fb-mode-btn ${mode==='compose'?'active':''}`} onClick={()=>setMode('compose')}>
-              <I n="grid" s={13}/> Compose
-            </button>
-            <button className={`fb-mode-btn ${mode==='wire'?'active':''}`} onClick={()=>setMode('wire')}>
-              <I n="link" s={13}/> Wire
-              {frameworks.length > 0 && totalPossible > 0 && (
-                <span style={{fontSize:10,color:totalBindings===totalPossible?SWC.given:SWC.dim,fontFamily:'var(--mono)'}}>
-                  {totalBindings}/{totalPossible}
-                </span>
-              )}
-            </button>
-            <button className={`fb-mode-btn ${mode==='preview'?'active':''}`} onClick={()=>setMode('preview')}>
-              <I n="eye" s={13}/> Preview
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* ═══ FORM METADATA (inline, collapsible) ═══ */}
+      {/* ═══ FORM METADATA ═══ */}
       {mode === 'compose' && (
-        <div style={{padding:'10px 14px',borderRadius:8,border:`1px solid ${SWC.border}`,background:SWC.surface,marginBottom:12,
-          display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',fontSize:12}}>
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{color:SWC.dim}}>Maturity:</span>
-            <select value={form.maturity || 'draft'} onChange={e => doSetMaturity(e.target.value)}
-              style={{padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
-              {Object.entries(MATURITY_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{color:SWC.dim}}>Propagation:</span>
-            <select value={form.source?.propagation || 'optional'} onChange={e => doSetPropagation(e.target.value)}
-              style={{padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
-              {Object.entries(PROPAGATION_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label} — {v.desc}</option>)}
-            </select>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:4,flex:1,minWidth:200}}>
-            <span style={{color:SWC.dim}}>Description:</span>
-            <input value={form.description || ''} onChange={e => doSetDescription(e.target.value)} placeholder="Form description..."
-              style={{flex:1,padding:'3px 8px',borderRadius:4,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}/>
-          </div>
+        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14,fontSize:12}}>
+          <select value={form.maturity || 'draft'} onChange={e => doSetMaturity(e.target.value)}
+            style={{padding:'5px 10px',borderRadius:5,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
+            {Object.entries(MATURITY_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <select value={form.source?.propagation || 'optional'} onChange={e => doSetPropagation(e.target.value)}
+            style={{padding:'5px 10px',borderRadius:5,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}>
+            {Object.entries(PROPAGATION_LEVELS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <input value={form.description || ''} onChange={e => doSetDescription(e.target.value)} placeholder="Form description..."
+            style={{flex:1,padding:'5px 10px',borderRadius:5,border:`1px solid ${SWC.border}`,background:SWC.surface,color:SWC.white,fontSize:11,fontFamily:'inherit'}}/>
         </div>
       )}
 
       {/* ═══ COMPOSE MODE ═══ */}
       {mode === 'compose' && (
         <div>
-          {/* Epistemic note */}
-          <div style={{padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.givenBorder}`,background:'rgba(45,212,160,0.04)',
-            fontSize:13,color:SWC.muted,lineHeight:1.6,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-            <SwTag color={SWC.given} sm>COMPOSE</SwTag>
-            Build your form. Questions should be answerable by observation — what happened, what was seen, what was said. Framework bindings come later.
-          </div>
 
           {/* Sections */}
           {form.sections.map((sec, secIdx) => (
@@ -4729,12 +4123,6 @@ const FormBuilder = ({isOrg = false}) => {
       {/* ═══ WIRE MODE ═══ */}
       {mode === 'wire' && (
         <div>
-          <div style={{padding:'10px 14px',borderRadius:6,border:`1px solid ${SWC.meantBorder}`,background:'rgba(167,139,250,0.04)',
-            fontSize:13,color:SWC.muted,lineHeight:1.6,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-            <SwTag color={SWC.meant} sm>WIRE</SwTag>
-            Connect your observations (GIVEN) to framework codes (MEANT). Each connection creates an auditable binding with provenance.
-          </div>
-
           {/* Framework management bar */}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
@@ -5142,58 +4530,63 @@ const FormBuilder = ({isOrg = false}) => {
         </div>
       )}
 
-      {/* ═══ SAVED FORMS LIST MODAL ═══ */}
+      {/* ═══ FORM LIBRARY MODAL ═══ */}
       {showFormList && (
         <div className="fb-adopt-modal" onClick={()=>setShowFormList(false)}>
-          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+          <div className="fb-adopt-panel" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
               <div>
-                <div style={{fontSize:18,fontWeight:700,color:SWC.white}}>Form Library</div>
-                <div style={{fontSize:13,color:SWC.muted,marginTop:4}}>
-                  Saved forms and their versions. Load a form or create a new one.
+                <div style={{fontSize:18,fontWeight:700,fontFamily:'var(--serif)',color:SWC.white}}>Form Library</div>
+                <div style={{fontSize:13,color:SWC.dim,marginTop:4}}>
+                  Saved forms and their versions.
                 </div>
               </div>
-              <button onClick={()=>setShowFormList(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:20}}>×</button>
+              <button onClick={()=>setShowFormList(false)} style={{background:'none',border:'none',color:SWC.muted,cursor:'pointer',fontSize:18,padding:'2px 6px',lineHeight:1}}>×</button>
             </div>
 
-            <SwBtn accent={SWC.given} onClick={doNewForm} style={{marginBottom:16}}>+ New blank form</SwBtn>
+            <SwBtn accent={SWC.given} onClick={doNewForm} style={{marginBottom:20,width:'100%'}}>+ New blank form</SwBtn>
 
             {savedForms.length === 0 ? (
-              <div style={{padding:24,textAlign:'center',color:SWC.dim,fontSize:13,border:`1px dashed ${SWC.border}`,borderRadius:8}}>
+              <div style={{padding:32,textAlign:'center',color:SWC.dim,fontSize:13,border:`1px dashed ${SWC.border}`,borderRadius:8}}>
                 No saved forms yet. Use "Save" to save the current form to your library.
               </div>
             ) : (
-              <div>
-                {/* Group by form key */}
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 {Object.entries(savedForms.reduce((acc, sf) => {
                   (acc[sf.key] = acc[sf.key] || []).push(sf);
                   return acc;
                 }, {})).map(([key, versions]) => (
-                  <div key={key} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,marginBottom:8,overflow:'hidden'}}>
-                    <div style={{padding:'10px 14px',borderBottom:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                      <div>
-                        <span style={{fontSize:14,fontWeight:600,color:SWC.white}}>{versions[0].name}</span>
-                        <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)',marginLeft:8}}>key: {key}</span>
-                      </div>
-                      <span style={{fontSize:11,color:SWC.dim}}>{versions.length} version{versions.length!==1?'s':''}</span>
+                  <div key={key} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,overflow:'hidden'}}>
+                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <span style={{fontSize:14,fontWeight:600,color:SWC.white}}>{versions[0].name}</span>
+                      <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{versions.length} version{versions.length!==1?'s':''}</span>
                     </div>
-                    {versions.sort((a,b) => b.version - a.version).map(sv => (
-                      <div key={sv.id} style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:8,borderBottom:`1px solid ${SWC.border}`}}>
-                        <SwTag color={SWC.meant} sm mono>v{sv.version}</SwTag>
-                        <SwTag color={MATURITY_LEVELS[sv.maturity]?.color === 'green' ? SWC.given : SWC.dim} sm>{sv.maturity}</SwTag>
-                        <span style={{fontSize:12,color:SWC.dim,flex:1}}>{sv.description || ''}</span>
-                        <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{new Date(sv.savedAt).toLocaleDateString()}</span>
-                        <SwBtn accent={SWC.given} onClick={()=>doLoadForm(sv)} style={{padding:'3px 10px',fontSize:10}}>Load</SwBtn>
-                        <SwBtn ghost accent={SWC.dim} onClick={()=>doDeleteSaved(sv.id)} style={{padding:'3px 8px',fontSize:10}}
-                          onMouseEnter={e=>e.currentTarget.style.color=SWC.red} onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}>×</SwBtn>
-                      </div>
-                    ))}
+                    <div style={{padding:'6px 0'}}>
+                      {versions.sort((a,b) => b.version - a.version).map(sv => (
+                        <div key={sv.id} style={{padding:'8px 16px',display:'flex',alignItems:'center',gap:10,
+                          transition:'background 0.1s',cursor:'pointer'}}
+                          onClick={()=>doLoadForm(sv)}
+                          onMouseEnter={e=>e.currentTarget.style.background=SWC.hover||SWC.raised}
+                          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                          <SwTag color={SWC.meant} sm mono>v{sv.version}</SwTag>
+                          <SwTag color={MATURITY_LEVELS[sv.maturity]?.color === 'green' ? SWC.given : SWC.dim} sm>{sv.maturity}</SwTag>
+                          <span style={{fontSize:12,color:SWC.muted,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {sv.description || '—'}
+                          </span>
+                          <span style={{fontSize:10,color:SWC.dim,fontFamily:'var(--mono)',flexShrink:0}}>
+                            {new Date(sv.savedAt).toLocaleDateString()}
+                          </span>
+                          <button onClick={e=>{e.stopPropagation();doDeleteSaved(sv.id);}} style={{background:'none',border:'none',color:SWC.dim,cursor:'pointer',fontSize:14,padding:'2px 4px',flexShrink:0}}
+                            onMouseEnter={e=>e.currentTarget.style.color=SWC.red} onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}>×</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div style={{marginTop:12,textAlign:'right'}}>
+            <div style={{marginTop:16,textAlign:'right'}}>
               <SwBtn ghost accent={SWC.muted} onClick={()=>setShowFormList(false)}>Done</SwBtn>
             </div>
           </div>
@@ -5422,40 +4815,6 @@ const FormBuilder = ({isOrg = false}) => {
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-
-/* ═══════════════════ SCHEMA BUILDER VIEW — Wrapper ═══════════════════
- * Provides top-level toggle between:
- *   Form Builder — the new form-first authoring experience (Compose/Wire/Preview)
- *   Schema Workbench — the primitives-first schema building tool (Questions/Frameworks/Bindings/Crosswalks)
- * Both share the same epistemic model. Form Builder is recommended for most users.
- * ═══════════════════════════════════════════════════════════════════════ */
-const SchemaBuilderView = ({isOrg = false}) => {
-  SWC = useSWC();
-  const [tab, setTab] = useState('form-builder'); // form-builder | workbench
-
-  return (
-    <div className="anim-up" style={{maxWidth:960,margin:'0 auto'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-        <div>
-          <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700,marginBottom:4}}>Schema Builder</h2>
-          <p style={{color:'var(--tx-1)',fontSize:12.5}}>Build forms, wire them to frameworks, and manage your data vocabulary.</p>
-        </div>
-        <div className="fb-mode-toggle">
-          <button className={`fb-mode-btn ${tab==='form-builder'?'active':''}`} onClick={()=>setTab('form-builder')}>
-            <I n="grid" s={13}/> Form Builder
-          </button>
-          <button className={`fb-mode-btn ${tab==='workbench'?'active':''}`} onClick={()=>setTab('workbench')}>
-            <I n="settings" s={13}/> Workbench
-          </button>
-        </div>
-      </div>
-
-      {tab === 'form-builder' && <FormBuilder isOrg={isOrg}/>}
-      {tab === 'workbench' && <SchemaWorkbench isOrg={isOrg}/>}
     </div>
   );
 };
@@ -8919,7 +8278,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </div>}
 
       {/* SCHEMA BUILDER — Form Builder UX with Compose/Wire/Preview modes */}
-      {view==='schema'&&<SchemaBuilderView isOrg={!!orgRoom}/>}
+      {view==='schema'&&<FormBuilder isOrg={!!orgRoom}/>}
 
       {/* ORG SETTINGS VIEW (admin only) */}
       {view==='org-settings'&&orgRoom&&orgRole==='admin'&&<div className="anim-up" style={{maxWidth:820,margin:'0 auto'}}>
