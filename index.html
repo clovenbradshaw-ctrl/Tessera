@@ -8127,7 +8127,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [metrics, setMetrics] = useState([]);
   const [networkMembers, setNetworkMembers] = useState([]);
   const [activeCase, setActiveCase] = useState(null);
-  const [view, setView] = useState('dashboard'); // dashboard|inbox|case|metrics|schema|network|activity|staff|org-settings|org-inbox
+  const [view, setView] = useState('dashboard'); // dashboard|inbox|case|metrics|schema|resources|network|activity|staff|org-settings|org-inbox
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
@@ -8217,6 +8217,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [inboxTab, setInboxTab] = useState('cases'); // 'cases' | 'channels'
   // ─── Notifications state ───
   const [notifications, setNotifications] = useState([]);
+  // ─── Resource tracking state ───
+  const [resourceTypes, setResourceTypes] = useState([]); // catalog of resource types (from org/network room)
+  const [resourceRelations, setResourceRelations] = useState([]); // org's relations to resource types
+  const [resourceInventory, setResourceInventory] = useState({}); // { [relationId]: inventory object }
+  const [createResourceModal, setCreateResourceModal] = useState(false);
+  const [resourceDraft, setResourceDraft] = useState({name:'',category:'general',unit:'unit',fungible:true,perishable:false,ttl_days:'',tags:''});
 
   // Notification helpers
   const addNotification = (notif) => {
@@ -8386,6 +8392,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       // Process bridge data collected during scan (no second pass needed)
       await loadCasesFromScan(bridgeData, metricsR);
       await loadMetrics(metricsR);
+      await loadResources(detectedOrg, network);
       // Auto-register bridges in org assignments if needed
       if (detectedOrg && bridgeData.length > 0) {
         const currentAssignments = {};
@@ -8487,6 +8494,35 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const loadNetworkMembers = async (nRoom) => {
     const members = await svc.getState(nRoom, EVT.NET_MEMBERS);
     setNetworkMembers(members?.organizations || []);
+  };
+
+  const loadResources = async (oRoom, nRoom) => {
+    const types = [];
+    const relations = [];
+    const inv = {};
+    // Load resource types from org room
+    if (oRoom) {
+      const room = svc.client.getRoom(oRoom);
+      if (room) {
+        const stateEvents = room.currentState.getStateEvents(EVT.RESOURCE_TYPE);
+        if (stateEvents) stateEvents.forEach(e => { const c = e.getContent(); if (c && c.id) types.push({...c, _source: 'org'}); });
+        const relEvents = room.currentState.getStateEvents(EVT.RESOURCE_RELATION);
+        if (relEvents) relEvents.forEach(e => { const c = e.getContent(); if (c && c.id) relations.push(c); });
+        const invEvents = room.currentState.getStateEvents(EVT.RESOURCE_INVENTORY);
+        if (invEvents) invEvents.forEach(e => { const c = e.getContent(); if (c && c.relation_id) inv[c.relation_id] = c; });
+      }
+    }
+    // Load resource types from network room (if different)
+    if (nRoom) {
+      const room = svc.client.getRoom(nRoom);
+      if (room) {
+        const stateEvents = room.currentState.getStateEvents(EVT.RESOURCE_TYPE);
+        if (stateEvents) stateEvents.forEach(e => { const c = e.getContent(); if (c && c.id && !types.find(t=>t.id===c.id)) types.push({...c, _source: 'network'}); });
+      }
+    }
+    setResourceTypes(types);
+    setResourceRelations(relations);
+    setResourceInventory(inv);
   };
 
   const loadMessages = async (bid) => { setMessages(await svc.getMessages(bid)); };
@@ -8807,6 +8843,41 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   };
 
   // ─── Organization management ───
+  const handleCreateResourceType = async () => {
+    if (!resourceDraft.name.trim()) return;
+    const targetRoom = orgRoom || networkRoom;
+    if (!targetRoom) { showToast('No organization or network room available','error'); return; }
+    try {
+      const typeData = {
+        name: resourceDraft.name.trim(),
+        category: resourceDraft.category,
+        unit: resourceDraft.unit.trim() || 'unit',
+        fungible: resourceDraft.fungible,
+        perishable: resourceDraft.perishable,
+        ttl_days: resourceDraft.perishable && resourceDraft.ttl_days ? parseInt(resourceDraft.ttl_days) : null,
+        tags: resourceDraft.tags ? resourceDraft.tags.split(',').map(t=>t.trim()).filter(Boolean) : [],
+      };
+      await ResourceService.createResourceType(targetRoom, typeData, orgRoom ? 'org' : 'network');
+      setCreateResourceModal(false);
+      setResourceDraft({name:'',category:'general',unit:'unit',fungible:true,perishable:false,ttl_days:'',tags:''});
+      showToast(`Resource type "${typeData.name}" created`,'success');
+      await loadResources(orgRoom, networkRoom);
+    } catch(e) { showToast('Error creating resource: '+e.message,'error'); }
+  };
+
+  const handleEstablishRelation = async (resourceTypeId) => {
+    if (!orgRoom) { showToast('Organization required to establish resource relations','error'); return; }
+    try {
+      await ResourceService.establishRelation(orgRoom, {
+        resource_type_id: resourceTypeId,
+        relation_type: 'operates',
+        capacity: 0, available: 0,
+      });
+      showToast('Resource relation established','success');
+      await loadResources(orgRoom, networkRoom);
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+  };
+
   const handleCreateOrg = async () => {
     if (!setupData.name.trim()) return;
     try {
@@ -9360,6 +9431,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           {id:'metrics',icon:'bar',label:'Metrics'},
           {id:'teams',icon:'users',label:`Teams${teams.length?` (${teams.length})`:''}`},
           {id:'schema',icon:'grid',label:'Schema',badge:schemaNotifCount,badgeClass:'nav-badge-teal'},
+          {id:'resources',icon:'layers',label:`Resources${resourceTypes.length?` (${resourceTypes.length})`:''}`},
           {id:'activity',icon:'zap',label:'Activity Stream',badge:activityNotifCount,badgeClass:'nav-badge-teal'}
         ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null);if(item.id!=='inbox'){setInboxConvo(null);setInboxMessages([])}}}
           style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
@@ -10682,6 +10754,93 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </>}
       </div>}
 
+      {/* RESOURCES */}
+      {view==='resources'&&!activeCase&&<div className="anim-up" style={{maxWidth:900,margin:'0 auto'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+          <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Resources</h2>
+          <div style={{display:'flex',gap:6}}>
+            <button onClick={()=>loadResources(orgRoom,networkRoom)} className="b-gho b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="refresh-cw" s={12}/>Refresh</button>
+            {(orgRoom||networkRoom)&&<button onClick={()=>{setResourceDraft({name:'',category:'general',unit:'unit',fungible:true,perishable:false,ttl_days:'',tags:''});setCreateResourceModal(true)}} className="b-pri b-sm" style={{display:'flex',alignItems:'center',gap:4}}><I n="plus" s={12}/>New Resource Type</button>}
+          </div>
+        </div>
+        <p style={{color:'var(--tx-1)',fontSize:12.5,marginBottom:24,lineHeight:1.6}}>Resource types define what your organization can allocate to {T.client_term_plural.toLowerCase()} — beds, vouchers, funds, services. Each resource has a category, unit of measure, and inventory tracking.</p>
+
+        {/* Summary cards */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:24}}>
+          {[
+            {l:'Total Types',v:resourceTypes.length,c:'teal',i:'layers'},
+            {l:'Relations',v:resourceRelations.length,c:'blue',i:'link'},
+            {l:'Categories',v:[...new Set(resourceTypes.map(r=>r.category))].length,c:'gold',i:'grid'},
+            {l:'Perishable',v:resourceTypes.filter(r=>r.perishable).length,c:'orange',i:'clock'},
+          ].map((s,i)=><div key={i} className="card" style={{padding:14}}><span className="section-label">{s.l.toUpperCase()}</span>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:2}}>
+              <span style={{fontSize:18,fontWeight:700}}>{s.v}</span>
+              <span style={{color:`var(--${s.c})`,opacity:.5}}><I n={s.i} s={15}/></span></div></div>)}
+        </div>
+
+        {/* Resource types by category */}
+        {resourceTypes.length===0?
+          <div className="card" style={{textAlign:'center',padding:'40px 20px'}}>
+            <div style={{width:48,height:48,borderRadius:'var(--r-lg)',background:'var(--teal-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--teal)',margin:'0 auto 16px'}}><I n="layers" s={24}/></div>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:8}}>No Resource Types Yet</h3>
+            <p style={{fontSize:12.5,color:'var(--tx-1)',lineHeight:1.6,marginBottom:16}}>Resource types define the services and goods your organization can track and allocate. Create your first resource type to get started, or join a network to inherit shared resource definitions.</p>
+            {(orgRoom||networkRoom)&&<button onClick={()=>{setResourceDraft({name:'',category:'general',unit:'unit',fungible:true,perishable:false,ttl_days:'',tags:''});setCreateResourceModal(true)}} className="b-pri" style={{display:'flex',alignItems:'center',gap:4,margin:'0 auto'}}><I n="plus" s={13}/>Create Resource Type</button>}
+          </div>
+        :
+          <>
+            <span className="section-label">RESOURCE CATALOG ({resourceTypes.length})</span>
+            {RESOURCE_CATEGORIES.filter(cat=>resourceTypes.some(r=>r.category===cat)).map(cat=><div key={cat} style={{marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                <span className={`tag tag-${RESOURCE_CATEGORY_COLORS[cat]||'teal'}`} style={{fontSize:9}}>{RESOURCE_CATEGORY_LABELS[cat]||cat}</span>
+                <span style={{fontSize:11,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{resourceTypes.filter(r=>r.category===cat).length} type{resourceTypes.filter(r=>r.category===cat).length!==1?'s':''}</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:8}}>
+                {resourceTypes.filter(r=>r.category===cat).map(rt=>{
+                  const relation = resourceRelations.find(rel=>rel.resource_type_id===rt.id);
+                  const inv = relation ? resourceInventory[relation.id] : null;
+                  return <div key={rt.id} className="card" style={{padding:14}}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
+                      <div>
+                        <span style={{fontSize:13.5,fontWeight:600,display:'block'}}>{rt.name}</span>
+                        <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{rt.unit}{rt.fungible?' · fungible':' · non-fungible'}{rt.perishable?` · expires ${rt.ttl_days}d`:''}</span>
+                      </div>
+                      <span className={`tag tag-${rt._source==='network'?'green':'blue'}`} style={{fontSize:8,flexShrink:0}}>{rt._source==='network'?'NETWORK':'ORG'}</span>
+                    </div>
+                    {rt.tags&&rt.tags.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
+                      {rt.tags.map(tag=><span key={tag} style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:'var(--bg-3)',color:'var(--tx-2)',fontFamily:'var(--mono)'}}>{tag}</span>)}
+                    </div>}
+                    {rt.maturity&&<div style={{display:'flex',alignItems:'center',gap:4,marginBottom:8}}>
+                      <span style={{fontSize:9,color:'var(--tx-2)'}}>Maturity:</span>
+                      <span className={`tag tag-${MATURITY_LEVELS[rt.maturity]?.color||'blue'}`} style={{fontSize:8}}>{MATURITY_LEVELS[rt.maturity]?.label||rt.maturity}</span>
+                    </div>}
+                    {relation ? <div style={{padding:'8px 10px',background:'var(--bg-2)',borderRadius:'var(--r)',border:'1px solid var(--border-0)'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:10,fontWeight:600,color:'var(--blue)'}}>{RESOURCE_RELATION_LABELS[relation.relation_type]||relation.relation_type}</span>
+                        {relation.opacity!==undefined&&<span className={`tag tag-${['teal','blue','green','gold'][relation.opacity]||'teal'}`} style={{fontSize:7.5}}>{RESOURCE_OPACITY_LABELS[relation.opacity]||'Sovereign'}</span>}
+                      </div>
+                      {inv&&<div style={{display:'flex',gap:12}}>
+                        <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>Cap: {inv.capacity||0}</span>
+                        <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>Avail: {inv.available||0}</span>
+                        <span style={{fontSize:10,color:'var(--tx-2)',fontFamily:'var(--mono)'}}>Alloc: {inv.allocated||0}</span>
+                      </div>}
+                    </div>
+                    : orgRoom&&<button onClick={()=>handleEstablishRelation(rt.id)} className="b-gho b-xs" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:4,marginTop:4}}><I n="link" s={10}/>Establish Relation</button>}
+                  </div>;
+                })}
+              </div>
+            </div>)}
+
+            {/* Unrelated resources info */}
+            {resourceRelations.length===0&&resourceTypes.length>0&&<div style={{background:'var(--teal-dim)',border:'1px solid rgba(94,234,212,.15)',borderRadius:'var(--r)',padding:'14px 18px',marginTop:12,display:'flex',gap:10,alignItems:'flex-start'}}>
+              <I n="alert" s={16} c="var(--teal)"/>
+              <span style={{fontSize:12,color:'var(--tx-1)',lineHeight:1.6}}>
+                <strong style={{color:'var(--teal)'}}>No resource relations established.</strong> Click "Establish Relation" on a resource type to indicate your organization operates, funds, or refers clients to that resource. Relations enable inventory tracking and client allocation.
+              </span>
+            </div>}
+          </>
+        }
+      </div>}
+
       {/* ACTIVITY */}
       {view==='activity'&&<ActivityStream session={session}/>}
     </div>
@@ -10692,6 +10851,44 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       <div style={{marginBottom:14}}><span className="section-label">CLIENT MATRIX ID</span>
         <input value={discoverUserId} onChange={e=>setDiscoverUserId(e.target.value)} placeholder="@client:matrix.org"/></div>
       <button onClick={handleDiscoverClient} className="b-pri" style={{width:'100%'}}>Search for Bridge</button>
+    </Modal>
+
+    {/* CREATE RESOURCE TYPE MODAL */}
+    <Modal open={createResourceModal} onClose={()=>setCreateResourceModal(false)} title="Create Resource Type" w={480}>
+      <p style={{fontSize:12,color:'var(--tx-1)',marginBottom:14,lineHeight:1.6}}>Define a new resource type for your catalog. Resource types describe the goods or services your organization can track and allocate to {T.client_term_plural.toLowerCase()}.</p>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">NAME</span>
+        <input value={resourceDraft.name} onChange={e=>setResourceDraft({...resourceDraft,name:e.target.value})} placeholder="e.g. Bus Voucher, Shelter Bed Night"/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">CATEGORY</span>
+        <select value={resourceDraft.category} onChange={e=>setResourceDraft({...resourceDraft,category:e.target.value})}>
+          {RESOURCE_CATEGORIES.map(c=><option key={c} value={c}>{RESOURCE_CATEGORY_LABELS[c]||c}</option>)}
+        </select>
+      </div>
+      <div style={{marginBottom:14}}>
+        <span className="section-label">UNIT OF MEASURE</span>
+        <input value={resourceDraft.unit} onChange={e=>setResourceDraft({...resourceDraft,unit:e.target.value})} placeholder="e.g. voucher, night, dollar, kit"/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+        <label style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:'var(--tx-1)',cursor:'pointer'}}>
+          <input type="checkbox" checked={resourceDraft.fungible} onChange={e=>setResourceDraft({...resourceDraft,fungible:e.target.checked})}/>
+          Fungible (interchangeable units)
+        </label>
+        <label style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:'var(--tx-1)',cursor:'pointer'}}>
+          <input type="checkbox" checked={resourceDraft.perishable} onChange={e=>setResourceDraft({...resourceDraft,perishable:e.target.checked})}/>
+          Perishable (expires)
+        </label>
+      </div>
+      {resourceDraft.perishable&&<div style={{marginBottom:14}}>
+        <span className="section-label">EXPIRY (DAYS)</span>
+        <input type="number" value={resourceDraft.ttl_days} onChange={e=>setResourceDraft({...resourceDraft,ttl_days:e.target.value})} placeholder="e.g. 30, 90"/>
+      </div>}
+      <div style={{marginBottom:20}}>
+        <span className="section-label">TAGS (comma-separated)</span>
+        <input value={resourceDraft.tags} onChange={e=>setResourceDraft({...resourceDraft,tags:e.target.value})} placeholder="e.g. transit, emergency, shelter"/>
+      </div>
+      <button onClick={handleCreateResourceType} className="b-pri" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><I n="plus" s={13}/>Create Resource Type</button>
     </Modal>
 
     {/* CREATE ORGANIZATION MODAL */}
