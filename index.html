@@ -247,8 +247,9 @@ button{font-family:var(--sans);cursor:pointer;border:none;border-radius:var(--r)
   margin-bottom:6px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:10px}
 .fb-preview-option:hover{border-color:var(--teal);background:var(--teal-dim)}
 
-/* ═══ Schema Inbox Layout ═══ */
+/* ═══ Schema Builder Layout ═══ */
 @keyframes siPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes notifSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .si-wrap{display:flex;height:calc(100vh - 104px);overflow:hidden;margin:-24px;border-radius:var(--r-lg);border:1px solid var(--border-0)}
 .si-sidebar{width:280px;min-width:280px;border-right:1px solid var(--border-0);display:flex;flex-direction:column;background:var(--bg-2);overflow:hidden}
 .si-sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
@@ -312,6 +313,30 @@ button{font-family:var(--sans);cursor:pointer;border:none;border-radius:var(--r)
   .si-canvas{padding:14px}
   .si-mobile-menu{display:inline-flex!important}
 }
+/* ═══ Notification System ═══ */
+.notif-bell{position:relative;background:none;border:none;color:var(--tx-1);cursor:pointer;padding:4px;border-radius:6px;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.notif-bell:hover{background:var(--bg-3);color:var(--tx-0)}
+.notif-badge{position:absolute;top:-2px;right:-2px;min-width:14px;height:14px;border-radius:7px;background:var(--teal);color:var(--bg-0);font-size:8px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;pointer-events:none}
+.notif-dropdown{position:absolute;top:100%;right:0;margin-top:6px;width:340px;max-height:420px;background:var(--bg-1);border:1px solid var(--border-1);border-radius:var(--r-lg);box-shadow:0 12px 40px rgba(0,0,0,.4);z-index:100;overflow:hidden;animation:notifSlide .15s ease-out}
+.notif-dropdown-hdr{padding:12px 14px;border-bottom:1px solid var(--border-0);display:flex;align-items:center;justify-content:space-between}
+.notif-dropdown-list{overflow-y:auto;max-height:340px}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--border-0);cursor:pointer;transition:background .12s;display:flex;gap:10px;align-items:flex-start}
+.notif-item:hover{background:var(--bg-3)}
+.notif-item.unread{background:rgba(62,201,176,.04)}
+.notif-item .notif-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.notif-item .notif-body{flex:1;min-width:0}
+.notif-item .notif-title{font-size:12px;font-weight:500;color:var(--tx-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.notif-item .notif-desc{font-size:10.5px;color:var(--tx-2);margin-top:2px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.notif-item .notif-time{font-size:9px;font-family:var(--mono);color:var(--tx-3);margin-top:3px}
+.notif-empty{padding:32px 16px;text-align:center;color:var(--tx-3);font-size:12px}
+.si-filter-bar{display:flex;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border-0)}
+.si-filter-btn{padding:4px 10px;border-radius:12px;border:1px solid var(--border-0);background:transparent;color:var(--tx-2);font-size:10px;font-family:var(--mono);font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.si-filter-btn:hover{border-color:var(--border-2);color:var(--tx-1)}
+.si-filter-btn.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+.nav-badge{margin-left:auto;min-width:16px;height:16px;border-radius:8px;font-size:9px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1}
+.nav-badge-gold{background:var(--gold);color:var(--bg-0)}
+.nav-badge-teal{background:rgba(62,201,176,.15);color:var(--teal)}
+.nav-badge-blue{background:rgba(91,156,245,.15);color:var(--blue)}
 </style>
 </head>
 <body>
@@ -373,6 +398,8 @@ gitBranch:<svg {...p}><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6"
 activity:<svg {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
 menu:<svg {...p}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
 'more-v':<svg {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>,
+bell:<svg {...p}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+filter:<svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
 };
 return <span style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>{d[n]}</span>;
 };
@@ -4893,7 +4920,86 @@ const FormBuilder = ({isOrg = false}) => {
   );
 };
 
-/* ═══════════════════ SCHEMA INBOX VIEW ═══════════════════ */
+/* ═══════════════════ NOTIFICATION CENTER ═══════════════════ */
+
+/* Notification types: schema_update, schema_new, message, data_change, org_event */
+const NotificationBell = ({notifications, onNotifClick, onDismiss, onDismissAll}) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  const iconForType = (type) => {
+    switch(type) {
+      case 'schema_update': return {icon: 'layers', color: 'var(--gold)', bg: 'rgba(201,163,82,.12)'};
+      case 'schema_new': return {icon: 'layers', color: 'var(--teal)', bg: 'rgba(62,201,176,.12)'};
+      case 'message': return {icon: 'msg', color: 'var(--blue)', bg: 'rgba(91,156,245,.12)'};
+      case 'data_change': return {icon: 'zap', color: 'var(--orange)', bg: 'rgba(224,150,72,.12)'};
+      case 'org_event': return {icon: 'shieldCheck', color: 'var(--blue)', bg: 'rgba(91,156,245,.12)'};
+      default: return {icon: 'bell', color: 'var(--tx-2)', bg: 'var(--bg-3)'};
+    }
+  };
+
+  const timeAgo = (ts) => {
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return `${Math.floor(diff/86400000)}d ago`;
+  };
+
+  return (
+    <div ref={ref} style={{position:'relative'}}>
+      <button className="notif-bell" onClick={() => setOpen(prev => !prev)} title="Notifications">
+        <I n="bell" s={16}/>
+        {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+      </button>
+      {open && (
+        <div className="notif-dropdown">
+          <div className="notif-dropdown-hdr">
+            <span style={{fontSize:12,fontWeight:600,color:'var(--tx-0)'}}>Notifications</span>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              {unreadCount > 0 && <button onClick={() => {onDismissAll(); }} style={{fontSize:10,color:'var(--teal)',background:'none',border:'none',cursor:'pointer',fontFamily:'var(--mono)'}}>Mark all read</button>}
+            </div>
+          </div>
+          <div className="notif-dropdown-list">
+            {notifications.length === 0 ? (
+              <div className="notif-empty">
+                <I n="check" s={18} c="var(--teal)"/>
+                <div style={{marginTop:6}}>No notifications</div>
+              </div>
+            ) : notifications.map((n, i) => {
+              const {icon, color, bg} = iconForType(n.type);
+              return (
+                <div key={n.id || i} className={`notif-item${!n.read ? ' unread' : ''}`}
+                  onClick={() => { onNotifClick(n); setOpen(false); }}>
+                  <div className="notif-icon" style={{background: bg}}>
+                    <I n={icon} s={14} c={color}/>
+                  </div>
+                  <div className="notif-body">
+                    <div className="notif-title">{n.title}</div>
+                    {n.description && <div className="notif-desc">{n.description}</div>}
+                    <div className="notif-time">{timeAgo(n.timestamp)}</div>
+                  </div>
+                  {!n.read && <div style={{width:6,height:6,borderRadius:3,background:'var(--teal)',flexShrink:0,marginTop:6}}/>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════ SCHEMA BUILDER ═══════════════════ */
 
 /* ── Sidebar form list item ── */
 const SiFormItem = ({form, isActive, onClick, sourceType}) => {
@@ -5095,25 +5201,34 @@ const SiContextPanel = ({form, collapsed, onToggle, orgMeta, networkMembers, isO
 };
 
 /* ── Forms sidebar (left side) ── */
-const SiFormsSidebar = ({myForms, networkForms, orgForms, inboxForms, activeFormId, onSelectForm, onNewForm, searchQuery, onSearchChange, sidebarOpen, onToggleSidebar}) => {
-  const [expanded, setExpanded] = useState({inbox: true, my: true, org: false, network: false});
+const SiFormsSidebar = ({myForms, networkForms, orgForms, activeFormId, onSelectForm, onNewForm, searchQuery, onSearchChange, sidebarOpen, onToggleSidebar}) => {
+  const [expanded, setExpanded] = useState({my: true, org: false, network: true});
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'attention'
   const toggle = (g) => setExpanded(prev => ({...prev, [g]: !prev[g]}));
 
   const filterForms = (forms) => {
-    if (!searchQuery || searchQuery.length < 2) return forms;
-    const q = searchQuery.toLowerCase();
-    return forms.filter(f =>
-      f.name.toLowerCase().includes(q) ||
-      (f.key || '').toLowerCase().includes(q) ||
-      (f.description || '').toLowerCase().includes(q) ||
-      (f.sections || []).some(s => s.title.toLowerCase().includes(q) || (s.questions || []).some(qn => (qn.prompt || '').toLowerCase().includes(q)))
-    );
+    let result = forms;
+    if (searchQuery && searchQuery.length >= 2) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(f =>
+        f.name.toLowerCase().includes(q) ||
+        (f.key || '').toLowerCase().includes(q) ||
+        (f.description || '').toLowerCase().includes(q) ||
+        (f.sections || []).some(s => s.title.toLowerCase().includes(q) || (s.questions || []).some(qn => (qn.prompt || '').toLowerCase().includes(q)))
+      );
+    }
+    if (filterMode === 'attention') {
+      result = result.filter(f => f._unread || f._hasUpdate);
+    }
+    return result;
   };
 
-  const filtInbox = filterForms(inboxForms);
   const filtMy = filterForms(myForms);
   const filtOrg = filterForms(orgForms);
   const filtNet = filterForms(networkForms);
+
+  // Count items needing attention across all groups
+  const attentionCount = [...myForms, ...orgForms, ...networkForms].filter(f => f._unread || f._hasUpdate).length;
 
   return (
     <div className={`si-sidebar${sidebarOpen ? ' open' : ''}`}>
@@ -5132,49 +5247,53 @@ const SiFormsSidebar = ({myForms, networkForms, orgForms, inboxForms, activeForm
         <span className="si-search-icon"><I n="search" s={12} c="var(--tx-3)"/></span>
         <input value={searchQuery} onChange={e => onSearchChange(e.target.value)} placeholder="Search forms..." />
       </div>
+      {/* Filter bar — replaces the old INBOX group */}
+      <div className="si-filter-bar">
+        <button className={`si-filter-btn${filterMode==='all'?' active':''}`} onClick={()=>setFilterMode('all')}>All</button>
+        <button className={`si-filter-btn${filterMode==='attention'?' active':''}`} onClick={()=>setFilterMode('attention')}>
+          Needs attention{attentionCount > 0 ? ` (${attentionCount})` : ''}
+        </button>
+      </div>
       <div className="si-sidebar-scroll">
-        {/* INBOX */}
-        <SiGroupHeader label="INBOX" icon="inbox" count={filtInbox.length} expanded={expanded.inbox} onToggle={() => toggle('inbox')} alert={filtInbox.length > 0}/>
-        {expanded.inbox && (filtInbox.length > 0 ? filtInbox.map(f => (
-          <SiFormItem key={f.id} form={f} isActive={f.id === activeFormId} onClick={() => onSelectForm(f)} sourceType={f._sourceType || 'network'}/>
-        )) : (
-          <div className="si-empty">
-            <div className="si-empty-icon"><I n="check" s={18} c="var(--teal)"/></div>
-            <div className="si-empty-title">All caught up</div>
-            <div className="si-empty-desc">No incoming form updates.</div>
-          </div>
-        ))}
-
         {/* MY FORMS */}
         <SiGroupHeader label="MY FORMS" icon="folder" count={filtMy.length} expanded={expanded.my} onToggle={() => toggle('my')}/>
         {expanded.my && (filtMy.length > 0 ? filtMy.map(f => (
           <SiFormItem key={f.id} form={f} isActive={f.id === activeFormId} onClick={() => onSelectForm(f)} sourceType="local"/>
         )) : (
           <div className="si-empty">
-            <div className="si-empty-title">No saved forms</div>
-            <div className="si-empty-desc">Use "Save" to save a form here.</div>
+            <div className="si-empty-title">{filterMode==='attention'?'Nothing needs attention':'No saved forms'}</div>
+            <div className="si-empty-desc">{filterMode==='attention'?'All local forms are up to date.':'Use "Save" to save a form here.'}</div>
           </div>
         ))}
 
         {/* ORG FORMS */}
-        <SiGroupHeader label="ORG FORMS" icon="shieldCheck" count={filtOrg.length} expanded={expanded.org} onToggle={() => toggle('org')}/>
+        <SiGroupHeader label="ORG FORMS" icon="shieldCheck" count={filtOrg.length} expanded={expanded.org} onToggle={() => toggle('org')} alert={filtOrg.some(f => f._unread || f._hasUpdate)}/>
         {expanded.org && (filtOrg.length > 0 ? filtOrg.map(f => (
           <SiFormItem key={f.id} form={f} isActive={f.id === activeFormId} onClick={() => onSelectForm(f)} sourceType="org"/>
         )) : (
           <div className="si-empty">
-            <div className="si-empty-desc">No org forms available.</div>
+            <div className="si-empty-desc">{filterMode==='attention'?'No org form updates.':'No org forms available.'}</div>
           </div>
         ))}
 
-        {/* NETWORK COMMONS */}
-        <SiGroupHeader label="NETWORK" icon="globe" count={filtNet.length} expanded={expanded.network} onToggle={() => toggle('network')}/>
+        {/* NETWORK */}
+        <SiGroupHeader label="NETWORK" icon="globe" count={filtNet.length} expanded={expanded.network} onToggle={() => toggle('network')} alert={filtNet.some(f => f._unread || f._hasUpdate)}/>
         {expanded.network && (filtNet.length > 0 ? filtNet.map(f => (
           <SiFormItem key={f.id} form={f} isActive={f.id === activeFormId} onClick={() => onSelectForm(f)} sourceType="network"/>
         )) : (
           <div className="si-empty">
-            <div className="si-empty-desc">No network schema available.</div>
+            <div className="si-empty-desc">{filterMode==='attention'?'No network updates.':'No network schema available.'}</div>
           </div>
         ))}
+
+        {/* Empty state when filtering yields nothing across all groups */}
+        {filterMode==='attention' && filtMy.length===0 && filtOrg.length===0 && filtNet.length===0 && (
+          <div className="si-empty" style={{paddingTop:40}}>
+            <div className="si-empty-icon"><I n="check" s={22} c="var(--teal)"/></div>
+            <div className="si-empty-title">All caught up</div>
+            <div className="si-empty-desc">No forms need your attention right now.</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5220,7 +5339,6 @@ const SchemaView = ({isOrg, orgMeta, networkMembers}) => {
         myForms={sidebarForms.filter(f => f._sourceType === 'local')}
         networkForms={networkForms}
         orgForms={sidebarForms.filter(f => f._sourceType === 'org')}
-        inboxForms={sidebarForms.filter(f => f._unread)}
         activeFormId={sidebarSelectedId}
         onSelectForm={(f) => setSidebarSelectedId(f.id)}
         onNewForm={() => setSidebarSelectedId(null)}
@@ -6095,7 +6213,7 @@ const ClientApp = ({session, onLogout, showToast}) => {
         </div>
       </div>
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
-        {[{id:'vault',icon:'folder',label:'My Vault'},{id:'inbox',icon:'inbox',label:'Inbox'},
+        {[{id:'vault',icon:'folder',label:'My Vault'},{id:'inbox',icon:'msg',label:'Messages'},
           {id:'observations',icon:'clipboard',label:'Observations'},
           {id:'providers',icon:'users',label:'People & Teams'},{id:'records',icon:'shield',label:'My Records'},
           {id:'metrics',icon:'bar',label:'Metrics'},{id:'activity',icon:'zap',label:'Activity Stream'}
@@ -6108,8 +6226,8 @@ const ClientApp = ({session, onLogout, showToast}) => {
           onMouseEnter={e=>{if(!(view===item.id&&!activeBridge))e.currentTarget.style.background='var(--bg-3)'}}
           onMouseLeave={e=>{if(!(view===item.id&&!activeBridge))e.currentTarget.style.background='transparent'}}>
           <I n={item.icon} s={14}/><span style={{fontSize:12.5,fontWeight:view===item.id?600:400}}>{item.label}</span>
-          {item.id==='inbox'&&providers.length>0&&<span style={{marginLeft:'auto',background:'var(--teal)',color:'var(--bg-0)',fontSize:9,fontWeight:700,borderRadius:10,padding:'1px 6px',minWidth:16,textAlign:'center'}}>{providers.length}</span>}
-          {item.id==='records'&&pendingClaims.length>0&&<span style={{marginLeft:'auto',background:'var(--gold)',color:'var(--bg-0)',fontSize:9,fontWeight:700,borderRadius:10,padding:'1px 6px',minWidth:16,textAlign:'center'}}>{pendingClaims.length}</span>}
+          {item.id==='inbox'&&providers.length>0&&<span className="nav-badge nav-badge-teal">{providers.length}</span>}
+          {item.id==='records'&&pendingClaims.length>0&&<span className="nav-badge nav-badge-gold">{pendingClaims.length}</span>}
         </div>)}
         {providers.length>0&&<><div style={{padding:'14px 10px 4px'}}><span className="section-label">BRIDGES</span></div>
           {providers.map((p,i)=><div key={p.bridgeRoomId} onClick={()=>openBridge(p.bridgeRoomId)}
@@ -6519,12 +6637,12 @@ const ClientApp = ({session, onLogout, showToast}) => {
         </div>
       </div>}
 
-      {/* INBOX VIEW */}
+      {/* MESSAGES VIEW */}
       {view==='inbox'&&!activeBridge&&<div className="anim-up inbox-wrap">
         <div className="inbox-header">
           <div>
-            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Inbox</h2>
-            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>All your encrypted conversations with providers in one place. Messages are end-to-end encrypted.</p>
+            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Messages</h2>
+            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Encrypted conversations with your providers. Messages are end-to-end encrypted.</p>
           </div>
           <button onClick={()=>setAddProviderModal(true)} className="b-pri" style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}><I n="plus" s={14}/>New Conversation</button>
         </div>
@@ -6897,6 +7015,21 @@ const ProviderApp = ({session, onLogout, showToast}) => {
   const [inboxMessages, setInboxMessages] = useState([]);
   const [inboxMsgText, setInboxMsgText] = useState('');
   const [inboxTab, setInboxTab] = useState('cases'); // 'cases' | 'channels'
+  // ─── Notifications state ───
+  const [notifications, setNotifications] = useState([]);
+
+  // Notification helpers
+  const addNotification = (notif) => {
+    setNotifications(prev => [{...notif, id: `notif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, read: false, timestamp: Date.now()}, ...prev].slice(0, 50));
+  };
+  const handleNotifClick = (notif) => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? {...n, read: true} : n));
+    // Navigate based on notification type
+    if (notif.type === 'schema_update' || notif.type === 'schema_new') { setView('schema'); setActiveCase(null); }
+    else if (notif.type === 'message' && notif.targetView) { setView(notif.targetView); setActiveCase(null); }
+    else if (notif.type === 'org_event') { setView('org-settings'); setActiveCase(null); }
+  };
+  const handleDismissAllNotifs = () => { setNotifications(prev => prev.map(n => ({...n, read: true}))); };
 
   useEffect(() => { initProvider(); }, []);
 
@@ -7970,7 +8103,13 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       <div style={{padding:'18px 14px 14px',borderBottom:'1px solid var(--border-0)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
           <div style={{width:28,height:28,borderRadius:'var(--r)',background:'var(--gold-dim)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gold)'}}><I n="briefcase" s={15}/></div>
-          <span style={{fontFamily:'var(--serif)',fontWeight:700,fontSize:15}}>Khora</span>
+          <span style={{fontFamily:'var(--serif)',fontWeight:700,fontSize:15,flex:1}}>Khora</span>
+          <NotificationBell
+            notifications={notifications}
+            onNotifClick={handleNotifClick}
+            onDismiss={(n) => setNotifications(prev => prev.filter(x => x.id !== n.id))}
+            onDismissAll={handleDismissAllNotifs}
+          />
         </div>
         {/* Provider identity card */}
         <div onClick={openProfileModal} style={{marginTop:10,padding:'10px 12px',background:'var(--bg-2)',border:'1px solid var(--border-1)',borderRadius:'var(--r-lg)',cursor:'pointer',transition:'border-color .2s'}}
@@ -8012,12 +8151,16 @@ const ProviderApp = ({session, onLogout, showToast}) => {
       </div>
       <div style={{flex:1,overflow:'auto',padding:'6px 6px'}}>
         {/* Personal nav */}
-        {[{id:'dashboard',icon:'briefcase',label:'Dashboard'},{id:'inbox',icon:'inbox',label:'Inbox'},
+        {(()=>{
+          const schemaNotifCount = notifications.filter(n => (n.type === 'schema_update' || n.type === 'schema_new') && !n.read).length;
+          const activityNotifCount = notifications.filter(n => n.type === 'data_change' && !n.read).length;
+          return [{id:'dashboard',icon:'briefcase',label:'Dashboard'},
+          {id:'inbox',icon:'msg',label:'Messages'},
           {id:'clients',icon:'users',label:T.client_term_plural},
           {id:'metrics',icon:'bar',label:'Metrics'},
           {id:'teams',icon:'users',label:`Teams${teams.length?` (${teams.length})`:''}`},
-          {id:'schema',icon:'grid',label:'Schema'},
-          {id:'activity',icon:'zap',label:'Activity Stream'}
+          {id:'schema',icon:'grid',label:'Schema',badge:schemaNotifCount,badgeClass:'nav-badge-teal'},
+          {id:'activity',icon:'zap',label:'Activity Stream',badge:activityNotifCount,badgeClass:'nav-badge-teal'}
         ].map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null);if(item.id!=='inbox'){setInboxConvo(null);setInboxMessages([])}}}
           style={{padding:'9px 10px',borderRadius:'var(--r)',cursor:'pointer',marginBottom:1,
             background:view===item.id&&!activeCase?'var(--bg-4)':'transparent',
@@ -8027,8 +8170,10 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           onMouseEnter={e=>{if(!(view===item.id&&!activeCase))e.currentTarget.style.background='var(--bg-3)'}}
           onMouseLeave={e=>{if(!(view===item.id&&!activeCase))e.currentTarget.style.background='transparent'}}>
           <I n={item.icon} s={14}/><span style={{fontSize:12.5,fontWeight:view===item.id?600:400}}>{item.label}</span>
-          {item.id==='inbox'&&(cases.length+orgChannels.length)>0&&<span style={{marginLeft:'auto',background:'var(--gold)',color:'var(--bg-0)',fontSize:9,fontWeight:700,borderRadius:10,padding:'1px 6px',minWidth:16,textAlign:'center'}}>{cases.length+orgChannels.length}</span>}
-        </div>)}
+          {item.id==='inbox'&&(cases.length+orgChannels.length)>0&&<span className="nav-badge nav-badge-gold">{cases.length+orgChannels.length}</span>}
+          {item.badge>0&&<span className={`nav-badge ${item.badgeClass}`}>{item.badge}</span>}
+        </div>);
+        })()}
 
         {/* Organization section */}
         <div style={{padding:'14px 10px 4px'}}><span className="section-label">ORGANIZATION</span></div>
@@ -8042,7 +8187,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
           </div>
           {[
             {id:'org-settings',icon:'settings',label:'Org Settings',reqRole:'admin'},
-            {id:'org-inbox',icon:'msg',label:`Inbox${orgChannels.length?` (${orgChannels.length})`:''}`},
+            {id:'org-inbox',icon:'msg',label:`Messages${orgChannels.length?` (${orgChannels.length})`:''}`},
             {id:'staff',icon:'users',label:'Staff'},
             {id:'network',icon:'globe',label:'Network'},
           ].filter(item=>!item.reqRole||orgRole===item.reqRole).filter(item=>item.id!=='org-inbox'||hasOrgMsgPermission('read')).map(item=><div key={item.id} onClick={()=>{setView(item.id);setActiveCase(null)}}
@@ -8180,12 +8325,12 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
       </div>}
 
-      {/* INBOX VIEW */}
+      {/* MESSAGES VIEW */}
       {view==='inbox'&&!activeCase&&<div className="anim-up inbox-wrap">
         <div className="inbox-header">
           <div>
-            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Inbox</h2>
-            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>All your encrypted conversations with clients{orgRoom?' and organizations':''} in one place.</p>
+            <h2 style={{fontFamily:'var(--serif)',fontSize:22,fontWeight:700}}>Messages</h2>
+            <p style={{color:'var(--tx-1)',fontSize:12.5,marginTop:4}}>Encrypted conversations with {T.client_term_plural.toLowerCase()}{orgRoom?' and organizations':''} in one place.</p>
           </div>
           <div style={{display:'flex',gap:6,flexShrink:0}}>
             <button onClick={()=>setDiscoverModal(true)} className="b-gho" style={{display:'flex',alignItems:'center',gap:6}}><I n="search" s={14}/>Find Client</button>
@@ -8732,7 +8877,7 @@ const ProviderApp = ({session, onLogout, showToast}) => {
         </div>
       </div>}
 
-      {/* SCHEMA BUILDER — Form Inbox View with Sidebar + Canvas + Context Panel */}
+      {/* SCHEMA BUILDER — Three-zone layout with sidebar, canvas, context panel */}
       {view==='schema'&&<SchemaView isOrg={!!orgRoom} orgMeta={orgMeta} networkMembers={networkMembers}/>}
 
       {/* ORG SETTINGS VIEW (admin only) */}

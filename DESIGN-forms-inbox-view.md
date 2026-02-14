@@ -1,17 +1,21 @@
-# Forms Inbox View — Design Document
+# Schema Builder & Notification UX — Design Document
 
 ## Problem
 
 The current Schema Builder treats forms as isolated objects. The "Form Library" is a small modal listing saved forms with version numbers — there's no spatial sense of *where* a form sits relative to other forms, which organization authored it, what project it belongs to, or how versions relate over time. Users need to see **the forest and the tree simultaneously**: navigate a structured collection of forms while working on one in focused detail.
 
+Additionally, the original "inbox" approach created a separate destination for form updates, duplicating items across groups. Notifications should surface change state **inline** — not require users to triage a separate inbox.
+
 ---
 
 ## Design Principles
 
-1. **Inbox metaphor, not file-browser metaphor** — Forms arrive from networks, orgs, and collaborators. They're closer to messages than static files. Show recency, unread/changed status, and provenance.
+1. **Inline awareness, not destination-based** — Change indicators live on items in their natural groups (Network, Org, My Forms). No separate "inbox" bucket that duplicates content.
 2. **Context over chrome** — The active form gets most of the screen. The sidebar reveals *just enough* structure to orient you without stealing focus.
-3. **Propagation is visible** — Forms flow down the hierarchy (Network → Org → Provider → Client). The inbox should make the *source* and *direction* of each form legible at a glance.
+3. **Propagation is visible** — Forms flow down the hierarchy (Network → Org → Provider → Client). The sidebar should make the *source* and *direction* of each form legible at a glance.
 4. **Versions are a timeline, not a list** — Show version progression as a compact visual timeline, not a flat table.
+5. **Filter, don't separate** — A "Needs attention" filter toggle surfaces actionable items without creating a separate group. Users can switch between "all forms" and "forms needing attention" instantly.
+6. **Global notification center** — A bell icon in the app header aggregates actionable items across all areas (schema updates, messages, data changes) with type-specific icons and navigation.
 
 ---
 
@@ -34,32 +38,19 @@ The current Schema Builder treats forms as isolated objects. The "Form Library" 
 └──────────────┴──────────────────────────────────────────┴───────────────┘
 ```
 
-### Zone 1: Sidebar — Forms Inbox (left, 280px)
+### Zone 1: Sidebar — Schema Forms (left, 280px)
 
-The sidebar replaces the current modal-based "Form Library." It is always visible when in Schema view, providing persistent navigation.
+The sidebar replaces the current modal-based "Form Library." It is always visible when in Schema view, providing persistent navigation. Forms live in their natural groups with inline change indicators — no separate "inbox" bucket.
 
 #### Structure
 
 ```
 ┌─────────────────────────┐
-│ FORMS              [+]  │  ← header + new form button
+│ SCHEMA             [+]  │  ← header + new form button
 ├─────────────────────────┤
-│ 🔍 Search / filter...   │  ← search bar
+│ 🔍 Search forms...      │  ← search bar
 ├─────────────────────────┤
-│ ▸ INBOX (3)             │  ← incoming forms from network/org
-│   ┌───────────────────┐ │
-│   │ ● Status & Engag… │ │  ← dot = unreviewed change
-│   │   Network · v2    │ │     source + version
-│   │   normative       │ │     maturity badge
-│   ├───────────────────┤ │
-│   │ ● Intake Event    │ │
-│   │   Network · v1.1  │ │
-│   │   trial  ▲updated │ │  ← "updated" flag when newer
-│   ├───────────────────┤ │     than local copy
-│   │   Context Form    │ │
-│   │   Network · v1    │ │
-│   │   draft           │ │
-│   └───────────────────┘ │
+│ [All] [Needs attention] │  ← filter toggle bar
 ├─────────────────────────┤
 │ ▸ MY FORMS (2)          │  ← locally authored
 │   ┌───────────────────┐ │
@@ -72,22 +63,40 @@ The sidebar replaces the current modal-based "Form Library." It is always visibl
 │   │   draft           │ │
 │   └───────────────────┘ │
 ├─────────────────────────┤
-│ ▸ ORG FORMS (4)         │  ← forms from my organization
+│ ▸ ORG FORMS (4)         │  ← forms from organization
 │   (collapsed by default)│
 ├─────────────────────────┤
-│ ▸ NETWORK COMMONS (8)   │  ← full schema commons catalog
-│   (collapsed by default)│
+│ ▸ NETWORK (8)           │  ← network schema commons
+│   ┌───────────────────┐ │
+│   │ ● Status & Engag… │ │  ← dot = unreviewed (inline indicator)
+│   │   Network · v2    │ │
+│   │   normative       │ │
+│   ├───────────────────┤ │
+│   │ ● Intake Event    │ │
+│   │   Network · v1.1  │ │
+│   │   trial  ▲ new    │ │  ← gold "new" flag (version update)
+│   ├───────────────────┤ │
+│   │   Context Form    │ │  ← no indicator = read/unchanged
+│   │   Network · v1    │ │
+│   │   draft           │ │
+│   └───────────────────┘ │
 └─────────────────────────┘
 ```
+
+#### Filter Modes
+
+| Mode | Behavior |
+|------|----------|
+| **All** (default) | Shows every form in every group. Standard browse view. |
+| **Needs attention** | Filters all groups to only forms with `_unread` or `_hasUpdate` flags. Empty groups still show with "no updates" message. Shows global "all caught up" empty state when nothing needs attention. |
 
 #### Grouping Rules
 
 | Group | Source | What goes here |
 |-------|--------|----------------|
-| **INBOX** | Network/Org push | Forms with `propagation: required\|standard` that have been updated since last viewed. Auto-clears when opened. |
 | **MY FORMS** | Local saves | Forms saved via the current "Save" button. These are the user's working copies. |
-| **ORG FORMS** | Org room state | Forms published by the user's organization (from `io.khora.schema.form` events in org room). |
-| **NETWORK COMMONS** | Network room state | All forms in the network schema room. Read-only unless user has network admin role. |
+| **ORG FORMS** | Org room state | Forms published by the user's organization (from `io.khora.schema.form` events in org room). Group header shows alert dot when any form has updates. |
+| **NETWORK** | Network room state | All forms in the network schema room. Read-only unless user has network admin role. Group header shows alert dot when any form has updates. |
 
 #### Item States
 
@@ -247,12 +256,69 @@ hasCrosswalk(a, b) = crosswalks.some(xw =>
 
 ---
 
+## Global Notification Center
+
+A bell icon in the app sidebar header provides ambient awareness of actionable items across the entire application.
+
+### Structure
+
+```
+┌─────────────────────────────┐
+│ 🔔 (bell icon with badge)  │  ← in sidebar header next to "Khora"
+└──────┬──────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────┐
+│ Notifications        Mark all ✓  │
+├──────────────────────────────────┤
+│ 🟫 Intake Assessment v2.1       │  ← schema_update (gold)
+│   Network form updated           │
+│   2h ago                      ●  │  ← unread dot
+├──────────────────────────────────┤
+│ 🟦 New org channel              │  ← org_event (blue)
+│   Peer org "Haven" connected     │
+│   5h ago                         │
+├──────────────────────────────────┤
+│ 🟩 SDOH Screen adopted          │  ← schema_new (teal)
+│   3 questions, normative         │
+│   1d ago                         │
+└──────────────────────────────────┘
+```
+
+### Notification Types
+
+| Type | Icon | Color | Navigates to |
+|------|------|-------|-------------|
+| `schema_update` | layers | gold | Schema view |
+| `schema_new` | layers | teal | Schema view |
+| `message` | msg | blue | Messages or Org Messages |
+| `data_change` | zap | orange | Activity Stream |
+| `org_event` | shieldCheck | blue | Org Settings |
+
+### Behavior
+
+- Badge shows count of unread notifications (max "9+")
+- Click bell opens dropdown panel
+- Click notification: marks as read, navigates to relevant view
+- "Mark all read" clears all unread badges
+- Max 50 notifications kept (oldest pruned)
+- Dropdown closes on outside click
+
+### Nav Badge Counts
+
+Sidebar navigation items show small badge counts when their section has pending items:
+- **Messages**: count of cases + org channels
+- **Schema**: count of unread schema notifications
+- **Activity Stream**: count of unread data change notifications
+
+---
+
 ## Interaction Flows
 
 ### Flow 1: Open Schema View (first load)
 
 1. Sidebar loads with groups populated:
-   - **INBOX**: forms from network/org with `savedAt > lastViewedAt`
+   - **MY FORMS**: locally saved forms
    - **MY FORMS**: locally saved forms from IndexedDB
    - **ORG FORMS**: from org room state events
    - **NETWORK COMMONS**: from network room state events
