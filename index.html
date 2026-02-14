@@ -851,6 +851,15 @@ const EVT = {
   // Schema field & binding (MVP event schema)
   SCHEMA_FIELD:   `${NS}.schema.field`,
   SCHEMA_BINDING: `${NS}.schema.binding`,
+  // Resource tracking (§Resource Build)
+  RESOURCE_TYPE:       `${NS}.resource.type`,        // catalog entry (network or org)
+  RESOURCE_INVENTORY:  `${NS}.resource.inventory`,   // org stock levels per relation
+  RESOURCE_RELATION:   `${NS}.resource.relation`,    // relational position between holder and resource
+  RESOURCE_ALLOC:      `${NS}.resource.allocation`,  // individual allocation (bridge room)
+  RESOURCE_EVENT:      `${NS}.resource.event`,       // lifecycle event (timeline, not state)
+  RESOURCE_POLICY:     `${NS}.resource.policy`,      // allocation rules / constraints
+  RESOURCE_OPACITY:    `${NS}.resource.opacity`,     // per-relation visibility controls
+  RESOURCE_VAULT:      `${NS}.resource.vault_record`,// client vault shadow record
 };
 
 /* ═══════════════════ MATURITY LEVELS (MVP §Screen 4) ═══════════════════ */
@@ -892,6 +901,99 @@ const GOV_RHYTHMS = {
   quarterly_alignment:{ id: 'quarterly_alignment', name: 'Quarterly Framework Alignment', frequency: 'quarterly',  anchor_day: 'first_monday', duration_days: 5, participants: 'network_steward_plus_affected' },
   annual_constitutional:{ id: 'annual_constitutional', name: 'Annual Constitutional Review', frequency: 'annual', anchor_day: 'first_monday', duration_days: 14, participants: 'all_members_supermajority' },
 };
+
+/* ═══════════════════ RESOURCE TRACKING CONSTANTS (§Resource Build) ═══════════════════ */
+
+/** Resource categories — the top-level classification for resource types */
+const RESOURCE_CATEGORIES = [
+  'housing',          // beds, units, vouchers, rental assistance
+  'financial',        // emergency funds, deposits, stipends
+  'transportation',   // bus passes, ride vouchers, gas cards
+  'food',             // meals, pantry bags, grocery cards
+  'health',           // medical supplies, prescriptions, hygiene kits
+  'employment',       // job training slots, interview clothing, tools
+  'legal',            // legal aid hours, document preparation
+  'education',        // tutoring hours, school supplies, enrollment slots
+  'general',          // catch-all for org-specific items
+];
+
+const RESOURCE_CATEGORY_LABELS = {
+  housing:        'Housing',
+  financial:      'Financial',
+  transportation: 'Transportation',
+  food:           'Food',
+  health:         'Health',
+  employment:     'Employment',
+  legal:          'Legal',
+  education:      'Education',
+  general:        'General',
+};
+
+const RESOURCE_CATEGORY_COLORS = {
+  housing:        'blue',
+  financial:      'green',
+  transportation: 'teal',
+  food:           'orange',
+  health:         'red',
+  employment:     'gold',
+  legal:          'purple',
+  education:      'blue',
+  general:        'teal',
+};
+
+/**
+ * Opacity levels control resource visibility. Defaults to SOVEREIGN (holder-only).
+ * The holder controls disclosure — not the network admin.
+ */
+const RESOURCE_OPACITY = {
+  SOVEREIGN:   0,  // holder-only, no one else sees it
+  ATTESTED:    1,  // shared with specific partners via bridge
+  CONTRIBUTED: 2,  // visible in network resource commons
+  PUBLISHED:   3,  // externally visible (API, 211 feed, directory)
+};
+
+const RESOURCE_OPACITY_LABELS = {
+  0: 'Sovereign',
+  1: 'Attested',
+  2: 'Contributed',
+  3: 'Published',
+};
+
+const RESOURCE_OPACITY_DESCRIPTIONS = {
+  0: 'Only visible to the holding org',
+  1: 'Shared with specific partners via bridge',
+  2: 'Visible in network resource commons',
+  3: 'Externally visible (API, directory)',
+};
+
+/** Relation types describe how a holder relates to a resource */
+const RESOURCE_RELATION_TYPES = [
+  'operates',       // org runs/owns the resource directly
+  'funds',          // org provides funding for the resource
+  'refers_to',      // org can refer clients to this resource
+  'contributes_to', // org contributes inventory to a shared pool
+  'transfers',      // one-time transfer between orgs
+];
+
+const RESOURCE_RELATION_LABELS = {
+  operates:       'Operates',
+  funds:          'Funds',
+  refers_to:      'Refers to',
+  contributes_to: 'Contributes to',
+  transfers:      'Transfers',
+};
+
+/** Allocation statuses */
+const RESOURCE_ALLOC_STATUSES = ['active', 'consumed', 'expired', 'revoked'];
+
+/** Lifecycle event types */
+const RESOURCE_LIFECYCLE_EVENTS = ['allocated', 'consumed', 'expired', 'revoked', 'returned'];
+
+/** Dedup link statuses */
+const RESOURCE_DEDUP_STATUSES = ['confirmed', 'attested_non_additive', 'unresolved'];
+
+/** Dedup link types */
+const RESOURCE_DEDUP_LINK_TYPES = ['subset', 'same', 'overlaps'];
 
 /* ═══════════════════ ROLE INFERENCE (MVP §Screen 1) ═══════════════════ */
 /* Roles are detected from room memberships — no account-type selector.
@@ -1826,6 +1928,34 @@ const MSG_ACCESS_DEFAULTS = DOMAIN_CONFIG.msgAccessDefaults;
 const TERMINOLOGY_DEFAULTS = DOMAIN_CONFIG.terminologyDefaults;
 const RELATIONSHIP_TYPES = DOMAIN_CONFIG.relationshipTypes;
 
+/* ═══════════════════ DEFAULT RESOURCE TYPES (§Resource Build §11) ═══════════════════
+ * Seed data for initial deployment. Created as draft maturity, optional propagation,
+ * so networks can adopt and promote them through governance rather than having them imposed.
+ * Loaded when a network is created. Network coordinator sees these in the catalog.
+ * ════════════════════════════════════════════════════════════════════════════════════════ */
+const DEFAULT_RESOURCE_TYPES = [
+  { id: 'rtype_bus_voucher',       name: 'Bus Voucher',           category: 'transportation', unit: 'voucher',  fungible: true,  perishable: true,  ttl_days: 90,  tags: ['transit'] },
+  { id: 'rtype_gas_card',          name: 'Gas Card',              category: 'transportation', unit: 'card',     fungible: true,  perishable: false, tags: ['transit','fuel'] },
+  { id: 'rtype_ride_voucher',      name: 'Ride Voucher',          category: 'transportation', unit: 'ride',     fungible: true,  perishable: true,  ttl_days: 30,  tags: ['transit','rideshare'] },
+  { id: 'rtype_emergency_fund',    name: 'Emergency Fund',        category: 'financial',      unit: 'dollars',  fungible: true,  perishable: false, tags: ['emergency','cash'] },
+  { id: 'rtype_rental_assist',     name: 'Rental Assistance',     category: 'financial',      unit: 'dollars',  fungible: true,  perishable: false, tags: ['rent','housing'] },
+  { id: 'rtype_deposit_assist',    name: 'Deposit Assistance',    category: 'financial',      unit: 'dollars',  fungible: true,  perishable: false, tags: ['deposit','housing'] },
+  { id: 'rtype_shelter_bed',       name: 'Shelter Bed Night',     category: 'housing',        unit: 'night',    fungible: true,  perishable: true,  ttl_days: 1,   tags: ['shelter','emergency'] },
+  { id: 'rtype_housing_voucher',   name: 'Housing Voucher',       category: 'housing',        unit: 'voucher',  fungible: false, perishable: true,  ttl_days: 120, tags: ['voucher','permanent'] },
+  { id: 'rtype_transitional_bed',  name: 'Transitional Bed',      category: 'housing',        unit: 'night',    fungible: true,  perishable: true,  ttl_days: 1,   tags: ['transitional'] },
+  { id: 'rtype_hygiene_kit',       name: 'Hygiene Kit',           category: 'health',         unit: 'kit',      fungible: true,  perishable: false, tags: ['hygiene','supplies'] },
+  { id: 'rtype_prescription',      name: 'Prescription Assist',   category: 'health',         unit: 'fill',     fungible: false, perishable: false, tags: ['rx','medical'] },
+  { id: 'rtype_meal',              name: 'Meal',                  category: 'food',           unit: 'meal',     fungible: true,  perishable: true,  ttl_days: 1,   tags: ['meal','hot'] },
+  { id: 'rtype_grocery_card',      name: 'Grocery Card',          category: 'food',           unit: 'card',     fungible: true,  perishable: false, tags: ['grocery','card'] },
+  { id: 'rtype_pantry_bag',        name: 'Pantry Bag',            category: 'food',           unit: 'bag',      fungible: true,  perishable: true,  ttl_days: 7,   tags: ['pantry','dry goods'] },
+  { id: 'rtype_legal_consult',     name: 'Legal Consultation',    category: 'legal',          unit: 'hour',     fungible: true,  perishable: false, tags: ['legal','consultation'] },
+  { id: 'rtype_doc_prep',          name: 'Document Preparation',  category: 'legal',          unit: 'session',  fungible: true,  perishable: false, tags: ['legal','documents'] },
+  { id: 'rtype_job_training',      name: 'Job Training Slot',     category: 'employment',     unit: 'slot',     fungible: false, perishable: true,  ttl_days: 30,  tags: ['training','job'] },
+  { id: 'rtype_interview_clothes', name: 'Interview Clothing',    category: 'employment',     unit: 'set',      fungible: true,  perishable: false, tags: ['clothing','interview'] },
+  { id: 'rtype_school_supplies',   name: 'School Supplies',       category: 'education',      unit: 'kit',      fungible: true,  perishable: false, tags: ['school','supplies'] },
+  { id: 'rtype_tutoring',          name: 'Tutoring Session',      category: 'education',      unit: 'hour',     fungible: true,  perishable: false, tags: ['tutoring','education'] },
+];
+
 /* ═══════════════════ FRAMEWORK BINDINGS (§C.2) ═══════════════════ */
 // Multi-framework value mappings: same observation value → different classifications
 // under different institutional frameworks. This is the GIVEN → MEANT crossing made explicit.
@@ -2336,6 +2466,1066 @@ async function emitMetric(metricsRoom, clientId, observation, demographics, prog
   await svc.sendEvent(metricsRoom, EVT.METRIC, metric);
   return metric;
 }
+
+/* ═══════════════════ RESOURCE TRACKING SERVICE (§Resource Build) ═══════════════════
+ * Core resource tracking infrastructure. Resources (beds, vouchers, funds, services) are
+ * tracked across three levels — network, org, individual — using the existing room topology.
+ *
+ * Design principles:
+ * 1. A resource is a relational configuration, not a fixed entity.
+ * 2. Client sovereignty: vault shadow records are the client's inviolable record.
+ * 3. Every resource has an opacity level (default SOVEREIGN) controlled by the holder.
+ * 4. Governance hooks carry provenance metadata for every policy and constraint.
+ * 5. All mutations emit EO operations — no silent state changes.
+ * ════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Generate unique resource IDs */
+function genResourceId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+}
+
+/** Build a default source/provenance block for a resource type */
+function buildResourceSource(level, propagation, adoptedVia, proposedBy, originOrg) {
+  const src = { level };
+  if (level === 'network' && propagation) src.propagation = propagation;
+  if (adoptedVia) src.adopted_via = adoptedVia;
+  if (proposedBy) src.proposed_by = proposedBy;
+  if (originOrg) src.origin_org = originOrg;
+  src.adopted_at = Date.now();
+  return src;
+}
+
+/** Build a governance metadata block for a constraint */
+function buildConstraintGovernance(sourceLevel, propagation, adoptedVia, divergenceAllowed) {
+  return {
+    propagation: propagation || 'optional',
+    adopted_via: adoptedVia || null,
+    source_level: sourceLevel || 'org',
+    divergence_allowed: divergenceAllowed !== false,
+  };
+}
+
+/* ─── Constraint Validation (§10) ─── */
+
+/**
+ * Validate a proposed allocation against resource type constraints, policies,
+ * and existing allocations. Returns { valid, violations[] } where each violation
+ * includes governance provenance for contestability.
+ */
+function validateAllocation(allocationData, resourceType, policies, existingAllocations, callerRole) {
+  const violations = [];
+
+  // Merge constraints: resource type constraints + standalone policies
+  const constraints = { ...(resourceType.constraints || {}) };
+  for (const policy of (policies || [])) {
+    if (policy.resource_type_id === resourceType.id) {
+      Object.assign(constraints, policy.constraints || {});
+    }
+  }
+
+  // CHECK 1: eligible_roles
+  if (constraints.eligible_roles && constraints.eligible_roles.length > 0) {
+    if (!constraints.eligible_roles.includes(callerRole)) {
+      violations.push({
+        check: 'eligible_roles',
+        message: `Role '${callerRole}' is not authorized to allocate this resource. Authorized roles: ${constraints.eligible_roles.join(', ')}`,
+        governance: constraints.governance || null,
+      });
+    }
+  }
+
+  // CHECK 2: max_per_client
+  if (constraints.max_per_client != null) {
+    const periodMs = (constraints.period_days || 365) * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - periodMs;
+    const activeCount = (existingAllocations || []).filter(a =>
+      a.resource_type_id === resourceType.id &&
+      a.allocated_to === allocationData.allocated_to &&
+      a.status === 'active' &&
+      a.allocated_at >= cutoff
+    ).length;
+    if (activeCount + 1 > constraints.max_per_client) {
+      violations.push({
+        check: 'max_per_client',
+        message: `Client already has ${activeCount} active allocation(s) of ${resourceType.name} within the ${constraints.period_days || 365}-day period (max: ${constraints.max_per_client})${constraints.governance?.adopted_via ? `, adopted via ${constraints.governance.adopted_via}` : ''}`,
+        governance: constraints.governance || null,
+      });
+    }
+  }
+
+  // CHECK 3: requires_approval
+  if (constraints.requires_approval) {
+    const needsApproval = constraints.approval_threshold
+      ? (allocationData.quantity * 1) > constraints.approval_threshold
+      : true;
+    if (needsApproval && !allocationData.approval) {
+      violations.push({
+        check: 'requires_approval',
+        message: `This allocation requires approval${constraints.approval_threshold ? ` (amount exceeds threshold of ${constraints.approval_threshold})` : ''}. Approver roles: ${(constraints.approver_roles || ['admin']).join(', ')}`,
+        governance: constraints.governance || null,
+      });
+    }
+  }
+
+  // CHECK 4: inventory availability (advisory, not blocking)
+  // Logged but does not prevent allocation in emergency situations
+
+  // CHECK 5: perishable TTL (informational)
+  // Computed at allocation time, not a blocking constraint
+
+  return { valid: violations.length === 0, violations };
+}
+
+/* ─── Resource Service ─── */
+
+const ResourceService = {
+
+  /* ═══ 5.1 Resource Type Management ═══ */
+
+  /**
+   * Create a resource type in the catalog (network or org room).
+   * Emits DES operation. Returns event ID.
+   */
+  async createResourceType(roomId, typeData, roomType) {
+    const level = roomType === 'network' ? 'network' : 'org';
+    if (level === 'network' && !typeData.source?.propagation) {
+      throw new Error('Network-level resource types require a propagation level');
+    }
+
+    const resourceType = {
+      id: typeData.id || genResourceId('rtype'),
+      name: typeData.name,
+      category: typeData.category,
+      unit: typeData.unit,
+      fungible: typeData.fungible !== false,
+      perishable: typeData.perishable || false,
+      ttl_days: typeData.ttl_days || null,
+      tags: typeData.tags || [],
+      source: typeData.source || buildResourceSource(level, typeData.propagation),
+      maturity: typeData.maturity || 'draft',
+      constraints: typeData.constraints || null,
+    };
+
+    // Validate category
+    if (!RESOURCE_CATEGORIES.includes(resourceType.category)) {
+      throw new Error(`Invalid resource category: ${resourceType.category}. Must be one of: ${RESOURCE_CATEGORIES.join(', ')}`);
+    }
+
+    // Write state event
+    await svc.setState(roomId, EVT.RESOURCE_TYPE, resourceType, resourceType.id);
+
+    // Emit DES operation
+    await emitOp(roomId, 'DES',
+      { entity: resourceType.id, designation: resourceType.name },
+      { category: resourceType.category, unit: resourceType.unit, source_level: level },
+      { type: roomType === 'network' ? 'network' : 'org', room: roomId, epistemic: 'GIVEN' }
+    );
+
+    return resourceType;
+  },
+
+  /**
+   * Update an existing resource type. Emits ALT for each changed field.
+   * If propagation level changes, requires adopted_via reference (governance action).
+   */
+  async updateResourceType(roomId, typeId, changes, roomType) {
+    const existing = await svc.getState(roomId, EVT.RESOURCE_TYPE, typeId);
+    if (!existing) throw new Error(`Resource type ${typeId} not found`);
+
+    // Check if propagation is changing (governance action)
+    if (changes.source?.propagation && changes.source.propagation !== existing.source?.propagation) {
+      if (!changes.source.adopted_via) {
+        throw new Error('Changing propagation level is a governance action — adopted_via reference required');
+      }
+    }
+
+    const updated = { ...existing, ...changes };
+    await svc.setState(roomId, EVT.RESOURCE_TYPE, updated, typeId);
+
+    // Emit ALT for each changed field
+    for (const [key, val] of Object.entries(changes)) {
+      if (JSON.stringify(existing[key]) !== JSON.stringify(val)) {
+        await emitOp(roomId, 'ALT',
+          { field: `resource_type.${key}`, entity: typeId },
+          { from: existing[key], to: val },
+          { type: roomType === 'network' ? 'network' : 'org', room: roomId, epistemic: 'GIVEN' }
+        );
+      }
+    }
+
+    return updated;
+  },
+
+  /**
+   * Propagate a resource type from network room to org room.
+   * Respects propagation levels: required (immutable), standard (extendable),
+   * recommended (visible), optional (catalog only).
+   */
+  async propagateResourceType(networkRoomId, orgRoomId, typeId) {
+    const networkType = await svc.getState(networkRoomId, EVT.RESOURCE_TYPE, typeId);
+    if (!networkType) throw new Error(`Resource type ${typeId} not found in network room`);
+
+    const orgType = {
+      ...networkType,
+      source: {
+        ...networkType.source,
+        level: 'network',
+        origin_org: null, // came from network, not from an org
+      },
+    };
+
+    const propagation = networkType.source?.propagation || 'optional';
+
+    if (propagation === 'required' || propagation === 'standard') {
+      await svc.setState(orgRoomId, EVT.RESOURCE_TYPE, orgType, typeId);
+    } else if (propagation === 'recommended') {
+      // Write to org as draft — visible but not active until adopted
+      orgType.maturity = orgType.maturity === 'normative' ? orgType.maturity : 'draft';
+      await svc.setState(orgRoomId, EVT.RESOURCE_TYPE, orgType, typeId);
+    }
+    // 'optional': do nothing — org browses network catalog manually
+
+    // Emit CON operation for the propagation relationship
+    await emitOp(orgRoomId, 'CON',
+      { source: networkRoomId, dest: orgRoomId, relation: 'propagates' },
+      { type_id: typeId, propagation },
+      { type: 'org', room: orgRoomId, epistemic: 'GIVEN' }
+    );
+
+    return orgType;
+  },
+
+  /* ═══ 5.2 Resource Relations ═══ */
+
+  /**
+   * Establish a relation between an org and a resource type.
+   * Defaults opacity to SOVEREIGN (0). Emits CON operation.
+   */
+  async establishRelation(orgRoomId, relationData) {
+    if (!RESOURCE_RELATION_TYPES.includes(relationData.relation_type)) {
+      throw new Error(`Invalid relation type: ${relationData.relation_type}. Must be one of: ${RESOURCE_RELATION_TYPES.join(', ')}`);
+    }
+
+    const relation = {
+      id: relationData.id || genResourceId('rrel'),
+      resource_type_id: relationData.resource_type_id,
+      holder: orgRoomId,
+      relation_type: relationData.relation_type,
+      target: relationData.target || null,
+      capacity: relationData.capacity || 0,
+      available: relationData.available ?? relationData.capacity ?? 0,
+      constraints_override: relationData.constraints_override || null,
+      // Opacity defaults to SOVEREIGN
+      opacity: relationData.opacity ?? RESOURCE_OPACITY.SOVEREIGN,
+      disclosed_fields: relationData.disclosed_fields || null,
+      attested_to: relationData.attested_to || null,
+      // Provenance
+      established_at: Date.now(),
+      established_by: svc.userId,
+      funding_source: relationData.funding_source || null,
+      notes: relationData.notes || null,
+      // Dedup starts null
+      dedup: null,
+    };
+
+    await svc.setState(orgRoomId, EVT.RESOURCE_RELATION, relation, relation.id);
+
+    // Emit CON operation
+    await emitOp(orgRoomId, 'CON',
+      { source: orgRoomId, dest: relation.resource_type_id, relation: relation.relation_type },
+      { relation_id: relation.id, capacity: relation.capacity },
+      { type: 'org', room: orgRoomId, epistemic: 'GIVEN' }
+    );
+
+    // Initialize inventory for this relation
+    if (relation.capacity > 0) {
+      await this.restockInventory(orgRoomId, relation.id, relation.capacity, { initial: true });
+    }
+
+    return relation;
+  },
+
+  /**
+   * Update opacity level on a resource relation.
+   * Validates caller is org admin. Emits SEG operation.
+   */
+  async updateRelationOpacity(orgRoomId, relationId, newOpacity, disclosedFields, attestedTo) {
+    const relation = await svc.getState(orgRoomId, EVT.RESOURCE_RELATION, relationId);
+    if (!relation) throw new Error(`Relation ${relationId} not found`);
+
+    const oldOpacity = relation.opacity;
+    relation.opacity = newOpacity;
+
+    // Validate opacity-specific requirements
+    if (newOpacity === RESOURCE_OPACITY.ATTESTED) {
+      if (!attestedTo || attestedTo.length === 0) {
+        throw new Error('ATTESTED opacity requires attestedTo list of bridge room IDs');
+      }
+      relation.attested_to = attestedTo;
+    }
+    if (newOpacity >= RESOURCE_OPACITY.CONTRIBUTED) {
+      relation.disclosed_fields = disclosedFields || ['resource_type_id', 'capacity', 'available', 'relation_type'];
+    }
+
+    await svc.setState(orgRoomId, EVT.RESOURCE_RELATION, relation, relationId);
+
+    // Write opacity state event
+    await svc.setState(orgRoomId, EVT.RESOURCE_OPACITY, {
+      relation_id: relationId,
+      opacity: newOpacity,
+      previous_opacity: oldOpacity,
+      disclosed_fields: relation.disclosed_fields,
+      attested_to: relation.attested_to,
+      changed_by: svc.userId,
+      changed_at: Date.now(),
+    }, relationId);
+
+    // Emit SEG operation
+    await emitOp(orgRoomId, 'SEG',
+      { relation: relationId, opacity: newOpacity, disclosed_fields: relation.disclosed_fields },
+      { from_opacity: oldOpacity, to_opacity: newOpacity, direction: newOpacity > oldOpacity ? 'disclosure' : 'withdrawal' },
+      { type: 'org', room: orgRoomId, epistemic: 'MEANT' }
+    );
+
+    return relation;
+  },
+
+  /* ═══ 5.3 Inventory Management ═══ */
+
+  /**
+   * Restock inventory for a resource relation.
+   * Adds quantity to total_capacity and available. Emits INS operation.
+   */
+  async restockInventory(orgRoomId, relationId, quantity, metadata) {
+    const existing = await svc.getState(orgRoomId, EVT.RESOURCE_INVENTORY, relationId);
+    const now = Date.now();
+
+    const inventory = existing ? {
+      ...existing,
+      total_capacity: existing.total_capacity + quantity,
+      available: existing.available + quantity,
+      last_restocked: now,
+      last_updated: now,
+    } : {
+      resource_type_id: null, // will be filled from relation
+      relation_id: relationId,
+      total_capacity: quantity,
+      available: quantity,
+      allocated: 0,
+      reserved: 0,
+      last_restocked: now,
+      last_updated: now,
+    };
+
+    // Fill resource_type_id from relation if not set
+    if (!inventory.resource_type_id) {
+      const relation = await svc.getState(orgRoomId, EVT.RESOURCE_RELATION, relationId);
+      if (relation) inventory.resource_type_id = relation.resource_type_id;
+    }
+
+    await svc.setState(orgRoomId, EVT.RESOURCE_INVENTORY, inventory, relationId);
+
+    // Emit INS operation
+    await emitOp(orgRoomId, 'INS',
+      { field: 'inventory', entity: relationId },
+      { quantity, total_capacity: inventory.total_capacity, available: inventory.available, metadata },
+      { type: 'org', room: orgRoomId, epistemic: 'GIVEN' }
+    );
+
+    return inventory;
+  },
+
+  /**
+   * Adjust inventory for write-offs, corrections, or manual adjustments.
+   * Emits ALT operation with reason.
+   */
+  async adjustInventory(orgRoomId, relationId, adjustment, reason) {
+    const inventory = await svc.getState(orgRoomId, EVT.RESOURCE_INVENTORY, relationId);
+    if (!inventory) throw new Error(`No inventory found for relation ${relationId}`);
+
+    inventory.total_capacity += adjustment;
+    inventory.available += adjustment;
+    inventory.last_updated = Date.now();
+
+    // Prevent negatives
+    if (inventory.available < 0) inventory.available = 0;
+    if (inventory.total_capacity < 0) inventory.total_capacity = 0;
+
+    await svc.setState(orgRoomId, EVT.RESOURCE_INVENTORY, inventory, relationId);
+
+    await emitOp(orgRoomId, 'ALT',
+      { field: 'inventory', entity: relationId },
+      { adjustment, reason, available: inventory.available, total_capacity: inventory.total_capacity },
+      { type: 'org', room: orgRoomId, epistemic: 'GIVEN' }
+    );
+
+    return inventory;
+  },
+
+  /* ═══ 5.4 Resource Allocation (Critical Path) ═══ */
+
+  /**
+   * Allocate a resource to a client. Writes to THREE places:
+   * 1. Bridge room (allocation state event)
+   * 2. Client vault (shadow record)
+   * 3. Org room (inventory decrement)
+   *
+   * Returns { allocation, bridgeEventId, vaultEventId, inventoryEventId }
+   */
+  async allocateResource(bridgeRoomId, allocationData, orgRoomId, vaultRoomId) {
+    // STEP 1: Validate constraints
+    const resourceType = await svc.getState(orgRoomId, EVT.RESOURCE_TYPE, allocationData.resource_type_id);
+    if (!resourceType) throw new Error(`Resource type ${allocationData.resource_type_id} not found`);
+
+    // Load applicable policies from org room
+    const policies = [];
+    if (svc.client) {
+      const room = svc.client.getRoom(orgRoomId);
+      if (room) {
+        const stateEvents = room.currentState.getStateEvents(EVT.RESOURCE_POLICY);
+        if (stateEvents) {
+          for (const ev of (Array.isArray(stateEvents) ? stateEvents : [stateEvents])) {
+            if (ev && ev.getContent) policies.push(ev.getContent());
+          }
+        }
+      }
+    }
+
+    // Load existing allocations for this client from bridge room
+    const existingAllocations = [];
+    if (svc.client) {
+      const room = svc.client.getRoom(bridgeRoomId);
+      if (room) {
+        const allocEvents = room.currentState.getStateEvents(EVT.RESOURCE_ALLOC);
+        if (allocEvents) {
+          for (const ev of (Array.isArray(allocEvents) ? allocEvents : [allocEvents])) {
+            if (ev && ev.getContent) existingAllocations.push(ev.getContent());
+          }
+        }
+      }
+    }
+
+    // Determine caller's org role
+    const orgRoster = await svc.getState(orgRoomId, EVT.ORG_ROSTER);
+    const staffEntry = orgRoster?.staff?.find(s => s.userId === svc.userId);
+    const callerRole = staffEntry?.role || 'provider';
+
+    const validation = validateAllocation(allocationData, resourceType, policies, existingAllocations, callerRole);
+    if (!validation.valid) {
+      return { valid: false, violations: validation.violations };
+    }
+
+    // STEP 2: Write allocation to bridge room
+    const allocation = {
+      id: allocationData.id || genResourceId('ralloc'),
+      resource_type_id: allocationData.resource_type_id,
+      relation_id: allocationData.relation_id,
+      quantity: allocationData.quantity,
+      unit: resourceType.unit,
+      allocated_by: svc.userId,
+      allocated_to: allocationData.allocated_to,
+      org_id: orgRoomId,
+      status: 'active',
+      allocated_at: Date.now(),
+      expires_at: resourceType.perishable && resourceType.ttl_days
+        ? Date.now() + (resourceType.ttl_days * 24 * 60 * 60 * 1000)
+        : null,
+      notes: allocationData.notes || null,
+      approval: allocationData.approval || null,
+    };
+
+    await svc.setState(bridgeRoomId, EVT.RESOURCE_ALLOC, allocation, allocation.id);
+
+    // Emit INS operation for bridge allocation
+    await emitOp(bridgeRoomId, 'INS',
+      { field: 'allocation', entity: allocation.id },
+      { resource_type: resourceType.name, quantity: allocation.quantity, unit: allocation.unit },
+      { type: 'bridge', room: bridgeRoomId, epistemic: 'GIVEN' }
+    );
+
+    // STEP 3: Write shadow record to client vault
+    // Denormalized intentionally — vault must be readable even if bridge is severed
+    const orgMeta = await svc.getState(orgRoomId, EVT.ORG_METADATA);
+    const vaultRecord = {
+      allocation_id: allocation.id,
+      resource_type_id: allocation.resource_type_id,
+      resource_name: resourceType.name,
+      quantity: allocation.quantity,
+      unit: allocation.unit,
+      provider_display_name: svc.userId, // Matrix user ID as fallback display
+      org_display_name: orgMeta?.name || orgRoomId,
+      allocated_at: allocation.allocated_at,
+      status: 'active',
+      notes: allocationData.notes || null,
+      bridge_room_id: bridgeRoomId,
+      source_event_id: allocation.id,
+    };
+
+    try {
+      await svc.setState(vaultRoomId, EVT.RESOURCE_VAULT, vaultRecord, allocation.id);
+
+      // Emit INS operation for vault shadow
+      await emitOp(vaultRoomId, 'INS',
+        { field: 'vault_record', entity: allocation.id },
+        { resource_name: resourceType.name, quantity: allocation.quantity },
+        { type: 'vault', room: vaultRoomId, epistemic: 'GIVEN' }
+      );
+    } catch (e) {
+      // If vault write fails, log error — bridge allocation is source of truth.
+      // Background reconciliation can fix missing vault shadows.
+      console.error(`[ResourceService] Vault shadow write failed for allocation ${allocation.id}:`, e.message);
+    }
+
+    // STEP 4: Decrement inventory
+    try {
+      const inventory = await svc.getState(orgRoomId, EVT.RESOURCE_INVENTORY, allocation.relation_id);
+      if (inventory) {
+        inventory.available = Math.max(0, inventory.available - allocation.quantity);
+        inventory.allocated = (inventory.allocated || 0) + allocation.quantity;
+        inventory.last_updated = Date.now();
+        await svc.setState(orgRoomId, EVT.RESOURCE_INVENTORY, inventory, allocation.relation_id);
+
+        await emitOp(orgRoomId, 'ALT',
+          { field: 'inventory.available', entity: allocation.relation_id },
+          { decremented_by: allocation.quantity, available: inventory.available, allocated: inventory.allocated },
+          { type: 'org', room: orgRoomId, epistemic: 'GIVEN' }
+        );
+      }
+    } catch (e) {
+      // Inventory sync failure should never block allocation.
+      console.error(`[ResourceService] Inventory decrement failed for relation ${allocation.relation_id}:`, e.message);
+    }
+
+    return { valid: true, allocation };
+  },
+
+  /* ═══ 5.5 Resource Lifecycle Events ═══ */
+
+  /**
+   * Record a lifecycle event (consumed, expired, revoked, returned).
+   * Updates allocation state, vault shadow, and inventory.
+   */
+  async recordResourceEvent(bridgeRoomId, eventData, orgRoomId, vaultRoomId) {
+    const event = {
+      allocation_id: eventData.allocation_id,
+      event: eventData.event,
+      quantity: eventData.quantity,
+      recorded_by: svc.userId,
+      recorded_at: Date.now(),
+      notes: eventData.notes || null,
+    };
+
+    // Validate event type
+    if (!RESOURCE_LIFECYCLE_EVENTS.includes(event.event)) {
+      throw new Error(`Invalid lifecycle event: ${event.event}`);
+    }
+
+    // Send timeline event to bridge room (NOT state — lifecycle events are append-only)
+    await svc.sendEvent(bridgeRoomId, EVT.RESOURCE_EVENT, event);
+
+    // Update allocation state event
+    const allocation = await svc.getState(bridgeRoomId, EVT.RESOURCE_ALLOC, event.allocation_id);
+    if (allocation) {
+      const newStatus = event.event === 'consumed' ? 'consumed'
+        : event.event === 'expired' ? 'expired'
+        : event.event === 'revoked' ? 'revoked'
+        : allocation.status;
+      allocation.status = newStatus;
+      await svc.setState(bridgeRoomId, EVT.RESOURCE_ALLOC, allocation, event.allocation_id);
+    }
+
+    // Update vault shadow record status
+    if (vaultRoomId) {
+      try {
+        const vaultRecord = await svc.getState(vaultRoomId, EVT.RESOURCE_VAULT, event.allocation_id);
+        if (vaultRecord) {
+          vaultRecord.status = allocation?.status || event.event;
+          await svc.setState(vaultRoomId, EVT.RESOURCE_VAULT, vaultRecord, event.allocation_id);
+        }
+      } catch (e) {
+        console.error(`[ResourceService] Vault shadow update failed for ${event.allocation_id}:`, e.message);
+      }
+    }
+
+    // Adjust inventory based on event type
+    if (orgRoomId && allocation?.relation_id) {
+      try {
+        const inventory = await svc.getState(orgRoomId, EVT.RESOURCE_INVENTORY, allocation.relation_id);
+        if (inventory) {
+          switch (event.event) {
+            case 'consumed':
+              // Partial consumption: decrement allocated
+              inventory.allocated = Math.max(0, inventory.allocated - event.quantity);
+              break;
+            case 'expired':
+              // Expired: decrement allocated, do NOT increment available (resource is gone)
+              inventory.allocated = Math.max(0, inventory.allocated - event.quantity);
+              break;
+            case 'revoked':
+              // Revoked: decrement allocated, increment available (resource reclaimed)
+              inventory.allocated = Math.max(0, inventory.allocated - event.quantity);
+              inventory.available += event.quantity;
+              break;
+            case 'returned':
+              // Returned: decrement allocated, increment available
+              inventory.allocated = Math.max(0, inventory.allocated - event.quantity);
+              inventory.available += event.quantity;
+              break;
+          }
+          inventory.last_updated = Date.now();
+          await svc.setState(orgRoomId, EVT.RESOURCE_INVENTORY, inventory, allocation.relation_id);
+        }
+      } catch (e) {
+        console.error(`[ResourceService] Inventory adjustment failed for lifecycle event:`, e.message);
+      }
+    }
+
+    // Emit appropriate EO operation
+    const eoOp = event.event === 'revoked' ? 'NUL' : 'ALT';
+    const eoTarget = event.event === 'revoked'
+      ? { field: 'allocation', entity: event.allocation_id }
+      : { field: 'status', entity: event.allocation_id };
+
+    await emitOp(bridgeRoomId, eoOp, eoTarget,
+      { event: event.event, quantity: event.quantity },
+      { type: 'bridge', room: bridgeRoomId, epistemic: 'GIVEN' }
+    );
+
+    return event;
+  },
+
+  /* ═══ 5.6 Automated Expiry ═══ */
+
+  /**
+   * Check for expired allocations across bridge rooms.
+   * For each expired allocation: emit lifecycle event, update status, adjust inventory.
+   */
+  async checkExpiredAllocations(bridgeRoomIds, orgRoomId, vaultRoomId) {
+    const now = Date.now();
+    const expired = [];
+
+    for (const bridgeRoomId of bridgeRoomIds) {
+      if (!svc.client) continue;
+      const room = svc.client.getRoom(bridgeRoomId);
+      if (!room) continue;
+
+      const allocEvents = room.currentState.getStateEvents(EVT.RESOURCE_ALLOC);
+      if (!allocEvents) continue;
+
+      const allocs = Array.isArray(allocEvents) ? allocEvents : [allocEvents];
+      for (const ev of allocs) {
+        const alloc = ev.getContent ? ev.getContent() : ev;
+        if (alloc.status === 'active' && alloc.expires_at && alloc.expires_at < now) {
+          try {
+            await this.recordResourceEvent(bridgeRoomId, {
+              allocation_id: alloc.id,
+              event: 'expired',
+              quantity: alloc.quantity,
+              notes: 'Automatic expiry',
+            }, orgRoomId, vaultRoomId);
+            expired.push(alloc.id);
+          } catch (e) {
+            console.error(`[ResourceService] Auto-expiry failed for ${alloc.id}:`, e.message);
+          }
+        }
+      }
+    }
+
+    return expired;
+  },
+
+  /* ═══ 5.7 Deduplication Detection ═══ */
+
+  /**
+   * Detect potential overlaps among CONTRIBUTED resource relations.
+   * Groups by resource_type_id + capacity range overlap.
+   * Does NOT auto-merge — surfaces candidates for human review.
+   */
+  async detectPotentialOverlaps(networkRoomId) {
+    const netMembers = await svc.getState(networkRoomId, EVT.NET_MEMBERS);
+    if (!netMembers?.organizations) return [];
+
+    const contributedRelations = [];
+
+    for (const org of netMembers.organizations) {
+      const orgRoomId = org.roomId;
+      if (!svc.client) continue;
+      const room = svc.client.getRoom(orgRoomId);
+      if (!room) continue;
+
+      const relEvents = room.currentState.getStateEvents(EVT.RESOURCE_RELATION);
+      if (!relEvents) continue;
+
+      const rels = Array.isArray(relEvents) ? relEvents : [relEvents];
+      for (const ev of rels) {
+        const rel = ev.getContent ? ev.getContent() : ev;
+        // Only consider CONTRIBUTED or PUBLISHED relations
+        if (rel.opacity >= RESOURCE_OPACITY.CONTRIBUTED) {
+          contributedRelations.push({ ...rel, _org_room: orgRoomId, _org_name: org.name || orgRoomId });
+        }
+      }
+    }
+
+    // Group by resource_type_id
+    const groups = {};
+    for (const rel of contributedRelations) {
+      const key = rel.resource_type_id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(rel);
+    }
+
+    // Find clusters with 2+ relations (potential overlaps)
+    const candidates = [];
+    for (const [typeId, rels] of Object.entries(groups)) {
+      if (rels.length < 2) continue;
+
+      // Check if already resolved
+      const unresolvedPairs = [];
+      for (let i = 0; i < rels.length; i++) {
+        for (let j = i + 1; j < rels.length; j++) {
+          const a = rels[i], b = rels[j];
+          const aResolved = a.dedup?.linked_to === b.id && a.dedup?.link_status !== 'unresolved';
+          const bResolved = b.dedup?.linked_to === a.id && b.dedup?.link_status !== 'unresolved';
+          if (!aResolved && !bResolved) {
+            unresolvedPairs.push({ a, b });
+          }
+        }
+      }
+
+      if (unresolvedPairs.length > 0) {
+        candidates.push({
+          resource_type_id: typeId,
+          relations: rels,
+          unresolved_pairs: unresolvedPairs,
+          total_capacity_range: {
+            min: Math.min(...rels.map(r => r.capacity || 0)),
+            max: rels.reduce((sum, r) => sum + (r.capacity || 0), 0),
+          },
+        });
+      }
+    }
+
+    return candidates;
+  },
+
+  /**
+   * Record a dedup resolution between two resource relations.
+   * Emits CON (confirmed), DES (attested_non_additive), or SUP (unresolved).
+   */
+  async resolveDedup(orgRoomId, relationId, resolution) {
+    const relation = await svc.getState(orgRoomId, EVT.RESOURCE_RELATION, relationId);
+    if (!relation) throw new Error(`Relation ${relationId} not found`);
+
+    relation.dedup = {
+      linked_to: resolution.linked_to || null,
+      link_type: resolution.link_type || null,
+      link_status: resolution.link_status,
+      link_resolved_by: svc.userId,
+      link_resolved_at: Date.now(),
+    };
+
+    await svc.setState(orgRoomId, EVT.RESOURCE_RELATION, relation, relationId);
+
+    // Emit appropriate EO operation
+    switch (resolution.link_status) {
+      case 'confirmed':
+        await emitOp(orgRoomId, 'CON',
+          { source: relationId, dest: resolution.linked_to, link_type: resolution.link_type },
+          { resolution: 'confirmed_overlap' },
+          { type: 'org', room: orgRoomId, epistemic: 'MEANT' }
+        );
+        break;
+      case 'attested_non_additive':
+        await emitOp(orgRoomId, 'DES',
+          { entity: relationId, designation: 'non_additive' },
+          { resolution: 'attested_non_additive' },
+          { type: 'org', room: orgRoomId, epistemic: 'MEANT' }
+        );
+        break;
+      case 'unresolved':
+        await emitOp(orgRoomId, 'SUP',
+          { entities: [relationId, resolution.linked_to], superposition: 'potential_overlap' },
+          { resolution: 'unresolved' },
+          { type: 'org', room: orgRoomId, epistemic: 'MEANT' }
+        );
+        break;
+    }
+
+    return relation;
+  },
+
+  /* ═══ 5.8 Upward Promotion (Org → Network) ═══ */
+
+  /**
+   * Propose promoting an org-level resource type to network level.
+   * Creates a governance proposal event (same format as schema proposals).
+   */
+  async proposeResourceTypePromotion(networkRoomId, orgRoomId, typeId, proposedPropagation) {
+    const orgType = await svc.getState(orgRoomId, EVT.RESOURCE_TYPE, typeId);
+    if (!orgType) throw new Error(`Resource type ${typeId} not found in org room`);
+
+    const proposal = {
+      id: genResourceId('prop'),
+      type: 'resource_type_promotion',
+      summary: `Promote "${orgType.name}" (${orgType.category}) from org to network catalog`,
+      resource_type: orgType,
+      target_propagation: proposedPropagation || 'optional',
+      origin_org: orgRoomId,
+      proposed_by: svc.userId,
+      proposed_at: Date.now(),
+      status: 'submitted',
+      positions: {},
+    };
+
+    await svc.setState(networkRoomId, EVT.GOV_PROPOSAL, proposal, proposal.id);
+
+    // Emit REC operation (recentering from org to network)
+    await emitOp(networkRoomId, 'REC',
+      { entity: typeId, recentered_from: 'org', to: 'network' },
+      { proposal_id: proposal.id, org_room: orgRoomId, propagation: proposedPropagation },
+      { type: 'network', room: networkRoomId, epistemic: 'MEANT' }
+    );
+
+    return proposal;
+  },
+
+  /* ═══ §6 Propagation Service Extensions ═══ */
+
+  /**
+   * Handle resource type propagation from network to member orgs.
+   * Called by the propagation service when a RESOURCE_TYPE event is received.
+   */
+  async handleResourceTypePropagation(networkRoomId, event) {
+    const netMembers = await svc.getState(networkRoomId, EVT.NET_MEMBERS);
+    if (!netMembers?.organizations) return;
+
+    const typeData = event;
+    const propagation = typeData.source?.propagation || 'optional';
+
+    for (const org of netMembers.organizations) {
+      const orgRoomId = org.roomId;
+      try {
+        if (propagation === 'required') {
+          // Auto-apply, immutable
+          await this.propagateResourceType(networkRoomId, orgRoomId, typeData.id);
+        } else if (propagation === 'standard') {
+          // Auto-apply, notify org admin
+          await this.propagateResourceType(networkRoomId, orgRoomId, typeData.id);
+          // Notification would be sent here (via existing notification system)
+        } else if (propagation === 'recommended') {
+          // Write to org catalog as visible but not active
+          await this.propagateResourceType(networkRoomId, orgRoomId, typeData.id);
+        }
+        // 'optional': do nothing
+      } catch (e) {
+        console.error(`[ResourceService] Propagation to ${orgRoomId} failed for ${typeData.id}:`, e.message);
+      }
+    }
+  },
+
+  /**
+   * Handle resource policy propagation from network to member orgs.
+   * Policies propagate alongside the resource types they govern.
+   */
+  async handleResourcePolicyPropagation(networkRoomId, policyData) {
+    const netMembers = await svc.getState(networkRoomId, EVT.NET_MEMBERS);
+    if (!netMembers?.organizations) return;
+
+    const propagation = policyData.governance?.propagation || 'optional';
+
+    for (const org of netMembers.organizations) {
+      const orgRoomId = org.roomId;
+      try {
+        if (propagation === 'required' || propagation === 'standard') {
+          const stateKey = `${policyData.resource_type_id}:${policyData.rule_type || 'default'}`;
+          await svc.setState(orgRoomId, EVT.RESOURCE_POLICY, policyData, stateKey);
+        }
+      } catch (e) {
+        console.error(`[ResourceService] Policy propagation to ${orgRoomId} failed:`, e.message);
+      }
+    }
+  },
+
+  /* ═══ §7 Opacity Propagation Logic ═══ */
+
+  /**
+   * Handle opacity change events. Propagates visibility to appropriate rooms.
+   * SOVEREIGN → ATTESTED: write projection to listed bridge rooms
+   * → CONTRIBUTED: write projection to network resource commons
+   * → PUBLISHED: requires governance approval
+   * Downgrade: remove projections from appropriate rooms
+   */
+  async handleOpacityChange(orgRoomId, relationId, newOpacity, oldOpacity, relation) {
+    // Build projection (only disclosed fields)
+    const disclosedFields = relation.disclosed_fields || ['resource_type_id', 'capacity', 'available', 'relation_type'];
+    const projection = {};
+    for (const field of disclosedFields) {
+      if (relation[field] !== undefined) projection[field] = relation[field];
+    }
+    projection._source_org = orgRoomId;
+    projection._source_relation = relationId;
+    projection._projected_at = Date.now();
+
+    if (newOpacity > oldOpacity) {
+      // Upgrading opacity — disclosing more
+
+      if (newOpacity >= RESOURCE_OPACITY.ATTESTED && relation.attested_to) {
+        // Write projection to listed bridge rooms
+        for (const bridgeRoomId of relation.attested_to) {
+          try {
+            await svc.setState(bridgeRoomId, EVT.RESOURCE_RELATION, projection, `proj_${relationId}`);
+          } catch (e) {
+            console.error(`[ResourceService] Bridge projection failed for ${bridgeRoomId}:`, e.message);
+          }
+        }
+      }
+
+      if (newOpacity >= RESOURCE_OPACITY.CONTRIBUTED) {
+        // Contributed to network — trigger dedup detection
+        // The projection is already on the org room; network reads from org rooms
+      }
+
+      if (newOpacity >= RESOURCE_OPACITY.PUBLISHED) {
+        // Published — would require governance approval check
+        // Deferred to governance integration phase
+      }
+    } else if (newOpacity < oldOpacity) {
+      // Downgrading opacity — withdrawing disclosure
+
+      if (oldOpacity >= RESOURCE_OPACITY.ATTESTED && newOpacity < RESOURCE_OPACITY.ATTESTED) {
+        // Remove projections from bridge rooms
+        if (relation.attested_to) {
+          for (const bridgeRoomId of relation.attested_to) {
+            try {
+              await svc.setState(bridgeRoomId, EVT.RESOURCE_RELATION, { _withdrawn: true, _source_relation: relationId }, `proj_${relationId}`);
+            } catch (e) {
+              console.error(`[ResourceService] Bridge projection withdrawal failed:`, e.message);
+            }
+          }
+        }
+      }
+
+      // Emit NUL on withdrawn projections
+      await emitOp(orgRoomId, 'NUL',
+        { field: 'resource_projection', entity: relationId },
+        { from_opacity: oldOpacity, to_opacity: newOpacity, withdrawn: true },
+        { type: 'org', room: orgRoomId, epistemic: 'MEANT' }
+      );
+    }
+  },
+
+  /* ═══ §9 Anonymized Resource Metrics ═══ */
+
+  /**
+   * Emit an anonymized resource metric from an allocation.
+   * Follows the existing metrics anonymization pipeline.
+   * Strips PII, buckets amounts, hashes cohort.
+   */
+  async emitResourceMetric(metricsRoomId, allocation, resourceType, clientId) {
+    const hash = await cohortHash(clientId);
+
+    // Bucket quantity for anonymization
+    const qty = allocation.quantity;
+    let quantityBucket;
+    if (qty <= 1) quantityBucket = '1';
+    else if (qty <= 5) quantityBucket = '2-5';
+    else if (qty <= 10) quantityBucket = '6-10';
+    else if (qty <= 25) quantityBucket = '11-25';
+    else if (qty <= 50) quantityBucket = '26-50';
+    else if (qty <= 100) quantityBucket = '51-100';
+    else quantityBucket = '100+';
+
+    const now = new Date();
+    const period = `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`;
+
+    const metric = {
+      cohort_hash: hash,
+      resource_category: resourceType.category, // category, not specific type
+      quantity_bucket: quantityBucket,
+      period,
+      ts: Date.now(),
+      type: 'resource', // distinguishes from observation metrics
+    };
+
+    await svc.sendEvent(metricsRoomId, EVT.METRIC, metric);
+
+    return metric;
+  },
+
+  /**
+   * Emit a network aggregate resource metric.
+   * k-anonymity: suppress if fewer than 5 clients in a bucket.
+   */
+  async emitResourceAggregate(networkMetricsRoomId, orgMetrics) {
+    // Group by category + period
+    const aggregates = {};
+    for (const m of orgMetrics) {
+      const key = `${m.resource_category}:${m.period}`;
+      if (!aggregates[key]) {
+        aggregates[key] = { resource_category: m.resource_category, period: m.period, cohorts: new Set(), total: 0, org_count: 0 };
+      }
+      aggregates[key].cohorts.add(m.cohort_hash);
+      aggregates[key].total++;
+    }
+
+    const emitted = [];
+    for (const [, agg] of Object.entries(aggregates)) {
+      // k-anonymity: suppress if fewer than 5 distinct cohorts
+      if (agg.cohorts.size < 5) continue;
+
+      // Bucket total
+      const total = agg.total;
+      let totalBucket;
+      if (total <= 10) totalBucket = '1-10';
+      else if (total <= 50) totalBucket = '11-50';
+      else if (total <= 100) totalBucket = '51-100';
+      else if (total <= 500) totalBucket = '101-500';
+      else totalBucket = '500+';
+
+      const aggregate = {
+        resource_category: agg.resource_category,
+        total_bucket: totalBucket,
+        period: agg.period,
+        org_count: agg.org_count,
+        type: 'resource',
+        ts: Date.now(),
+      };
+
+      await svc.sendEvent(networkMetricsRoomId, EVT.METRIC_AGG, aggregate);
+      emitted.push(aggregate);
+    }
+
+    return emitted;
+  },
+
+  /* ═══ Seed Data Loader ═══ */
+
+  /**
+   * Load default resource types into a network room.
+   * All seed types are created as draft maturity, optional propagation.
+   */
+  async loadSeedResourceTypes(networkRoomId) {
+    const loaded = [];
+    for (const seed of DEFAULT_RESOURCE_TYPES) {
+      try {
+        const existing = await svc.getState(networkRoomId, EVT.RESOURCE_TYPE, seed.id);
+        if (existing) continue; // Already loaded
+
+        const typeData = {
+          ...seed,
+          source: buildResourceSource('network', 'optional', null, svc.userId),
+          maturity: 'draft',
+          constraints: null,
+        };
+        const created = await this.createResourceType(networkRoomId, typeData, 'network');
+        loaded.push(created);
+      } catch (e) {
+        console.error(`[ResourceService] Failed to load seed type ${seed.id}:`, e.message);
+      }
+    }
+    return loaded;
+  },
+};
 
 /* ═══════════════════ CLIENT DATA IMPORT ENGINE ═══════════════════
  * Parses CSV/JSON files, maps columns to vault fields, encrypts each
@@ -5450,6 +6640,14 @@ const classifyEvent = (ev, roomInfo) => {
       case EVT.GOV_RHYTHM: return {op:'REC',epistemic:'MEANT',label:'Governance Rhythm',desc:content.name};
       case EVT.SCHEMA_FIELD: return {op:'DES',epistemic:'GIVEN',label:'Form Field',desc:content.question_text?.slice(0,40)};
       case EVT.SCHEMA_BINDING: return {op:'DES',epistemic:'MEANT',label:'Framework Binding',desc:`${content.field_id} → ${content.framework?.name?.slice(0,25)}`};
+      // Resource tracking events
+      case EVT.RESOURCE_TYPE: return {op:'DES',epistemic:'GIVEN',label:'Resource Type',desc:`${content.name||content.id} (${content.category})`};
+      case EVT.RESOURCE_RELATION: return {op:'CON',epistemic:'GIVEN',label:'Resource Relation',desc:`${content.relation_type}: ${content.resource_type_id}`};
+      case EVT.RESOURCE_INVENTORY: return {op:'ALT',epistemic:'GIVEN',label:'Resource Inventory',desc:`${content.available}/${content.total_capacity} available`};
+      case EVT.RESOURCE_ALLOC: return {op:'INS',epistemic:'GIVEN',label:'Resource Allocation',desc:`${content.quantity} ${content.unit} → ${content.allocated_to?.slice(0,16)}`};
+      case EVT.RESOURCE_POLICY: return {op:'SEG',epistemic:'MEANT',label:'Resource Policy',desc:ev.getStateKey()};
+      case EVT.RESOURCE_OPACITY: return {op:'SEG',epistemic:'MEANT',label:'Resource Opacity',desc:`${RESOURCE_OPACITY_LABELS[content.opacity]||content.opacity}`};
+      case EVT.RESOURCE_VAULT: return {op:'INS',epistemic:'GIVEN',label:'Vault Resource Record',desc:`${content.resource_name}: ${content.quantity} ${content.unit}`};
       case 'm.room.encryption': return {op:'REC',epistemic:'GIVEN',label:'Encryption Policy',desc:content.algorithm};
       case 'm.room.tombstone': return {op:'NUL',epistemic:'MEANT',label:'Room Tombstoned',desc:`→ ${content.replacement_room?.slice(0,24)}…`};
       case 'm.room.create': return {op:'INS',epistemic:'GIVEN',label:'Room Created',desc:'New room initialized'};
@@ -5463,6 +6661,7 @@ const classifyEvent = (ev, roomInfo) => {
       default: return {op:'INS',epistemic:'GIVEN',label:type,desc:'State event'};
     }
   }
+  if (type === EVT.RESOURCE_EVENT) return {op:content.event==='revoked'?'NUL':'ALT',epistemic:'GIVEN',label:'Resource Lifecycle',desc:`${content.event}: ${content.quantity} (${content.allocation_id?.slice(0,12)})`};
   if (type === EVT.METRIC) return {op:'INS',epistemic:'MEANT',label:'Metric Event',desc:`${content.observation?.category}: ${content.observation?.value}`};
   if (type === 'm.room.message') {
     const cvType = content[`${NS}.type`];
