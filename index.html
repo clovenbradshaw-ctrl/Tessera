@@ -1079,8 +1079,8 @@ class KhoraService {
         });
       });
       this._userId = res.user_id; this._token = res.access_token;
-      // Persist session to sessionStorage so it survives page refresh
-      try { sessionStorage.setItem('khora_session', JSON.stringify({ homeserver: baseUrl, accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id })); } catch {}
+      // Persist session to localStorage so it survives page refresh, tab close, and browser restart
+      try { localStorage.setItem('khora_session', JSON.stringify({ homeserver: baseUrl, accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id })); } catch {}
       // Cache encrypted session metadata in the encrypted vault
       try { await KhoraEncryptedCache.put('session', 'current', { userId: res.user_id, homeserver: baseUrl, deviceId: res.device_id, ts: Date.now() }); } catch {}
       return { userId: res.user_id };
@@ -1093,7 +1093,7 @@ class KhoraService {
 
   async restoreSession() {
     try {
-      const raw = sessionStorage.getItem('khora_session');
+      const raw = localStorage.getItem('khora_session');
       if (!raw) return null;
       const { homeserver, accessToken, userId, deviceId } = JSON.parse(raw);
       if (!homeserver || !accessToken || !userId || !deviceId) return null;
@@ -1116,7 +1116,7 @@ class KhoraService {
       return { userId };
     } catch (e) {
       console.warn('Session restore failed:', e.message);
-      sessionStorage.removeItem('khora_session');
+      localStorage.removeItem('khora_session');
       this.client = null; this._token = null; this._userId = null;
       LocalVaultCrypto.clear();
       return null;
@@ -11387,7 +11387,7 @@ const App = () => {
       setAvailableContexts(contexts);
 
       let preferred = null;
-      try { preferred = sessionStorage.getItem('khora_active_context'); } catch {}
+      try { preferred = localStorage.getItem('khora_active_context'); } catch {}
       const next = (preferred && contexts.includes(preferred)) ? preferred : contexts[0];
       setActiveContext(next);
     } catch (e) {
@@ -11401,10 +11401,10 @@ const App = () => {
   const switchContext = (context) => {
     if (!availableContexts.includes(context)) return;
     setActiveContext(context);
-    try { sessionStorage.setItem('khora_active_context', context); } catch {}
+    try { localStorage.setItem('khora_active_context', context); } catch {}
   };
 
-  // Attempt to restore previous session from sessionStorage on mount
+  // Attempt to restore previous session from localStorage on mount
   React.useEffect(() => {
     (async () => {
       try {
@@ -11445,7 +11445,7 @@ const App = () => {
   </div>;
 
   const handleLogout = async () => {
-    try { sessionStorage.removeItem('khora_session'); sessionStorage.removeItem('khora_active_context'); } catch {}
+    try { localStorage.removeItem('khora_session'); localStorage.removeItem('khora_active_context'); } catch {}
     await svc.logout(); setSession(null); setAvailableContexts([]); setActiveContext(null); setDetectedRoles(null); setWebhookData(null);
   };
 
