@@ -4656,22 +4656,29 @@ const FormBuilder = ({isOrg = false}) => {
                 {Object.entries(savedForms.reduce((acc, sf) => {
                   (acc[sf.key] = acc[sf.key] || []).push(sf);
                   return acc;
-                }, {})).map(([key, versions]) => (
+                }, {})).map(([key, versions]) => {
+                  const sorted = [...versions].sort((a,b) => b.version - a.version);
+                  return (
                   <div key={key} style={{border:`1px solid ${SWC.border}`,borderRadius:8,background:SWC.surface,overflow:'hidden'}}>
                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${SWC.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                      <span style={{fontSize:14,fontWeight:600,color:SWC.white}}>{versions[0].name}</span>
-                      <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{versions.length} version{versions.length!==1?'s':''}</span>
+                      <span style={{fontSize:14,fontWeight:600,color:SWC.white}}>{sorted[0].name}</span>
+                      <span style={{fontSize:11,color:SWC.dim,fontFamily:'var(--mono)'}}>{sorted.length} version{sorted.length!==1?'s':''}</span>
                     </div>
                     <div style={{padding:'6px 0'}}>
-                      {versions.sort((a,b) => b.version - a.version).map(sv => (
-                        <div key={sv.id} style={{padding:'8px 16px',display:'flex',alignItems:'center',gap:10,
+                      {sorted.map(sv => {
+                        const matColor = MATURITY_LEVELS[sv.maturity]?.color === 'green' ? SWC.given
+                          : MATURITY_LEVELS[sv.maturity]?.color === 'red' ? SWC.red
+                          : MATURITY_LEVELS[sv.maturity]?.color === 'gold' ? SWC.sup
+                          : SWC.meant;
+                        return (
+                        <div key={sv.id} style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:8,
                           transition:'background 0.1s',cursor:'pointer'}}
                           onClick={()=>doLoadForm(sv)}
                           onMouseEnter={e=>e.currentTarget.style.background=SWC.hover||SWC.raised}
                           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                           <SwTag color={SWC.meant} sm mono>v{sv.version}</SwTag>
-                          <SwTag color={MATURITY_LEVELS[sv.maturity]?.color === 'green' ? SWC.given : SWC.dim} sm>{sv.maturity}</SwTag>
-                          <span style={{fontSize:12,color:SWC.muted,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          <SwTag color={matColor} sm>{MATURITY_LEVELS[sv.maturity]?.label || sv.maturity}</SwTag>
+                          <span style={{fontSize:12,color:SWC.muted,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {sv.description || '—'}
                           </span>
                           <span style={{fontSize:10,color:SWC.dim,fontFamily:'var(--mono)',flexShrink:0}}>
@@ -4680,10 +4687,12 @@ const FormBuilder = ({isOrg = false}) => {
                           <button onClick={e=>{e.stopPropagation();doDeleteSaved(sv.id);}} style={{background:'none',border:'none',color:SWC.dim,cursor:'pointer',fontSize:14,padding:'2px 4px',flexShrink:0}}
                             onMouseEnter={e=>e.currentTarget.style.color=SWC.red} onMouseLeave={e=>e.currentTarget.style.color=SWC.dim}>×</button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
